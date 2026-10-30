@@ -406,7 +406,7 @@
     S.trabajadores = cfg.trabajadores; S.locales = cfg.locales;
     pintarNombres();
     const ses = store.get('acs_sesion');
-    if (ses && ses.token && ses.exp > Date.now()) { S.token = ses.token; S.usuario = ses.usuario; entrarMenu(ses.estado); return; }
+    if (ses && ses.token && ses.exp > Date.now()) { S.token = ses.token; S.usuario = ses.usuario; entrarMenu(ses.estado); refrescarEstado(); return; } // muestra lo guardado y luego trae lo actual
     const recordado = store.get('acs_usuario');
     if (recordado && S.trabajadores.some(t => t.id === recordado)) elegir(recordado);
   }).catch(() => { $('listaNombres').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión y recarga.</div>'; });
