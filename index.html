@@ -156,6 +156,34 @@
   .cargador small { color: #6B6F78; font-size: 13px; min-height: 1em; }
   @keyframes girar { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .rueda { animation: girar 1.6s linear infinite !important; } }
+
+  /* Control de efectivo */
+  .franja { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .franja div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  .franja small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
+  .franja b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
+  .franja em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
+  .franja .alerta em { color: var(--red); font-weight: 700; }
+  .t-efec { grid-column: 1 / -1; min-height: 0; display: flex; align-items: center; gap: 12px; background: var(--green); }
+  .segtab { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
+  .segtab button { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 9px 4px; font: inherit; font-size: 14px; font-weight: 700; color: var(--mute); }
+  .segtab button.on { background: var(--paper); color: var(--black); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .grupo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--mute); margin: 14px 0 6px; }
+  .mov { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .mov input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--black); }
+  .mov .det small { display: block; color: var(--mute); font-size: 12px; }
+  .mov .monto { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+  .mov .money { grid-column: 2 / -1; }
+  .mov .money input { padding-top: 9px; padding-bottom: 9px; }
+  .dias { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--bg); color: var(--mute); margin-left: 4px; }
+  .dias.alerta { background: var(--red-tint); color: var(--red); }
+  .totalbar { display: flex; justify-content: space-between; align-items: center; background: var(--black); color: #fff; border-radius: 12px;
+              padding: 12px 14px; margin: 14px 0; font-weight: 700; }
+  .totalbar b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .foto { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px dashed var(--line); border-radius: 12px;
+          padding: 16px; color: var(--steel); font-weight: 700; cursor: pointer; text-align: center; }
+  .foto img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; }
+  .foto.ok { border-style: solid; border-color: var(--green); }
 </style>
 </head>
 <body>
@@ -195,6 +223,10 @@
         <button class="link" id="btnSalir" type="button">Salir</button>
       </div>
       <div class="local-pick" id="localPick" role="group" aria-label="Local"></div>
+      <div class="franja hidden" id="franjaEfec" aria-label="Efectivo">
+        <div id="fRetirar"><small>💵 Por retirar en locales</small><b>$0</b><em></em></div>
+        <div id="fDepositar"><small>👜 Por depositar</small><b>$0</b><em></em></div>
+      </div>
     </div>
     <div class="menu">
       <button class="tile t-in" data-accion="ENTRADA" type="button">
@@ -213,6 +245,11 @@
         <span class="badge hidden" id="badgeDocs">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
         <span>Mis documentos<small>Liquidaciones y contratos</small></span>
+      </button>
+      <button class="tile t-efec hidden" id="tileEfec" data-accion="EFECTIVO" type="button">
+        <span class="badge hidden" id="badgeEfec">0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+        <span>Control de efectivo<small id="subEfec">Retiros y depósitos</small></span>
       </button>
       <a class="tile t-dash hidden" id="tileDash" target="_top" href="#">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
@@ -233,7 +270,8 @@
         <div><label>Hora</label><div class="ro" id="cHora"></div></div>
       </div>
       <div class="field"><label>Presupuesto del día</label><div class="ro" id="cPpto">—</div></div>
-      <div class="field"><label for="saldoCaja">Saldo en caja</label><div class="money"><input id="saldoCaja" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+      <div class="field"><label for="retiroEfectivo">Retiro de efectivo <span class="opt">(0 si no hubo)</span></label><div class="money"><input id="retiroEfectivo" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+      <div class="field"><label for="saldoCaja">Saldo en caja <span class="opt">(después del retiro)</span></label><div class="money"><input id="saldoCaja" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="field"><label for="ventasDia">Ventas del día</label><div class="money"><input id="ventasDia" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="row2 field">
         <div><label for="visitas">Visitas al local</label><input id="visitas" inputmode="numeric" autocomplete="off" placeholder="0"></div>
@@ -246,6 +284,19 @@
       <div class="field"><label for="obs">Observaciones <span class="opt">(opcional)</span></label><textarea id="obs" maxlength="1000" placeholder="Ej: faltó cambio, llegó proveedor, incidente…"></textarea></div>
       <button class="primary dark" id="btnCierre" type="submit">Registrar cierre</button>
     </form>
+  </section>
+
+  <!-- 6. Control de efectivo -->
+  <section id="v-efectivo" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Control de efectivo</h2>
+    <p class="sub">Retira en los locales y registra cada depósito</p>
+    <div class="segtab" role="tablist">
+      <button type="button" data-ef="retirar" class="on">Por retirar</button>
+      <button type="button" data-ef="depositar">Por depositar</button>
+      <button type="button" data-ef="historial">Depósitos</button>
+    </div>
+    <div id="efContenido"><div class="empty">Cargando…</div></div>
   </section>
 
   <!-- 5. Documentos -->
@@ -302,6 +353,7 @@
   const MENSAJES = {
     obtenerInicio: 'Cargando…', ingresar: 'Verificando tu PIN…', marcar: 'Registrando tu marca…',
     obtenerPresupuesto: 'Cargando la meta del día…', registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…',
+    obtenerEfectivo: 'Cargando efectivo…', registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
   }; // obtenerEstado no muestra indicador: se actualiza en segundo plano
   const servidor = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
     if (!enGAS) return setTimeout(() => ok(mock(fn, ...args)), 600); // la vista previa simula la demora
@@ -342,7 +394,7 @@
 
   /* Vistas */
   function ver(id) {
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -440,6 +492,7 @@
     st.className = 'status' + (u ? (u.tipo === 'ENTRADA' ? ' in' : ' out') : '');
     st.lastChild.textContent = u ? `${u.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} ${u.hora} · ${u.local}` : 'Sin marcas hoy';
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
+    pintarEfectivoMenu(e.efectivo);
     if (e.urlDashboard) $('tileDash').href = enApi ? 'dashboard.html' : e.urlDashboard;
     $('tileDash').classList.toggle('hidden', !e.urlDashboard);
   }
@@ -456,6 +509,7 @@
     const a = t.dataset.accion;
     if (a === 'ENTRADA' || a === 'SALIDA') confirmarMarca(a);
     else if (a === 'CIERRE') abrirCierre();
+    else if (a === 'EFECTIVO') abrirEfectivo();
     else abrirDocs();
   }));
 
@@ -495,7 +549,7 @@
   /* ── Cierre ── */
   let presupuesto = 0;
   function abrirCierre() {
-    ['saldoCaja', 'ventasDia', 'visitas', 'sinCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
+    ['retiroEfectivo', 'saldoCaja', 'ventasDia', 'visitas', 'sinCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
     $('cierreLocal').textContent = S.local; $('cierreAlerta').classList.add('hidden');
     $('cPpto').textContent = 'Cargando…'; presupuesto = 0; S.idEnvio = nuevoId(); calcular();
     $('btnCierre').disabled = false;
@@ -507,7 +561,7 @@
       calcular();
     }).catch(sesionError);
   }
-  ['saldoCaja', 'ventasDia'].forEach(id => $(id).addEventListener('input', e => {
+  ['retiroEfectivo', 'saldoCaja', 'ventasDia'].forEach(id => $(id).addEventListener('input', e => {
     const d = e.target.value.replace(/\D/g, '').slice(0, 10);
     e.target.value = d ? fmtCLP.format(Number(d)) : ''; e.target.classList.remove('invalid'); calcular();
   }));
@@ -531,12 +585,13 @@
     if (S.ocupado) return;
     $('cierreAlerta').classList.add('hidden');
     const falta = [];
-    [['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['sinCompra', 'visitas sin compra']]
+    [['retiroEfectivo', 'retiro de efectivo'], ['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['sinCompra', 'visitas sin compra']]
       .forEach(([id, n]) => { if (num(id) === '') { $(id).classList.add('invalid'); falta.push(n); } });
     if (falta.length) { alerta('Completa: ' + falta.join(', ') + '.'); return; }
     if (Number(num('sinCompra')) > Number(num('visitas'))) { $('sinCompra').classList.add('invalid'); alerta('Las visitas sin compra no pueden superar el total de visitas.'); return; }
 
-    modal('ask', '¿Registrar cierre?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}`, 'Revisa los montos: el cierre no se puede editar.', [
+    const ret = Number(num('retiroEfectivo'));
+    modal('ask', '¿Registrar cierre?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : ''), 'Revisa los montos: el cierre no se puede editar.', [
       { t: 'Sí, registrar cierre', cls: 'dark', fn: enviarCierre }, { t: 'Revisar', sec: true },
     ]);
   });
@@ -544,7 +599,7 @@
     S.ocupado = true; const b = $('btnCierre'); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Enviando…';
     cerrarModal();
     ubicar().then(p => api('registrarCierre', S.token, {
-      local: S.local, saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
+      local: S.local, retiroEfectivo: num('retiroEfectivo'), saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
       visitasSinCompra: num('sinCompra'), observaciones: $('obs').value, lat: p.lat, lng: p.lng, precision: p.precision, idEnvio: S.idEnvio,
     })).then(r => {
       S.ocupado = false; b.textContent = 'Registrar cierre'; b.disabled = false;
@@ -554,6 +609,165 @@
       S.ocupado = false; b.textContent = 'Registrar cierre'; b.disabled = false;
       if (!sesionError(e)) modal('err', 'No se pudo registrar', typeof e === 'string' ? e : 'Sin conexión. Tus datos siguen en el formulario: intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]);
     });
+  }
+
+  /* ── Control de efectivo ── */
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pesos = n => '$' + fmtCLP.format(Math.round(n || 0));
+  const diasTxt = (d, alerta) => `<span class="dias${alerta ? ' alerta' : ''}">${d === 0 ? 'hoy' : d === 1 ? '1 día' : d + ' días'}</span>`;
+  const fCorta = f => { const [a, m, d] = f.split('-'); return `${+d}/${+m}`; };
+
+  function pintarEfectivoMenu(ef) {
+    const tile = $('tileEfec'), franja = $('franjaEfec');
+    tile.classList.toggle('hidden', !(ef && ef.maneja));
+    franja.classList.toggle('hidden', !(ef && ef.admin));
+    if (!ef) return;
+    const r = ef.resumen, n = r.nRetirar + r.nDepositar;
+    $('badgeEfec').textContent = n; $('badgeEfec').classList.toggle('hidden', !n);
+    $('subEfec').textContent = n ? `${r.nRetirar} por retirar · ${r.nDepositar} por depositar` : 'Todo al día';
+    $('fRetirar').querySelector('b').textContent = pesos(r.porRetirar);
+    $('fRetirar').querySelector('em').textContent = r.nRetirar
+      ? Object.entries(r.porRetirarLocal).map(([l, m]) => `${l}: ${pesos(m)}`).join(' · ') : 'Nada pendiente';
+    $('fDepositar').querySelector('b').textContent = pesos(r.porDepositar);
+    $('fDepositar').querySelector('em').textContent = r.nDepositar ? `El más antiguo: ${r.antiguoDepositar === 0 ? 'hoy' : 'hace ' + r.antiguoDepositar + ' día(s)'}` : 'Nada pendiente';
+    $('fRetirar').classList.toggle('alerta', r.nRetirar > 0 && r.antiguoRetirar >= (ef.alertaDias || 2));
+    $('fDepositar').classList.toggle('alerta', r.nDepositar > 0 && r.antiguoDepositar >= (ef.alertaDias || 2));
+  }
+
+  const EF = { datos: null, tab: 'retirar', foto: null };
+  function abrirEfectivo() {
+    ver('v-efectivo'); $('efContenido').innerHTML = '<div class="empty">Cargando…</div>';
+    cargarEfectivo();
+  }
+  function cargarEfectivo() {
+    return api('obtenerEfectivo', S.token).then(r => { EF.datos = r; EF.foto = null; pintarEfectivo(); }).catch(sesionError);
+  }
+  document.querySelectorAll('[data-ef]').forEach(b => b.addEventListener('click', () => {
+    EF.tab = b.dataset.ef; document.querySelectorAll('[data-ef]').forEach(x => x.classList.toggle('on', x === b)); pintarEfectivo();
+  }));
+
+  function pintarEfectivo() {
+    const d = EF.datos; if (!d) return;
+    document.querySelector('[data-ef="retirar"]').textContent = `Por retirar (${d.porRetirar.length})`;
+    document.querySelector('[data-ef="depositar"]').textContent = `Por depositar (${d.porDepositar.length})`;
+    const c = $('efContenido');
+    if (EF.tab === 'retirar') c.innerHTML = vistaRetirar(d);
+    else if (EF.tab === 'depositar') c.innerHTML = vistaDepositar(d);
+    else c.innerHTML = vistaHistorial(d);
+    activarEfectivo();
+  }
+
+  function vistaRetirar(d) {
+    if (!d.porRetirar.length) return '<div class="empty">No hay efectivo por retirar en los locales 👌</div>';
+    const locales = [...new Set(d.porRetirar.map(r => r.local))];
+    return locales.map(l => `<div class="grupo">${esc(l)}</div>` + d.porRetirar.filter(r => r.local === l).map(r => `
+      <label class="mov">
+        <input type="checkbox" data-ret="${esc(r.id)}" checked>
+        <span class="det">Cierre ${fCorta(r.fecha)} ${esc(r.hora)} ${diasTxt(r.dias, r.alerta)}<small>Declarado por ${esc(r.declaradoPor)}</small></span>
+        <span class="monto">${pesos(r.declarado)}</span>
+        <div class="money"><input inputmode="numeric" data-recibido="${esc(r.id)}" value="${fmtCLP.format(r.declarado)}" aria-label="Monto recibido"></div>
+      </label>`).join('')).join('') + `
+      <p class="sub" style="margin-top:10px">Marca lo que tomas y corrige el monto si recibiste otra cifra.</p>
+      <div class="totalbar"><span>Total a retirar</span><b id="totRetiro">$0</b></div>
+      <button class="primary dark" id="btnRetiro" type="button">Confirmar retiro</button>`;
+  }
+
+  function vistaDepositar(d) {
+    if (!d.porDepositar.length) return '<div class="empty">No tienes efectivo pendiente de depósito 👌</div>';
+    return d.porDepositar.map(r => `
+      <label class="mov">
+        <input type="checkbox" data-dep="${esc(r.id)}" data-monto="${r.recibido || 0}" checked>
+        <span class="det">${esc(r.local)} · cierre ${fCorta(r.fecha)} ${diasTxt(r.dias, r.alerta)}<small>Retirado el ${fCorta(r.fechaRetiro)}</small></span>
+        <span class="monto">${pesos(r.recibido)}</span>
+      </label>`).join('') + `
+      <div class="totalbar"><span>Total marcado</span><b id="totDep">$0</b></div>
+      <div class="field"><label for="montoDep">Monto depositado</label><div class="money"><input id="montoDep" inputmode="numeric" autocomplete="off"></div></div>
+      <div class="field"><label>Foto del comprobante</label>
+        <label class="foto" id="fotoBox"><input type="file" id="fotoDep" accept="image/*" capture="environment" hidden><span>📷 Tomar o elegir foto</span></label></div>
+      <div class="field"><label for="obsDep">Observaciones <span class="opt">(opcional)</span></label><textarea id="obsDep" maxlength="500" placeholder="Ej: depósito en caja vecina"></textarea></div>
+      <button class="primary green" id="btnDeposito" type="button">Registrar depósito</button>`;
+  }
+
+  function vistaHistorial(d) {
+    if (!d.depositos.length) return '<div class="empty">Aún no hay depósitos registrados.</div>';
+    return d.depositos.map(x => `
+      <div class="doc"><div><b>${pesos(x.monto)}</b> <small style="color:var(--mute)">${fCorta(x.fecha)} ${esc(x.hora)} · ${x.retiros} retiro(s)</small>
+        ${x.obs ? `<br><small style="color:var(--mute)">${esc(x.obs)}</small>` : ''}</div>
+        <span class="chip ${x.diferencia ? '' : 'ok'}">${x.diferencia ? 'Dif. ' + (x.diferencia > 0 ? '+' : '-') + pesos(Math.abs(x.diferencia)) : 'Cuadra'}</span></div>`).join('');
+  }
+
+  function activarEfectivo() {
+    const formatear = inp => inp.addEventListener('input', () => { const v = inp.value.replace(/\D/g, '').slice(0, 10); inp.value = v ? fmtCLP.format(Number(v)) : ''; totales(); });
+    document.querySelectorAll('#efContenido [data-recibido], #montoDep').forEach(formatear);
+    if ($('montoDep')) $('montoDep').addEventListener('input', () => { $('montoDep').dataset.tocado = '1'; });
+    document.querySelectorAll('#efContenido input[type=checkbox]').forEach(c => c.addEventListener('change', totales));
+    totales();
+    if ($('btnRetiro')) $('btnRetiro').onclick = confirmarRetiro;
+    if ($('btnDeposito')) $('btnDeposito').onclick = confirmarDeposito;
+    if ($('fotoDep')) $('fotoDep').onchange = e => cargarFoto(e.target.files[0]);
+  }
+  const valor = inp => Number(String(inp.value).replace(/\D/g, '')) || 0;
+  function totales() {
+    if ($('totRetiro')) {
+      let t = 0; document.querySelectorAll('[data-ret]').forEach(c => { if (c.checked) t += valor(document.querySelector(`[data-recibido="${c.dataset.ret}"]`)); });
+      $('totRetiro').textContent = pesos(t);
+    }
+    if ($('totDep')) {
+      let t = 0; document.querySelectorAll('[data-dep]').forEach(c => { if (c.checked) t += Number(c.dataset.monto); });
+      $('totDep').textContent = pesos(t);
+      if (!$('montoDep').dataset.tocado) $('montoDep').value = t ? fmtCLP.format(t) : '';
+    }
+  }
+
+  function confirmarRetiro() {
+    const items = [...document.querySelectorAll('[data-ret]')].filter(c => c.checked)
+      .map(c => ({ id: c.dataset.ret, recibido: valor(document.querySelector(`[data-recibido="${c.dataset.ret}"]`)) }));
+    if (!items.length) return modal('err', 'Marca al menos un retiro', '', '', [{ t: 'Entendido', cls: 'dark' }]);
+    const total = items.reduce((s, x) => s + x.recibido, 0), id = nuevoId();
+    modal('ask', `¿Confirmas que retiraste ${pesos(total)}?`, `${items.length} cierre(s)`, 'Queda a tu cargo hasta que lo deposites.', [
+      { t: 'Sí, lo retiré', cls: 'dark', fn: () => api('registrarRetiro', S.token, { items, idEnvio: id }).then(r => {
+        if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+        modal('ok', '¡Retiro registrado!', r.mensaje, r.aviso || '', [{ t: 'Continuar', cls: 'dark' }]);
+        cargarEfectivo(); refrescarEstado();
+      }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+      { t: 'Revisar', sec: true },
+    ]);
+  }
+
+  /* La foto se achica en el teléfono antes de subirla (máx. 1600 px, JPEG) */
+  function cargarFoto(archivo) {
+    if (!archivo) return;
+    const img = new Image(), url = URL.createObjectURL(archivo);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.75);
+      EF.foto = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
+      const box = $('fotoBox'); box.classList.add('ok');
+      box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Comprobante"><br>Toca para cambiarla`;
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => modal('err', 'No se pudo leer la foto', 'Intenta con otra imagen.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    img.src = url;
+  }
+
+  function confirmarDeposito() {
+    const ids = [...document.querySelectorAll('[data-dep]')].filter(c => c.checked).map(c => c.dataset.dep);
+    const esperado = [...document.querySelectorAll('[data-dep]')].filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
+    const monto = valor($('montoDep'));
+    const falta = !ids.length ? 'Marca al menos un monto.' : !monto ? 'Ingresa el monto depositado.' : !EF.foto ? 'Adjunta la foto del comprobante.' : '';
+    if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
+    const dif = monto - esperado, id = nuevoId();
+    modal('ask', `¿Registrar depósito de ${pesos(monto)}?`, `${ids.length} monto(s) retirado(s) por ${pesos(esperado)}`,
+      dif ? `⚠️ No cuadra: diferencia ${dif > 0 ? '+' : '-'}${pesos(Math.abs(dif))}. Felipe lo verá.` : 'Cuadra con lo retirado ✅', [
+      { t: 'Sí, registrar', cls: 'green', fn: () => api('registrarDeposito', S.token, { ids, monto, foto: EF.foto, obs: $('obsDep').value, idEnvio: id }).then(r => {
+        if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+        modal('ok', '¡Depósito registrado!', r.mensaje, r.aviso || '', [{ t: 'Continuar', cls: 'dark' }]);
+        cargarEfectivo(); refrescarEstado();
+      }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+      { t: 'Revisar', sec: true },
+    ]);
   }
 
   /* ── Documentos ── */
@@ -591,7 +805,9 @@
 
   /* ── Vista previa local (fuera de Apps Script) ── */
   function mock(fn, ...a) {
-    const est = { ultimaMarca: null, docsPendientes: 1, urlDashboard: 'Dashboard.src.html' };
+    const est = { ultimaMarca: null, docsPendientes: 1, urlDashboard: 'Dashboard.src.html',
+      efectivo: { maneja: true, admin: true, alertaDias: 2, resumen: { porRetirar: 370000, porRetirarLocal: { 'Violeta Parra': 250000, 'Gabriela Mistral': 120000 },
+        nRetirar: 2, porDepositar: 310000, nDepositar: 1, antiguoRetirar: 3, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 2 } } };
     return {
       obtenerInicio: { trabajadores: [{ id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T006', nombre: 'Damaris Alvarado' }], locales: ['Violeta Parra', 'Gabriela Mistral'] },
       ingresar: a[1] === '1234' ? { ok: true, token: 'demo', usuario: { id: a[0], nombre: 'Leidy Hernandez', local: 'Violeta Parra' }, estado: est } : { ok: false, error: 'PIN incorrecto. (Demo: 1234)' },
@@ -599,6 +815,13 @@
       marcar: { ok: true, mensaje: 'Entrada registrada a las ' + fHora.format(new Date()), aviso: '', estado: { ultimaMarca: { tipo: a[1] && a[1].tipo, hora: fHora.format(new Date()), local: a[1] && a[1].local }, docsPendientes: 1 } },
       obtenerPresupuesto: { ok: true, presupuesto: 450000, cerrado: false },
       registrarCierre: { ok: true, mensaje: 'Cierre registrado', resumen: 'Meta: 92% · Conversión: 74%' },
+      obtenerEfectivo: { ok: true, manejaEfectivo: true, alertaDias: 2,
+        porRetirar: [{ id: 'R1', fecha: '2026-10-29', hora: '19:40', local: 'Violeta Parra', declaradoPor: 'Leidy Hernandez', declarado: 250000, dias: 1, alerta: false },
+          { id: 'R2', fecha: '2026-10-27', hora: '19:55', local: 'Gabriela Mistral', declaradoPor: 'Damaris Alvarado', declarado: 120000, dias: 3, alerta: true }],
+        porDepositar: [{ id: 'R0', fecha: '2026-10-26', hora: '19:30', local: 'Violeta Parra', fechaRetiro: '2026-10-28', recibido: 310000, dias: 2, alerta: true }],
+        depositos: [{ id: 'D1', fecha: '2026-10-25', hora: '12:10', monto: 280000, diferencia: 0, retiros: 2, obs: '' }] },
+      registrarRetiro: { ok: true, mensaje: 'Retiraste $370.000. Queda pendiente de depósito.', aviso: '' },
+      registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo retirado ✅' },
       misDocumentos: { ok: true, documentos: [{ tipo: 'Liquidación de sueldo', periodo: 'Octubre 2026', estado: 'PENDIENTE' }] },
     }[fn];
   }

@@ -131,6 +131,18 @@
   .cargador small { color: #6B6F78; font-size: 13px; min-height: 1em; }
   @keyframes girar { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .rueda { animation: girar 1.6s linear infinite !important; } }
+
+  /* Franja de efectivo (siempre visible) */
+  .franjaEf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+  .franjaEf > div { background: var(--paper); padding: 10px 20px; min-width: 0; }
+  .franjaEf small { display: block; font-size: 11px; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; }
+  .franjaEf b { font-size: 20px; color: var(--black); font-variant-numeric: tabular-nums; }
+  .franjaEf em { display: block; font-style: normal; font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .franjaEf .alerta em, .franjaEf .alerta b { color: var(--red); }
+  .visor { position: fixed; inset: 0; z-index: 40; background: rgba(11,11,12,.75); display: grid; place-items: center; padding: 20px; }
+  .visor img { max-width: min(92vw, 900px); max-height: 86vh; border-radius: 10px; background: #fff; }
+  .visor button { position: absolute; top: 16px; right: 16px; }
+  @media (max-width: 640px) { .franjaEf > div { padding: 8px 12px; } .franjaEf b { font-size: 16px; } .franjaEf em { display: none; } }
 </style>
 </head>
 <body>
@@ -173,9 +185,10 @@
     </div>
     <span class="der" id="actualizado"></span>
   </div>
+  <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -246,7 +259,7 @@ function porApi(fn, args) {
     cargas = Math.max(0, cargas - 1);
     if (!cargas) { clearTimeout(tLento); document.getElementById('cargador').classList.remove('show'); }
   }
-const MENSAJES = { obtenerInicioDashboard: 'Cargando…', ingresarDashboard: 'Verificando tu PIN…', obtenerDashboard: 'Cargando indicadores del negocio…' };
+const MENSAJES = { verComprobante: 'Cargando comprobante…', obtenerInicioDashboard: 'Cargando…', ingresarDashboard: 'Verificando tu PIN…', obtenerDashboard: 'Cargando indicadores del negocio…' };
 function llamar(fn, ...args) {
   cargando(MENSAJES[fn] || 'Cargando…');
   const p = EN_API ? porApi(fn, args) : ES_VISTA_PREVIA ? new Promise(ok => setTimeout(() => ok(MOCK[fn](...args)), 600))
@@ -313,6 +326,7 @@ async function abrirDashboard() {
     E.fecha = R.ultimaVenta || R.hoy;
     $('badgeDemo').classList.toggle('hidden', !R.demo);
     $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'} · actualizado ${R.hora}`;
+    pintarFranja();
     $('local').innerHTML = '<option value="TODOS">Todos los locales</option>' + R.locales.map(l => `<option>${esc(l)}</option>`).join('');
     pintar();
   } catch (e) {
@@ -392,7 +406,7 @@ function pintar() {
   const r = rango(E.per, E.fecha);
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo })[E.tab](r);
 }
 document.querySelectorAll('#segPeriodo button').forEach(b => b.onclick = () => {
   E.per = b.dataset.p; document.querySelectorAll('#segPeriodo button').forEach(x => x.classList.toggle('on', x === b)); pintar();
@@ -751,6 +765,61 @@ function tabEquipo(r) {
     </tbody></table></div></div>` : ''}`;
 }
 
+/* ═══════════════ Efectivo (datos siempre reales) ═══════════════ */
+const diasEf = (d, alerta) => `<span class="chip ${alerta ? 'down' : 'neu'}">${d === 0 ? 'hoy' : d === 1 ? '1 día' : d + ' días'}</span>`;
+function pintarFranja() {
+  const ef = E.R.efectivo; if (!ef) return;
+  const r = ef.resumen, lim = ef.alertaDias;
+  $('franjaEf').innerHTML = `
+    <div class="${r.nRetirar && r.antiguoRetirar >= lim ? 'alerta' : ''}"><small>💵 Por retirar en locales</small><b class="num">${clp(r.porRetirar)}</b>
+      <em>${r.nRetirar ? Object.entries(r.porRetirarLocal).map(([l, m]) => `${esc(l)} ${mm(m)}`).join(' · ') : 'Nada pendiente'}</em></div>
+    <div class="${r.nDepositar && r.antiguoDepositar >= lim ? 'alerta' : ''}"><small>👜 Por depositar (en poder de Leandro)</small><b class="num">${clp(r.porDepositar)}</b>
+      <em>${r.nDepositar ? `${r.nDepositar} monto(s) · el más antiguo hace ${r.antiguoDepositar} día(s)` : 'Nada pendiente'}</em></div>
+    <div class="${r.diferenciaMes ? 'alerta' : ''}"><small>🏦 Depositado este mes</small><b class="num">${clp(r.depositadoMes)}</b>
+      <em>${r.diferenciaMes ? 'Diferencias: ' + (r.diferenciaMes > 0 ? '+' : '-') + clp(Math.abs(r.diferenciaMes)) : 'Sin diferencias'}</em></div>`;
+  $('franjaEf').classList.remove('hidden');
+}
+$('franjaEf').onclick = () => document.querySelector('#tabs button[data-t="efectivo"]').click();
+
+function tabEfectivo() {
+  const ef = E.R.efectivo, r = ef.resumen, lim = ef.alertaDias;
+  const loc = x => E.local === 'TODOS' || x.local === E.local;
+  const ret = ef.porRetirar.filter(loc), dep = ef.porDepositar.filter(loc);
+  let html = '<div class="grid kpis">';
+  html += kpi('Por retirar en locales', clp(r.porRetirar), r.nRetirar ? `${r.nRetirar} cierre(s) · más antiguo ${r.antiguoRetirar} día(s)` : 'Nada pendiente');
+  html += kpi('Por depositar', clp(r.porDepositar), r.nDepositar ? `${r.nDepositar} monto(s) en poder de Leandro` : 'Nada pendiente');
+  html += kpi('Depositado este mes', clp(r.depositadoMes), r.diferenciaMes ? `<span class="chip down">Diferencias ${r.diferenciaMes > 0 ? '+' : '-'}${clp(Math.abs(r.diferenciaMes))}</span>` : '<span class="chip up">Todo cuadra</span>');
+  html += kpi('Alertas', ent(r.alertas), `Montos con ${lim} día(s) o más sin moverse`);
+  html += '</div>';
+  html += `<div class="grid dos">
+    <div class="card"><h3>Pendiente de retiro</h3><div class="sub">Efectivo declarado en los cierres que sigue en el local</div>
+    ${ret.length ? `<div class="tabla"><table><thead><tr><th>Local</th><th>Cierre</th><th>Declarado por</th><th class="r">Monto</th><th class="r">Antigüedad</th></tr></thead><tbody>
+      ${ret.map(x => `<tr><td>${esc(x.local)}</td><td>${fCorta(x.fecha)} ${esc(x.hora)}</td><td>${esc(x.declaradoPor)}</td><td class="r num">${clp(x.declarado)}</td><td class="r">${diasEf(x.dias, x.alerta)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td colspan="3">Total</td><td class="r num">${clp(ret.reduce((s, x) => s + x.declarado, 0))}</td><td></td></tr></tfoot></table></div>` : '<p class="vacio">Nada pendiente 👌</p>'}</div>
+    <div class="card"><h3>Pendiente de depósito</h3><div class="sub">Efectivo que Leandro ya retiró y aún no deposita</div>
+    ${dep.length ? `<div class="tabla"><table><thead><tr><th>Local</th><th>Cierre</th><th>Retirado</th><th class="r">Declarado</th><th class="r">Recibido</th><th class="r">Antigüedad</th></tr></thead><tbody>
+      ${dep.map(x => { const d = (x.recibido || 0) - x.declarado; return `<tr><td>${esc(x.local)}</td><td>${fCorta(x.fecha)}</td><td>${fCorta(x.fechaRetiro)}</td>
+        <td class="r num">${clp(x.declarado)}</td><td class="r num">${clp(x.recibido)}${d ? ` <span class="chip down">${d > 0 ? '+' : '-'}${clp(Math.abs(d))}</span>` : ''}</td><td class="r">${diasEf(x.dias, x.alerta)}</td></tr>`; }).join('')}
+      </tbody><tfoot><tr><td colspan="4">Total</td><td class="r num">${clp(dep.reduce((s, x) => s + (x.recibido || 0), 0))}</td><td></td></tr></tfoot></table></div>` : '<p class="vacio">Nada pendiente 👌</p>'}</div>
+  </div>
+  <div class="card"><h3>Depósitos</h3><div class="sub">Últimos 60 días · la diferencia compara lo depositado con lo retirado</div>
+    ${ef.depositos.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Depositó</th><th class="r">Retiros</th><th class="r">Esperado</th><th class="r">Depositado</th><th class="r">Diferencia</th><th>Comprobante</th><th>Observaciones</th></tr></thead><tbody>
+      ${ef.depositos.map(x => `<tr><td>${fCorta(x.fecha)} ${esc(x.hora)}</td><td>${esc(x.por)}</td><td class="r num">${x.retiros}</td><td class="r num">${clp(x.esperado)}</td>
+        <td class="r num"><b>${clp(x.monto)}</b></td><td class="r"><span class="chip ${x.diferencia ? 'down' : 'up'}">${x.diferencia ? (x.diferencia > 0 ? '+' : '-') + clp(Math.abs(x.diferencia)) : 'Cuadra'}</span></td>
+        <td>${x.comprobante ? `<button class="btn-sec" style="color:var(--black);border-color:var(--line)" data-comp="${esc(x.id)}">Ver foto</button>` : '—'}</td><td class="obs">${esc(x.obs)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="vacio">Aún no hay depósitos registrados</p>'}</div>`;
+  $('contenido').innerHTML = html;
+  document.querySelectorAll('[data-comp]').forEach(b => b.onclick = async () => {
+    try {
+      const res = await llamar('verComprobante', E.sesion.token, b.dataset.comp);
+      if (!res.ok) return alert(res.error);
+      const v = document.createElement('div'); v.className = 'visor';
+      v.innerHTML = `<img alt="Comprobante de depósito" src="${res.imagen}"><button class="btn-sec">Cerrar ✕</button>`;
+      v.onclick = () => v.remove(); document.body.appendChild(v);
+    } catch (e) { alert('No se pudo cargar el comprobante.'); }
+  });
+}
+
 /* ═══════════════ Datos ficticios (misma estructura que los datos reales) ═══════════════ */
 function generarDemo(R) {
   let s = 20261029; const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
@@ -875,7 +944,13 @@ const MOCK = {
   ingresarDashboard: (id) => ({ ok: true, token: 'demo', usuario: { id, nombre: id === 'T001' ? 'Felipe Guerrero' : 'Eduardo Plaza' } }),
   obtenerDashboard: () => {
     const d = new Date(), hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    return { demo: true, hoy, hora: d.toTimeString().slice(0, 5), locales: ['Violeta Parra', 'Gabriela Mistral'], tolerancia: 5000,
+    const efectivo = { alertaDias: 2,
+      porRetirar: [{ id: 'R1', fecha: hoy, hora: '19:40', local: 'Violeta Parra', declaradoPor: 'Leidy Hernandez', declarado: 250000, dias: 0, alerta: false }],
+      porDepositar: [{ id: 'R0', fecha: hoy, hora: '19:30', local: 'Gabriela Mistral', fechaRetiro: hoy, declarado: 120000, recibido: 115000, dias: 2, alerta: true }],
+      depositos: [{ id: 'D1', fecha: hoy, hora: '12:10', por: 'Leandro Nenen', monto: 280000, esperado: 280000, diferencia: 0, retiros: 2, comprobante: false, obs: '' }],
+      resumen: { porRetirar: 250000, porRetirarLocal: { 'Violeta Parra': 250000 }, nRetirar: 1, porDepositar: 115000, nDepositar: 1,
+        antiguoRetirar: 0, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 1 } };
+    return { demo: true, efectivo, hoy, hora: d.toTimeString().slice(0, 5), locales: ['Violeta Parra', 'Gabriela Mistral'], tolerancia: 5000,
       equipo: [{ id: 'T002', nombre: 'Leidy Hernandez', local: 'Violeta Parra', perfil: 'Encargado' }, { id: 'T003', nombre: 'Leandro Nenen', local: 'Ambos', perfil: 'Trabajador' },
         { id: 'T005', nombre: 'Leonel Gutierrez', local: 'Violeta Parra', perfil: 'Trabajador' }, { id: 'T006', nombre: 'Damaris Alvarado', local: 'Gabriela Mistral', perfil: 'Encargado' }] };
   },
