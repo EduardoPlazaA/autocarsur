@@ -248,7 +248,7 @@ const mm = n => {
   if (a >= 1e3) return '$' + Math.round(n / 1e3).toLocaleString('es-CL') + ' mil';
   return clp(n);
 };
-const pct = (x, d = 1) => (isFinite(x) ? (x * 100).toLocaleString('es-CL', { maximumFractionDigits: d }) + '%' : '—');
+const pct = (x, d = 1) => (isFinite(x) ? (Math.abs(x * 100) < 0.5 / 10 ** d ? 0 : x * 100).toLocaleString('es-CL', { maximumFractionDigits: d }) + '%' : '—'); // evita "-0%"
 const ent = n => Math.round(n || 0).toLocaleString('es-CL');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function delta(a, b, etiqueta) {
