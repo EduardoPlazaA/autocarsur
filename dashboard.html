@@ -143,6 +143,30 @@
   .visor img { max-width: min(92vw, 900px); max-height: 86vh; border-radius: 10px; background: #fff; }
   .visor button { position: absolute; top: 16px; right: 16px; }
   @media (max-width: 640px) { .franjaEf > div { padding: 8px 12px; } .franjaEf b { font-size: 16px; } .franjaEf em { display: none; } }
+
+  /* Celular: la página solo se mueve hacia arriba y hacia abajo */
+  @media (max-width: 640px) {
+    html, body { overflow-x: hidden; max-width: 100%; }
+    body { touch-action: pan-y pinch-zoom; }
+    .tabs { flex-wrap: wrap; overflow-x: visible; gap: 0 2px; }
+    .tabs button { padding: 10px 10px; }
+    .tabla { overflow-x: visible; }
+    .lienzo { height: 240px; }
+    /* Tablas con encabezado → tarjetas: cada fila es un bloque y cada dato lleva su nombre */
+    table.tarjetas, table.tarjetas tbody, table.tarjetas tfoot, table.tarjetas tr, table.tarjetas td { display: block; width: 100%; }
+    table.tarjetas thead { display: none; }
+    table.tarjetas tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+    table.tarjetas td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 3px 0;
+                        border: 0; white-space: normal; text-align: right; }
+    table.tarjetas td::before { content: attr(data-label); flex: none; max-width: 45%; text-align: left; color: var(--mute);
+                                font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+    table.tarjetas td.sin-etiqueta::before { display: none; }
+    table.tarjetas td.sin-etiqueta { justify-content: flex-start; }
+    table.tarjetas td:empty { display: none; }
+    table.tarjetas tr > td:first-child { font-weight: 700; color: var(--black); }
+    table.tarjetas tfoot tr { border-bottom: 0; }
+    table.tarjetas .mini { max-width: 50%; }
+  }
 </style>
 </head>
 <body>
@@ -407,6 +431,24 @@ function pintar() {
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
   ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo })[E.tab](r);
+  etiquetarTablas();
+}
+/* Copia el nombre de cada columna en sus celdas: en el celular las tablas se muestran como tarjetas */
+function etiquetarTablas() {
+  document.querySelectorAll('#contenido table').forEach(t => {
+    const ths = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    if (!ths.length) return;
+    t.classList.add('tarjetas');
+    t.querySelectorAll('tbody tr, tfoot tr').forEach(tr => {
+      let col = 0;
+      [...tr.children].forEach(td => {
+        const etiqueta = ths[col] || '';
+        td.dataset.label = etiqueta;
+        td.classList.toggle('sin-etiqueta', !etiqueta);
+        col += td.colSpan || 1;
+      });
+    });
+  });
 }
 document.querySelectorAll('#segPeriodo button').forEach(b => b.onclick = () => {
   E.per = b.dataset.p; document.querySelectorAll('#segPeriodo button').forEach(x => x.classList.toggle('on', x === b)); pintar();
