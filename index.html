@@ -137,6 +137,43 @@
   .btn-conf { width: 100%; border: 0; border-radius: 12px; padding: 12px; font-weight: 800; color: #fff; background: var(--green); }
   .btn-conf:disabled { background: var(--line); color: var(--mute); }
   .doc-conf small { display: block; text-align: center; color: var(--mute); font-size: 12px; margin-top: 6px; }
+  /* Resumen del mes */
+  .mes-cab { margin-bottom: 10px; }
+  .mes-cab b { display: block; font-size: 16px; } .mes-cab span { display: block; font-size: 13px; color: var(--mute); margin-top: 2px; }
+  .mes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mes-k { background: var(--bg); border-radius: 12px; padding: 12px; }
+  .mes-k small { display: block; font-size: 12px; font-weight: 600; color: var(--mute); }
+  .mes-k b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .mes-k em { display: block; font-style: normal; font-size: 12px; color: var(--mute); }
+  .mes-k.alerta { background: var(--amber-tint); } .mes-k.alerta b, .mes-k.alerta em { color: var(--amber); }
+  .mes-k.ok b { color: var(--green); }
+  .mes-nota { font-size: 12px; color: var(--mute); margin: 10px 0 0; }
+  .t-corr { background: var(--steel); }
+  /* Corregir marcas */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px; padding: 8px 12px; font-weight: 600; font-size: 14px; color: var(--steel); }
+  .chips button.on { background: var(--black); border-color: var(--black); color: #fff; }
+  .corr-fecha { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
+  .corr-fecha button { flex: none; width: 46px; height: 46px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); font-size: 22px; color: var(--steel); }
+  .corr-fecha button:disabled { opacity: .35; }
+  .pend-lista { display: grid; gap: 6px; margin-bottom: 14px; }
+  .pend-item { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 10px;
+               background: var(--amber-tint); color: var(--amber); padding: 10px 12px; font-weight: 600; font-size: 14px; }
+  .turno-dia { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 6px; }
+  .marca { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .marca .tipo { font-weight: 800; width: 66px; flex: none; } .marca .hora { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .marca .info { flex: 1; font-size: 12px; color: var(--mute); min-width: 0; }
+  .marca button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 14px; color: var(--steel); }
+  .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .acciones .secondary { margin-top: 12px; } .acciones .full { grid-column: 1 / -1; margin-top: 0; }
+  .row2 > * { min-width: 0; } .form-corr input[type=date], .form-corr input[type=time] { min-width: 0; padding-left: 8px; padding-right: 8px; }
+  .masivo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1.5px dashed var(--steel); background: var(--paper);
+                 border-radius: 12px; padding: 13px; font-weight: 800; font-size: 15px; color: var(--black); margin-bottom: 14px; }
+  .pend-todo { width: 100%; border: 0; border-radius: 10px; background: var(--amber); color: #fff; padding: 11px; font-weight: 800; font-size: 14px; }
+  .plan { background: var(--paper); border-radius: 10px; padding: 12px; margin: 4px 0 12px; font-size: 14px; }
+  .plan b { font-size: 16px; } .plan ul { margin: 8px 0 0; padding-left: 18px; max-height: 220px; overflow-y: auto; color: var(--steel); font-size: 13px; }
+  .form-corr { background: var(--bg); border-radius: 12px; padding: 14px; margin-top: 14px; }
+  .form-corr h3 { margin: 0 0 12px; font-size: 16px; }
+  .form-corr .chips button { font-size: 13px; padding: 7px 10px; }
   .docs-tabs button { font-size: 13px; padding: 9px 2px; white-space: nowrap; }
   .segtab .cuenta { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; line-height: 18px; }
   .docs-ayuda { font-size: 13px; color: var(--mute); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
@@ -246,6 +283,14 @@
         <div id="fDepositar"><small>👜 Por depositar</small><b>$0</b><em></em></div>
       </div>
     </div>
+    <div class="card hidden" id="cardMes" aria-live="polite">
+      <div class="mes-cab"><b id="mesTitulo">Este mes</b><span id="turnoHoy"></span></div>
+      <div class="mes-grid">
+        <div class="mes-k" id="kHE"><small>Horas extra</small><b id="mesHE">0 h</b><em id="mesHEdet"></em></div>
+        <div class="mes-k" id="kPend"><small>Marcas pendientes</small><b id="mesPend">0</b><em id="mesPendDet"></em></div>
+      </div>
+      <p class="mes-nota" id="mesNota"></p>
+    </div>
     <div class="menu">
       <button class="tile t-in" data-accion="ENTRADA" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
@@ -268,6 +313,11 @@
         <span class="badge hidden" id="badgeEfec">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
         <span>Control de efectivo<small id="subEfec">Retiros y depósitos</small></span>
+      </button>
+      <button class="tile t-corr hidden" id="tileCorr" data-accion="CORREGIR" type="button">
+        <span class="badge hidden" id="badgeCorr">0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/></svg>
+        <span>Corregir marcas<small>Entradas y salidas</small></span>
       </button>
       <a class="tile t-dash hidden" id="tileDash" target="_top" href="#">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
@@ -315,6 +365,21 @@
       <button type="button" data-ef="historial">Depósitos</button>
     </div>
     <div id="efContenido"><div class="empty">Cargando…</div></div>
+  </section>
+
+  <!-- 7. Corregir marcas (solo administración) -->
+  <section id="v-corr" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Corregir marcas</h2>
+    <p class="sub">Elige la persona y el día. Cada cambio pide un motivo y queda registrado.</p>
+    <button type="button" class="masivo-btn" id="btnMasivo">Corregir varios días a la vez</button>
+    <div id="corrMasivo" class="hidden"></div>
+    <div id="corrPend"></div>
+    <div class="chips" id="corrPersonas" role="group" aria-label="Trabajador"></div>
+    <div class="corr-fecha">
+      <button type="button" id="corrAnt" aria-label="Día anterior">‹</button><input type="date" id="corrFecha" aria-label="Día"><button type="button" id="corrSig" aria-label="Día siguiente">›</button>
+    </div>
+    <div id="corrDia"><div class="empty">Cargando…</div></div>
   </section>
 
   <!-- 5. Documentos -->
@@ -375,6 +440,7 @@
     registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…',
     abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
     registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
+    obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
   const servidor = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
     if (!enGAS) return setTimeout(() => ok(mock(fn, ...args)), 600); // la vista previa simula la demora
@@ -417,7 +483,7 @@
 
   /* Vistas */
   function ver(id) {
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-corr'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -535,6 +601,10 @@
     st.lastChild.textContent = u ? `${u.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} ${u.hora} · ${u.local}` : 'Sin marcas hoy';
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
     pintarEfectivoMenu(e.efectivo);
+    pintarMes(e.mes);
+    const corr = typeof e.corrige === 'number';
+    $('tileCorr').classList.toggle('hidden', !corr);
+    $('badgeCorr').textContent = e.corrige || 0; $('badgeCorr').classList.toggle('hidden', !(corr && e.corrige));
     if (e.urlDashboard) $('tileDash').href = enApi ? 'dashboard.html' : e.urlDashboard;
     $('tileDash').classList.toggle('hidden', !e.urlDashboard);
   }
@@ -556,6 +626,7 @@
     if (a === 'ENTRADA' || a === 'SALIDA') { gps().catch(() => {}); confirmarMarca(a); } // la ubicación se busca mientras la persona confirma
     else if (a === 'CIERRE') abrirCierre();
     else if (a === 'EFECTIVO') abrirEfectivo();
+    else if (a === 'CORREGIR') abrirCorr();
     else abrirDocs();
   }));
 
@@ -851,6 +922,236 @@
     ]);
   }
 
+  /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
+  const hm = min => { const h = Math.floor(min / 60), m = min % 60; return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`; };
+  const fDia = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
+  const sumarDia = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  function pintarMes(m) {
+    $('cardMes').classList.toggle('hidden', !m);
+    if (!m) return;
+    $('mesTitulo').textContent = periodoTxt(m.mes);
+    $('turnoHoy').textContent = m.turnoHoy ? `Hoy: ${m.turnoHoy[2]} · ${m.turnoHoy[0]} a ${m.turnoHoy[1]}` : 'Hoy no tienes turno';
+    $('mesHE').textContent = m.minutos ? hm(m.minutos) : '0 h';
+    $('mesHEdet').textContent = m.dias.length ? `En ${m.dias.length} día(s)` : 'Sin horas extra este mes';
+    $('mesPend').textContent = m.pendientes.length;
+    $('mesPendDet').textContent = m.pendientes.length ? m.pendientes.slice(0, 2).map(([f, falta]) => `${fDia(f)}: ${falta}`).join(' · ') + (m.pendientes.length > 2 ? ' · …' : '') : 'Todo en orden ✓';
+    $('kPend').className = 'mes-k ' + (m.pendientes.length ? 'alerta' : 'ok');
+    $('mesNota').textContent = `Cuenta como extra lo trabajado ${m.tolerancia} min o más antes o después de tu turno.` +
+      (m.pendientes.length ? ' Si olvidaste marcar, avísale a Felipe para corregirlo.' : '') +
+      (m.corregidas ? ` ${m.corregidas} marca(s) de este mes fueron corregidas por administración.` : '');
+  }
+
+  /* ── Corregir marcas (solo administración): todo el mes llega en una consulta; moverse entre personas y días es instantáneo ── */
+  const CO = { datos: null, persona: null, fecha: null, form: null };
+  const MOTIVOS = { marca: ['Olvidó marcar', 'Marcó a otra hora', 'Falló el GPS o la señal', 'Marcó por error'],
+    dia: ['Día libre', 'Vacaciones', 'Licencia médica', 'Permiso', 'Feriado'] };
+  function abrirCorr() {
+    ver('v-corr');
+    CO.fecha = CO.fecha || hoyChile(); CO.form = null;
+    if (MV.abierto) cerrarMasivo();
+    pintarCorr();
+    cargarCorr(CO.fecha.slice(0, 7), !CO.datos);
+  }
+  function cargarCorr(mes, conIndicador) {
+    (conIndicador ? api : servidor)('obtenerCorreccion', S.token, mes).then(d => {
+      if (CO.form && CO.datos && CO.datos.mes === d.mes) return; // no repintar mientras se está editando
+      CO.datos = d;
+      if (!d.personas.some(p => p.id === CO.persona)) CO.persona = (d.personas[0] || {}).id;
+      pintarCorr();
+    }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo cargar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+  }
+  function irA(fecha) {
+    const d = CO.datos; if (d && fecha > d.hoy) return;
+    const otroMes = !d || fecha.slice(0, 7) !== d.mes;
+    CO.fecha = fecha; CO.form = null; pintarCorr();
+    if (otroMes) cargarCorr(fecha.slice(0, 7), true);
+  }
+  $('corrAnt').addEventListener('click', () => irA(sumarDia(CO.fecha, -1)));
+  $('corrSig').addEventListener('click', () => irA(sumarDia(CO.fecha, 1)));
+  $('corrFecha').addEventListener('change', e => { if (e.target.value) irA(e.target.value); });
+  function pintarCorr() {
+    const d = CO.datos;
+    $('corrFecha').value = CO.fecha;
+    if (!d) { $('corrDia').innerHTML = '<div class="empty">Cargando…</div>'; return; }
+    $('corrFecha').max = d.hoy; $('corrSig').disabled = CO.fecha >= d.hoy;
+    $('corrPend').innerHTML = d.pendientes.length
+      ? `<h3 class="docs-titulo">Por revisar en ${esc(periodoTxt(d.mes).toLowerCase())} (${d.pendientes.length})</h3><div class="pend-lista">` +
+        d.pendientes.slice(0, 6).map(([id, n, f, falta]) => `<button type="button" class="pend-item" data-pid="${esc(id)}" data-pf="${f}"><span>${esc(n.split(' ')[0])} · ${esc(fDia(f))}</span><span>${esc(falta)} ›</span></button>`).join('') +
+        (d.pendientes.length > 6 ? `<p class="mes-nota">y ${d.pendientes.length - 6} más</p>` : '') +
+        '<button type="button" class="pend-todo" id="btnPendTodo">Completar todo lo pendiente según turno</button></div>'
+      : `<p class="docs-ayuda">No hay marcas pendientes en ${esc(periodoTxt(d.mes).toLowerCase())} 👌</p>`;
+    $('corrPersonas').innerHTML = d.personas.map(p => `<button type="button" data-per="${esc(p.id)}" class="${p.id === CO.persona ? 'on' : ''}">${esc(p.nombre.split(' ')[0])}</button>`).join('');
+    $('corrPend').querySelectorAll('[data-pid]').forEach(b => b.addEventListener('click', () => {
+      CO.persona = b.dataset.pid; irA(b.dataset.pf); $('corrPersonas').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    $('corrPersonas').querySelectorAll('[data-per]').forEach(b => b.addEventListener('click', () => { CO.persona = b.dataset.per; CO.form = null; pintarCorr(); }));
+    if ($('btnPendTodo')) $('btnPendTodo').addEventListener('click', () => {
+      const p = d.pendientes, fechas = p.map(x => x[2]).sort();
+      abrirMasivo({ ids: [...new Set(p.map(x => x[0]))], desde: fechas[0], hasta: fechas[fechas.length - 1], modo: 'COMPLETAR' }, true);
+    });
+    pintarDia();
+  }
+
+  /* ── Corrección masiva: varias personas y días (celular perdido, falla de internet, vacaciones…) ── */
+  const MV = { abierto: false, ids: [], desde: '', hasta: '', modo: 'COMPLETAR', plan: null, motivo: '' };
+  const MOTIVOS_MASIVO = { COMPLETAR: ['Perdió el celular', 'Falla de internet', 'Falla de la app', 'Celular sin batería'],
+    NO_TRABAJO: ['Vacaciones', 'Licencia médica', 'Permiso', 'Feriado', 'Local cerrado'] };
+  const lunes = f => { const d = new Date(f + 'T12:00:00Z'); return sumarDia(f, -((d.getUTCDay() + 6) % 7)); };
+  const RANGOS = {
+    semana: () => [lunes(hoyChile()), hoyChile()],
+    pasada: () => { const l = sumarDia(lunes(hoyChile()), -7); return [l, sumarDia(l, 6)]; },
+    mes: () => [hoyChile().slice(0, 8) + '01', hoyChile()],
+  };
+  $('btnMasivo').addEventListener('click', () => (MV.abierto ? cerrarMasivo() : abrirMasivo({ ids: CO.persona ? [CO.persona] : [] })));
+  function abrirMasivo(inicial, revisarYa) {
+    const [d1, d2] = RANGOS.semana();
+    Object.assign(MV, { abierto: true, ids: [], desde: d1, hasta: d2, modo: 'COMPLETAR', plan: null, motivo: '' }, inicial || {});
+    CO.form = null;
+    $('btnMasivo').textContent = 'Volver a corregir día por día';
+    ['corrPend', 'corrPersonas', 'corrDia'].forEach(id => $(id).classList.add('hidden'));
+    document.querySelector('#v-corr .corr-fecha').classList.add('hidden');
+    $('corrMasivo').classList.remove('hidden');
+    pintarMasivo();
+    $('corrMasivo').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (revisarYa) revisarMasivo();
+  }
+  function cerrarMasivo() {
+    MV.abierto = false;
+    $('btnMasivo').textContent = 'Corregir varios días a la vez';
+    ['corrPend', 'corrPersonas', 'corrDia'].forEach(id => $(id).classList.remove('hidden'));
+    document.querySelector('#v-corr .corr-fecha').classList.remove('hidden');
+    $('corrMasivo').classList.add('hidden');
+    pintarCorr();
+  }
+  function pintarMasivo() {
+    const d = CO.datos, hoy = hoyChile();
+    if (!d) return;
+    const ayuda = MV.modo === 'COMPLETAR'
+      ? 'Agrega solo las entradas y salidas que faltan, a la hora del turno de cada día. No cambia las marcas que ya existen ni genera horas extra.'
+      : 'Marca como no trabajados los días con turno que no tienen marcas (vacaciones, licencia, feriado…).';
+    const p = MV.plan;
+    $('corrMasivo').innerHTML = `<div class="form-corr" style="margin-top:0">
+      <h3>Corregir varios días a la vez</h3>
+      <div class="field"><label>Personas</label><div class="chips" id="mvPersonas">${d.personas.map(x => `<button type="button" data-mvp="${esc(x.id)}" class="${MV.ids.includes(x.id) ? 'on' : ''}">${esc(x.nombre.split(' ')[0])}</button>`).join('')}</div></div>
+      <div class="field"><label>Período</label><div class="chips" id="mvRangos"><button type="button" data-r="semana">Esta semana</button><button type="button" data-r="pasada">Semana pasada</button><button type="button" data-r="mes">Este mes</button></div>
+        <div class="row2" style="margin-top:8px"><input type="date" id="mvDesde" aria-label="Desde" value="${MV.desde}" max="${hoy}"><input type="date" id="mvHasta" aria-label="Hasta" value="${MV.hasta}" max="${hoy}"></div></div>
+      <div class="field"><label>Qué hacer</label><div class="segtab" id="mvModo" style="margin-bottom:6px"><button type="button" data-m="COMPLETAR" class="${MV.modo === 'COMPLETAR' ? 'on' : ''}">Completar con el turno</button><button type="button" data-m="NO_TRABAJO" class="${MV.modo === 'NO_TRABAJO' ? 'on' : ''}">No trabajó</button></div>
+        <p class="mes-nota" style="margin-top:0">${ayuda}</p></div>
+      ${p ? `<div class="plan">${p.cambios
+          ? `<b>${MV.modo === 'COMPLETAR' ? `Se agregarán ${p.cambios} marca(s) en ${p.dias} día(s)` : `Se marcarán ${p.cambios} día(s) como no trabajados`}</b>
+             <ul>${p.detalle.map(x => `<li>${esc(x[0].split(' ')[0])} · ${esc(fDia(x[1]))}${x[2] ? ` · ${x[2] === 'ENTRADA' ? 'entrada' : 'salida'} ${esc(x[3])}` : ''}</li>`).join('')}</ul>`
+          : '<b>No hay nada que corregir en ese período</b><br>Todas las marcas de esos días ya están, o no hay turnos.'}</div>` : ''}
+      ${p && p.cambios ? `<div class="field"><label for="mvMotivo">Motivo</label><div class="chips" id="mvMotivos">${MOTIVOS_MASIVO[MV.modo].map(m => `<button type="button" data-mot="${esc(m)}" class="${MV.motivo === m ? 'on' : ''}">${esc(m)}</button>`).join('')}</div>
+        <input id="mvMotivo" style="margin-top:8px" maxlength="300" placeholder="Toca un motivo o escríbelo" autocomplete="off" value="${esc(MV.motivo)}"></div>
+        <button type="button" class="primary green" id="mvGuardar">Confirmar y guardar</button>`
+        : '<button type="button" class="primary dark" id="mvRevisar">Revisar cambios</button>'}
+      <button type="button" class="secondary" id="mvCerrar">Cancelar</button></div>`;
+    const cambio = fn => () => { fn(); MV.plan = null; pintarMasivo(); };
+    document.querySelectorAll('#mvPersonas [data-mvp]').forEach(b => b.addEventListener('click', cambio(() => {
+      const id = b.dataset.mvp; MV.ids = MV.ids.includes(id) ? MV.ids.filter(x => x !== id) : MV.ids.concat(id);
+    })));
+    document.querySelectorAll('#mvRangos [data-r]').forEach(b => b.addEventListener('click', cambio(() => { [MV.desde, MV.hasta] = RANGOS[b.dataset.r](); })));
+    $('mvDesde').addEventListener('change', cambio(() => { MV.desde = $('mvDesde').value; }));
+    $('mvHasta').addEventListener('change', cambio(() => { MV.hasta = $('mvHasta').value; }));
+    document.querySelectorAll('#mvModo [data-m]').forEach(b => b.addEventListener('click', cambio(() => { MV.modo = b.dataset.m; MV.motivo = ''; })));
+    document.querySelectorAll('#mvMotivos [data-mot]').forEach(b => b.addEventListener('click', () => {
+      MV.motivo = b.dataset.mot; $('mvMotivo').value = MV.motivo; $('mvMotivo').classList.remove('invalid');
+      document.querySelectorAll('#mvMotivos [data-mot]').forEach(x => x.classList.toggle('on', x === b));
+    }));
+    if ($('mvMotivo')) $('mvMotivo').addEventListener('input', e => { MV.motivo = e.target.value; });
+    if ($('mvRevisar')) $('mvRevisar').addEventListener('click', revisarMasivo);
+    if ($('mvGuardar')) $('mvGuardar').addEventListener('click', guardarMasivo);
+    $('mvCerrar').addEventListener('click', cerrarMasivo);
+  }
+  const datosMasivo = extra => Object.assign({ ids: MV.ids, desde: MV.desde, hasta: MV.hasta, modo: MV.modo, mes: CO.datos && CO.datos.mes }, extra);
+  const falloMasivo = e => { if (!sesionError(e)) modal('err', 'No se pudo procesar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); };
+  function revisarMasivo() {
+    if (!MV.ids.length) return modal('err', 'Elige a alguien', 'Toca el nombre de al menos una persona.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    api('corregirMasivo', S.token, datosMasivo({ soloVer: true })).then(r => {
+      if (!r.ok) return modal('err', 'Revisa los datos', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+      MV.plan = r; pintarMasivo();
+    }).catch(falloMasivo);
+  }
+  function guardarMasivo() {
+    const motivo = ($('mvMotivo').value || '').trim();
+    if (motivo.length < 3) { $('mvMotivo').classList.add('invalid'); $('mvMotivo').focus(); return; }
+    api('corregirMasivo', S.token, datosMasivo({ motivo })).then(r => {
+      if (!r.ok) return modal('err', 'No se guardó', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+      CO.datos = r; S.estadoHora = 0; cerrarMasivo();
+      modal('ok', 'Listo', r.mensaje, 'Quedó registrado con el motivo.', [{ t: 'Seguir', cls: 'dark' }]);
+    }).catch(falloMasivo);
+  }
+  function pintarDia() {
+    const d = CO.datos, id = CO.persona, f = CO.fecha;
+    if (f.slice(0, 7) !== d.mes) { $('corrDia').innerHTML = '<div class="empty">Cargando…</div>'; return; }
+    const t = (d.turnos[id] || {})[f], marcas = (d.marcas[id] || {})[f] || [], aus = (d.ausencias[id] || {})[f];
+    let h = `<div class="turno-dia"><b>${esc(fDia(f))}</b> · ${t ? `Turno ${esc(t[2])}, ${t[0]} a ${t[1]}` : 'Sin turno este día'}</div>`;
+    if (aus !== undefined) {
+      h += `<div class="alert warn" style="margin:10px 0 0">Marcado como <b>no trabajó</b>${aus ? ': ' + esc(aus) : ''}</div>
+        <button type="button" class="secondary" data-accion-dia="QUITAR_NO_TRABAJO">Deshacer "no trabajó"</button>`;
+    } else {
+      h += marcas.length ? marcas.map((m, i) => `<div class="marca"><span class="tipo" style="color:${m[0] === 'ENTRADA' ? 'var(--green)' : 'var(--red)'}">${m[0] === 'ENTRADA' ? 'Entrada' : 'Salida'}</span>
+          <span class="hora">${esc(m[1])}</span><span class="info">${esc(m[3] || '')}${m[4] ? `<br>${m[4] === 'AGREGADA' ? 'Agregada' : 'Corregida'} por administración` : ''}</span>
+          <button type="button" data-edit="${i}">Cambiar</button></div>`).join('')
+        : '<div class="empty" style="padding:14px 0 4px">Sin marcas este día</div>';
+      h += `<div class="acciones"><button type="button" class="secondary" data-nueva="ENTRADA">+ Entrada</button><button type="button" class="secondary" data-nueva="SALIDA">+ Salida</button>
+        ${marcas.length ? '' : '<button type="button" class="secondary full" data-accion-dia="NO_TRABAJO">No trabajó este día</button>'}</div>`;
+    }
+    if (CO.form) h += formCorr(t);
+    $('corrDia').innerHTML = h;
+    const c = $('corrDia');
+    c.querySelectorAll('[data-nueva]').forEach(b => b.addEventListener('click', () => {
+      const tipo = b.dataset.nueva;
+      CO.form = { accion: 'AGREGAR', tipo, hora: t ? (tipo === 'ENTRADA' ? t[0] : t[1]) : '', local: t ? t[2] : (S.locales[0] || '') };
+      pintarDia(); enfocarForm();
+    }));
+    c.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const m = marcas[+b.dataset.edit];
+      CO.form = { accion: 'MODIFICAR', tipo: m[0], ts: m[2], hora: m[1], local: m[3] || (t ? t[2] : '') };
+      pintarDia(); enfocarForm();
+    }));
+    c.querySelectorAll('[data-accion-dia]').forEach(b => b.addEventListener('click', () => { CO.form = { accion: b.dataset.accionDia }; pintarDia(); enfocarForm(); }));
+    if (CO.form) activarForm();
+  }
+  function formCorr() {
+    const f = CO.form, conHora = f.accion === 'AGREGAR' || f.accion === 'MODIFICAR';
+    const titulo = { AGREGAR: `Agregar ${f.tipo === 'ENTRADA' ? 'entrada' : 'salida'}`, MODIFICAR: `Cambiar la ${f.tipo === 'ENTRADA' ? 'entrada' : 'salida'}`,
+      ANULAR: `Anular la ${f.tipo === 'ENTRADA' ? 'entrada' : 'salida'} de las ${f.hora}`, NO_TRABAJO: 'Marcar como no trabajado', QUITAR_NO_TRABAJO: 'Deshacer "no trabajó"' }[f.accion];
+    const motivos = MOTIVOS[f.accion === 'NO_TRABAJO' ? 'dia' : 'marca'];
+    return `<div class="form-corr" id="formCorr"><h3>${esc(titulo)}</h3>
+      ${conHora ? `<div class="row2"><div class="field"><label for="fcHora">Hora</label><input type="time" id="fcHora" value="${esc(f.hora || '')}"></div>
+        <div class="field"><label for="fcLocal">Local</label><select id="fcLocal">${S.locales.map(l => `<option${l === f.local ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>` : ''}
+      <div class="field"><label for="fcMotivo">Motivo</label>${f.accion === 'QUITAR_NO_TRABAJO' ? '' : `<div class="chips" id="fcMotivos">${motivos.map(m => `<button type="button" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>`}
+        <input id="fcMotivo" style="margin-top:8px" maxlength="300" placeholder="Toca un motivo o escríbelo" autocomplete="off"></div>
+      <button type="button" class="primary ${f.accion === 'ANULAR' ? '' : 'green'}" id="fcGuardar">${f.accion === 'ANULAR' ? 'Anular marca' : 'Guardar'}</button>
+      ${f.accion === 'MODIFICAR' ? '<button type="button" class="secondary" id="fcAnular" style="color:var(--red)">Anular esta marca</button>' : ''}
+      <button type="button" class="secondary" id="fcCancelar">Cancelar</button></div>`;
+  }
+  const enfocarForm = () => { const f = $('formCorr'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  function activarForm() {
+    const f = CO.form;
+    document.querySelectorAll('#fcMotivos [data-mot]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#fcMotivos [data-mot]').forEach(x => x.classList.toggle('on', x === b));
+      $('fcMotivo').value = b.dataset.mot; $('fcMotivo').classList.remove('invalid');
+    }));
+    $('fcCancelar').addEventListener('click', () => { CO.form = null; pintarDia(); });
+    if ($('fcAnular')) $('fcAnular').addEventListener('click', () => { CO.form = Object.assign({}, f, { accion: 'ANULAR' }); pintarDia(); enfocarForm(); });
+    $('fcGuardar').addEventListener('click', () => {
+      const motivo = $('fcMotivo').value.trim();
+      if (motivo.length < 3) { $('fcMotivo').classList.add('invalid'); $('fcMotivo').focus(); return; }
+      const datos = { accion: f.accion, id: CO.persona, fecha: CO.fecha, tipo: f.tipo, ts: f.ts, motivo };
+      if ($('fcHora')) {
+        datos.hora = $('fcHora').value; datos.local = $('fcLocal').value;
+        if (!/^\d{2}:\d{2}$/.test(datos.hora)) { $('fcHora').classList.add('invalid'); $('fcHora').focus(); return; }
+      }
+      api('corregirMarca', S.token, datos).then(r => {
+        if (!r.ok) return modal('err', 'No se guardó', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+        CO.datos = r; CO.form = null; S.estadoHora = 0; pintarCorr();
+        modal('ok', 'Listo', r.mensaje, 'Quedó registrado con el motivo.', [{ t: 'Seguir', cls: 'dark' }]);
+      }).catch(e => { if (!sesionError(e)) modal('err', 'No se guardó', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+    });
+  }
+
   /* ── Documentos ── */
   function abrirDocs() {
     ver('v-docs');
@@ -947,8 +1248,10 @@
         { id: 'CON-T002-x', tipo: 'Contrato', titulo: 'Contrato de trabajo Leidy Hernandez', periodo: '2025-12', estado: 'RECIBIDO', acuse: '2026-11-02' },
         { id: 'ANX-T002-y', tipo: 'Anexo de contrato', titulo: 'Anexo cambio de jornada', periodo: '2026-03', estado: 'PENDIENTE' }],
       hoy: { fecha: hoyChile(), presupuesto: { 'Violeta Parra': 450000 }, cerrados: [] },
-      efectivo: { maneja: true, admin: true, alertaDias: 2, resumen: { porRetirar: 370000, porRetirarLocal: { 'Violeta Parra': 250000, 'Gabriela Mistral': 120000 },
-        nRetirar: 2, porDepositar: 310000, nDepositar: 1, antiguoRetirar: 3, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 2 } } };
+      mes: { mes: hoyChile().slice(0, 7), minutos: 205, dias: [['2026-11-03', 35], ['2026-11-05', 170]], pendientes: [['2026-11-04', 'falta la salida']], corregidas: 1, tolerancia: 15, turnoHoy: ['09:00', '19:30', 'Violeta Parra'] },
+      corrige: 3,
+      efectivo: a[0] === 'T003' ? { maneja: true, admin: false, alertaDias: 2, resumen: { porRetirar: 370000, porRetirarLocal: { 'Violeta Parra': 250000, 'Gabriela Mistral': 120000 },
+        nRetirar: 2, porDepositar: 310000, nDepositar: 1, antiguoRetirar: 3, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 2 } } : null }; // vista previa: solo Leandro maneja efectivo
     return {
       obtenerInicio: { trabajadores: [{ id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T006', nombre: 'Damaris Alvarado' }], locales: ['Violeta Parra', 'Gabriela Mistral'] },
       ingresar: a[1] === '1234' ? { ok: true, token: 'demo', usuario: { id: a[0], nombre: 'Leidy Hernandez', local: 'Violeta Parra' }, estado: est } : { ok: false, error: 'PIN incorrecto. (Demo: 1234)' },
@@ -964,6 +1267,16 @@
       registrarRetiro: { ok: true, mensaje: 'Retiraste $370.000. Queda pendiente de depósito.', aviso: '' },
       registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo retirado ✅' },
       misDocumentos: { ok: true, documentos: est.docs },
+      obtenerCorreccion: (() => { const h = hoyChile(), m = h.slice(0, 7), ayer = sumarDia(h, -1);
+        return { ok: true, mes: m, hoy: h, locales: ['Violeta Parra', 'Gabriela Mistral'],
+          personas: [{ id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T003', nombre: 'Leandro Nenen' }, { id: 'T005', nombre: 'Leonel Gutierrez' }, { id: 'T006', nombre: 'Damaris Alvarado' }],
+          marcas: { T002: { [ayer]: [['ENTRADA', '08:58', 1, 'Violeta Parra', ''], ['SALIDA', '19:52', 2, 'Violeta Parra', 'CORREGIDA']], [h]: [['ENTRADA', '09:03', 3, 'Violeta Parra', '']] },
+            T003: { [ayer]: [['ENTRADA', '13:25', 4, 'Violeta Parra', '']] } },
+          turnos: { T002: { [ayer]: ['09:00', '19:30', 'Violeta Parra'], [h]: ['09:00', '19:30', 'Violeta Parra'] }, T003: { [ayer]: ['13:30', '19:30', 'Violeta Parra'] } },
+          ausencias: {}, pendientes: [['T003', 'Leandro Nenen', ayer, 'falta la salida'], ['T006', 'Damaris Alvarado', ayer, 'sin marcas']] }; })(),
+      corregirMarca: { ok: false, error: 'En la vista previa no se guardan cambios.' },
+      corregirMasivo: a[1] && a[1].soloVer ? { ok: true, soloVer: true, cambios: 4, dias: 2, detalle: [['Leandro Nenen', sumarDia(hoyChile(), -2), 'ENTRADA', '13:30'], ['Leandro Nenen', sumarDia(hoyChile(), -2), 'SALIDA', '19:30'],
+        ['Leandro Nenen', sumarDia(hoyChile(), -1), 'ENTRADA', '09:30'], ['Leandro Nenen', sumarDia(hoyChile(), -1), 'SALIDA', '19:30']] } : { ok: false, error: 'En la vista previa no se guardan cambios.' },
       abrirDocumento: { ok: false, error: 'En la vista previa no hay archivos.' },
       confirmarDocumento: { ok: true, mensaje: 'Confirmaste la recepción.' },
     }[fn];
