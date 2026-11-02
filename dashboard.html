@@ -74,6 +74,10 @@
   main { padding: 18px 20px 40px; max-width: 1400px; margin: 0 auto; }
   .grid { display: grid; gap: 14px; }
   .kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 14px; }
+  @media (min-width: 1000px) {
+    .kpis.fila { grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 10px; }
+    .kpis.fila .kpi { padding: 14px; } .kpis.fila .kpi .val { font-size: 22px; } .kpis.fila .kpi .et { font-size: 11px; }
+  }
   .dos { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); margin-bottom: 14px; }
   .card { background: var(--paper); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.05); min-width: 0; }
   .card h3 { margin: 0 0 2px; font-size: 14px; color: var(--black); }
@@ -217,7 +221,7 @@
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="remu">Remuneraciones</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="clientes">Clientes</button><button data-t="remu">Remuneraciones</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -244,6 +248,12 @@ function sumarMeses(s, n) {
 const min = (a, b) => (a < b ? a : b), max = (a, b) => (a > b ? a : b);
 const fCorta = s => `${+s.slice(8, 10)} ${MESES[+s.slice(5, 7) - 1]}`;
 const fMes = m => `${MESES[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}`;
+/* Semana ISO (lunes a domingo; la semana 1 es la que contiene el primer jueves del año) → [año, semana] */
+function semanaISO(s) {
+  const d = new Date(msF(s)); d.setUTCDate(d.getUTCDate() - dsem(s) + 3);
+  const a = d.getUTCFullYear(), ene4 = new Date(Date.UTC(a, 0, 4));
+  return [String(a), 1 + Math.round(((d - ene4) / 864e5 - 3 + (ene4.getUTCDay() + 6) % 7) / 7)];
+}
 
 /* ═══════════════ Formatos ═══════════════ */
 const clp = n => '$' + Math.round(n || 0).toLocaleString('es-CL');
@@ -484,7 +494,7 @@ function pintar() {
   const r = rango(E.per, E.fecha);
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, remu: tabRemu })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, clientes: tabClientes, remu: tabRemu })[E.tab](r);
   etiquetarTablas();
 }
 /* Copia el nombre de cada columna en sus celdas: en el celular las tablas se muestran como tarjetas */
@@ -540,7 +550,32 @@ function grafico(id, cfg) {
   };
   if (cfg.horizontal) { base.indexAxis = 'y'; [base.scales.x, base.scales.y] = [base.scales.y, base.scales.x]; base.scales.y.grid = { display: false }; }
   if (cfg.apilado) { base.scales.x.stacked = true; base.scales.y.stacked = true; }
-  E.charts.push(new Chart($(id), { type: cfg.tipo || 'bar', data: cfg.data, options: base }));
+  if (cfg.etiquetas) base.layout = { padding: { top: 16, right: 28 } }; // espacio para los valores escritos sobre el gráfico
+  const plugins = [];
+  if (cfg.pctApilado) plugins.push({ id: 'pctApilado', afterDatasetsDraw(ch) { // peso de cada local dentro de la barra
+    const barras = ch.data.datasets.map((d, i) => [d, i]).filter(([d, i]) => (d.type || ch.config.type) === 'bar' && !ch.getDatasetMeta(i).hidden);
+    if (barras.length < 2) return;
+    const ctx = ch.ctx; ctx.save();
+    ctx.font = '700 11px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ch.data.labels.forEach((_, j) => {
+      const tot = barras.reduce((s, [d]) => s + (+d.data[j] || 0), 0); if (!tot) return;
+      barras.forEach(([d, i]) => {
+        const el = ch.getDatasetMeta(i).data[j]; if (!el || !d.data[j]) return;
+        if (Math.abs(el.base - el.y) < 16 || el.width < 20) return; // no cabe
+        ctx.font = `700 ${el.width < 32 ? 10 : 11}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+        ctx.fillText(pct(d.data[j] / tot, 0), el.x, (el.y + el.base) / 2);
+      });
+    });
+    ctx.restore();
+  } });
+  if (cfg.etiquetas) plugins.push({ id: 'etiquetas', afterDatasetsDraw(ch) { // valores sobre algunos puntos o barras
+    const { ds = 0, indices, fmt = mm } = cfg.etiquetas, meta = ch.getDatasetMeta(ds), datos = ch.data.datasets[ds].data;
+    const ctx = ch.ctx; ctx.save();
+    ctx.font = '600 11px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; ctx.fillStyle = '#3A3C43'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    (indices || datos.map((_, i) => i)).forEach(i => { const el = meta.data[i]; if (el && datos[i] != null) ctx.fillText(fmt(datos[i]), el.x, el.y - 5); });
+    ctx.restore();
+  } });
+  E.charts.push(new Chart($(id), { type: cfg.tipo || 'bar', data: cfg.data, options: base, plugins }));
 }
 const leyenda = items => `<div class="leyenda">${items.map(([t, c, linea]) => `<span class="${linea ? 'linea' : ''}" style="--c:${c}">${esc(t)}</span>`).join('')}</div>`;
 
@@ -564,7 +599,7 @@ function tabResumen(r) {
   const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[E.per];
 
   const mg = margenRango(r), conv = conversion(r.ini, corte);
-  let html = '<div class="grid kpis">';
+  let html = '<div class="grid kpis fila" style="--n:7">';
   html += kpi(`Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
   html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl, 0) : '—',
     a.p ? `Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
@@ -577,11 +612,13 @@ function tabResumen(r) {
     conv.visitas ? `${ent(conv.compras)} compras de ${ent(conv.visitas)} visitas` : 'Sin cierres con visitas');
   html += '</div>';
 
-  // Acumulados del mes y del año
-  const ref = min(R.ultimaVenta || E.fecha, E.fecha);
+  // Acumulados de la semana, el mes y el año, contra el mismo período del año anterior (la semana: misma semana, 364 días antes)
+  const ref = min(R.ultimaVenta || E.fecha, E.fecha), iniSem = sumar(ref, -dsem(ref));
+  const wtd = total(iniSem, ref), wtdAA = total(sumar(iniSem, -364), sumar(ref, -364));
   const mtd = total(ref.slice(0, 7) + '-01', ref), mtdAA = total(sumarMeses(ref.slice(0, 7) + '-01', -12), sumarMeses(ref, -12));
   const ytd = total(ref.slice(0, 4) + '-01-01', ref), ytdAA = total(sumarMeses(ref.slice(0, 4) + '-01-01', -12), sumarMeses(ref, -12));
-  html += '<div class="grid kpis">';
+  html += '<div class="grid kpis fila" style="--n:3">';
+  html += kpi(`Acumulado semana al ${fCorta(ref)}`, mm(wtd.v), (wtd.p ? `<span class="chip ${wtd.v >= wtd.p ? 'up' : 'down'}">${pct(wtd.v / wtd.p, 0)} meta</span> ` : '') + delta(wtd.v, wtdAA.v, 'vs misma semana año ant.'), wtd.p ? barraCumpl(wtd.v / wtd.p) : '');
   html += kpi(`Acumulado mes al ${fCorta(ref)}`, mm(mtd.v), (mtd.p ? `<span class="chip ${mtd.v >= mtd.p ? 'up' : 'down'}">${pct(mtd.v / mtd.p, 0)} meta</span> ` : '') + delta(mtd.v, mtdAA.v, 'vs año ant.'), mtd.p ? barraCumpl(mtd.v / mtd.p) : '');
   html += kpi(`Acumulado año al ${fCorta(ref)}`, mm(ytd.v), (ytd.p ? `<span class="chip ${ytd.v >= ytd.p ? 'up' : 'down'}">${pct(ytd.v / ytd.p, 0)} meta</span> ` : '') + delta(ytd.v, ytdAA.v, 'vs año ant.'), ytd.p ? barraCumpl(ytd.v / ytd.p) : '');
   html += '</div>';
@@ -600,7 +637,7 @@ function tabResumen(r) {
   // Evolución
   const t = tramos(r);
   grafico('gEvo', {
-    apilado: true,
+    apilado: true, pctApilado: true,
     data: {
       labels: t.map(x => x.et),
       datasets: localesVisibles().map(l => ({ label: l, data: t.map(x => total(x.ini, x.fin, l).v), backgroundColor: colorLocal(l), borderRadius: 3, stack: 'v', order: 2 }))
@@ -684,8 +721,27 @@ function tabVentas(r) {
   const pagos = agrupar(R.pagos, r, 2, 3);
   const vend = agruparVendedores(r);
   const totPagos = pagos.reduce((s, p) => s + p[1], 0);
+  // Promedio de venta diaria por mes y venta por semana del año: toda la historia disponible (se va acumulando día a día)
+  const prom = {}, sem = {};
+  Object.keys(R.diario).forEach(f => {
+    if (f > fin) return;
+    const v = total(f, f).v; if (!v) return;
+    const p = prom[f.slice(0, 7)] || (prom[f.slice(0, 7)] = { v: 0, d: 0 }); p.v += v; p.d++;
+    const [a, w] = semanaISO(f); (sem[a] = sem[a] || Array(53).fill(null))[w - 1] = (sem[a][w - 1] || 0) + v;
+  });
+  const mProm = Object.keys(prom).sort(), vProm = mProm.map(m => prom[m].v / prom[m].d);
+  const iMax = vProm.indexOf(Math.max(...vProm)), iMin = vProm.indexOf(Math.min(...vProm));
+  const anios = Object.keys(sem).sort().slice(-4);
+  const colorAnio = (a, i) => (i === anios.length - 1 ? '#2E8B4E' : ['#C9CCD3', '#8FA9C8', '#D08A2E'][i % 3]);
+  const semActual = semanaISO(fin);
 
   $('contenido').innerHTML = `
+  <div class="grid dos">
+    <div class="card"><h3>Promedio de venta diaria por mes</h3><div class="sub">Venta del mes ÷ días con venta · toda la historia disponible · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)}</div>
+      <div class="lienzo"><canvas id="gProm"></canvas></div></div>
+    <div class="card"><h3>Comparativo de ventas por semana</h3><div class="sub">Semanas del año (lunes a domingo) · cada línea es un año${anios.length < 2 ? ' · la comparación aparece cuando haya más de un año de datos' : ''} · la semana ${semActual[1]} va en curso</div>
+      ${leyenda(anios.map((a, i) => [a, colorAnio(a, i), 1]))}<div class="lienzo"><canvas id="gSem"></canvas></div></div>
+  </div>
   <div class="grid dos">
     <div class="card"><h3>Tendencia últimos 12 meses</h3><div class="sub">Venta mensual vs mismo mes del año anterior y presupuesto</div>
       ${leyenda([['Venta', COLORES[0]], ['Año anterior', '#C9CCD3', 1], ['Presupuesto', 'var(--meta)', 1]])}<div class="lienzo"><canvas id="gTend"></canvas></div></div>
@@ -714,6 +770,24 @@ function tabVentas(r) {
   });
   grafico('gDow', {
     data: { labels: DIAS, datasets: [{ label: 'Promedio', data: porDia.map(d => (d.c ? d.v / d.c : 0)), backgroundColor: COLORES[0], borderRadius: 3 }] },
+  });
+  grafico('gProm', {
+    tipo: 'line', etiquetas: { indices: [...new Set([iMax, iMin, vProm.length - 1])].filter(i => i >= 0), fmt: clp },
+    data: {
+      labels: mProm.map(m => `${MESES[+m.slice(5) - 1]} ${m.slice(2, 4)}`),
+      datasets: [{ label: 'Promedio diario', data: vProm, borderColor: '#4472C4', backgroundColor: '#4472C4', borderWidth: 2.5, pointRadius: 3, tension: .25 }],
+    },
+  });
+  grafico('gSem', {
+    tipo: 'line',
+    data: {
+      labels: Array.from({ length: 53 }, (_, i) => String(i + 1)),
+      datasets: anios.map((a, i) => {
+        const ultimo = i === anios.length - 1;
+        return { label: a, data: sem[a], borderColor: colorAnio(a, i), backgroundColor: colorAnio(a, i), borderWidth: ultimo ? 2.5 : 1.8,
+          borderDash: ultimo ? [] : [6, 4], pointRadius: ultimo ? 3 : 2, pointStyle: ultimo ? 'rect' : 'circle', tension: .15, spanGaps: false };
+      }),
+    },
   });
 }
 
@@ -918,6 +992,67 @@ function tabEfectivo() {
   });
 }
 
+/* ═══════════════ Clientes: entradas declaradas en el cierre de día, cruzadas con las boletas de Bicom ═══════════════ */
+function clientes(ini, fin, local = E.local) {
+  const cie = cierresRango(ini, fin, local);
+  let boletas = 0, conBicom = 0;
+  cie.forEach(c => { const d = (E.R.diario[c.f] || {})[c.l]; if (d) { boletas += d.n; conBicom++; } });
+  return { entradas: cie.reduce((s, c) => s + c.visitas, 0), compras: cie.reduce((s, c) => s + c.visitas - c.sinCompra, 0),
+    dias: new Set(cie.map(c => c.f)).size, cierres: cie.length, boletas, conBicom };
+}
+function tabClientes(r) {
+  const R = E.R;
+  if (!R.primerCierre) {
+    $('contenido').innerHTML = '<div class="card"><h3>Clientes</h3><p class="vacio">Aún no hay cierres de día con visitas. Este indicador se llena con lo que anota cada local en el cierre.</p></div>';
+    return;
+  }
+  const corte = min(r.fin, R.hoy), a = clientes(r.ini, corte);
+  const ant = comparable(r, corte, 'anterior'), aa = comparable(r, corte, 'anio');
+  const cAnt = clientes(ant.ini, ant.fin), cAA = clientes(aa.ini, aa.fin);
+  const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[E.per];
+
+  let html = '<div class="grid kpis fila" style="--n:4">';
+  html += kpi('Entradas de clientes', ent(a.entradas), delta(a.entradas, cAnt.entradas, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.entradas, cAA.entradas, 'vs año anterior') : ''));
+  html += kpi('Promedio diario de entradas', a.dias ? ent(a.entradas / a.dias) : '—', `${a.cierres} cierre(s) en ${a.dias} día(s)`);
+  html += kpi('Conversión', a.entradas ? pct(a.compras / a.entradas, 0) : '—', `${ent(a.compras)} compras declaradas de ${ent(a.entradas)} entradas`);
+  html += kpi('Compras declaradas vs boletas Bicom', a.boletas ? pct(a.compras / a.boletas, 0) : '—',
+    a.boletas ? `${ent(a.compras)} declaradas · ${ent(a.boletas)} boletas en Bicom los mismos días` : 'Sin boletas de Bicom para esos días');
+  html += '</div>';
+
+  // Por mes, desde el primer cierre (máximo 24 meses): crece a medida que se acumulan los cierres
+  const ms = []; for (let m = R.primerCierre.slice(0, 7); m <= corte.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.push(m);
+  const filasMes = ms.slice(-24).map(m => Object.assign({ m }, clientes(m + '-01', min(finMes(m + '-01'), corte))));
+  const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
+  html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
+    <div class="sub">Por mes · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día; boletas según Bicom en los días con cierre</div>
+    ${leyenda([['Entradas de clientes', '#4472C4'], ['Compras declaradas', '#ED7D31'], ['Boletas Bicom', '#8A8F98', 1]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
+  html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
+    <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
+    <th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th></tr></thead><tbody>
+    ${filasMes.slice().reverse().map((x, i, l) => {
+      const pm = l[i + 1], pa = previo(x.m);
+      const vs = (v, b) => (b ? `<span class="chip ${v >= b ? 'up' : 'down'}">${v >= b ? '▲' : '▼'} ${pct(Math.abs(v / b - 1), 0)}</span>` : '—');
+      return `<tr><td>${esc(fMes(x.m))}${x.m === corte.slice(0, 7) ? ' <small style="color:var(--mute)">(en curso)</small>' : ''}</td><td class="r num"><b>${ent(x.entradas)}</b></td>
+        <td class="r">${pm ? vs(x.entradas / (x.dias || 1), pm.entradas / (pm.dias || 1)) : '—'}</td><td class="r">${vs(x.entradas / (x.dias || 1), pa.entradas / (pa.dias || 1))}</td>
+        <td class="r num">${x.dias ? ent(x.entradas / x.dias) : '—'}</td><td class="r num">${ent(x.compras)}</td><td class="r num">${x.conBicom ? ent(x.boletas) : '—'}</td>
+        <td class="r num">${x.entradas ? pct(x.compras / x.entradas, 0) : '—'}</td></tr>`;
+    }).join('')}</tbody></table></div>
+    <p class="sub" style="margin-top:10px">"vs mes ant." y "vs año ant." comparan el promedio diario de entradas, para que un mes en curso o con días sin cierre no se vea como caída.</p></div>`;
+  $('contenido').innerHTML = html;
+
+  grafico('gCli', {
+    fmt: ent, fmtEje: ent, etiquetas: { ds: 0, fmt: ent },
+    data: {
+      labels: filasMes.map(x => `${MESES[+x.m.slice(5) - 1]} ${x.m.slice(2, 4)}`),
+      datasets: [
+        { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas), backgroundColor: '#4472C4', borderRadius: 3, order: 2 },
+        { label: 'Compras declaradas', data: filasMes.map(x => x.compras), backgroundColor: '#ED7D31', borderRadius: 3, order: 2 },
+        { type: 'line', label: 'Boletas Bicom', data: filasMes.map(x => (x.conBicom ? x.boletas : null)), borderColor: '#8A8F98', backgroundColor: '#8A8F98', borderWidth: 2, pointRadius: 3, order: 1 },
+      ],
+    },
+  });
+}
+
 /* ═══════════════ Remuneraciones (siempre reales: salen de las liquidaciones) ═══════════════
    fila: [periodo, id, nombre, imponible, haberes, asigFamiliar, base, gratificacion, horasExtra, bonos, otrosImp,
           movilizacion, otrosNoImp, afp, salud, cesantia, otrosDesc, descuentos, liquido] */
@@ -983,12 +1118,13 @@ function tabRemu() {
 
   // Confirmación de liquidaciones
   const estadoConf = e => (e === 'VISTO' ? '<span class="chip warn">La abrió, falta confirmar</span>' : '<span class="chip down">No la ha abierto</span>');
-  html += `<div class="card"><h3>Confirmación de liquidaciones</h3><div class="sub">"Recibí conforme" en la app</div>
-    ${rem.porConfirmar.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th>Período</th><th>Estado</th></tr></thead><tbody>
-      ${rem.porConfirmar.sort((a, b) => (a[1] < b[1] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(fMes(x[1]))}</td><td>${estadoConf(x[2])}</td></tr>`).join('')}
-      </tbody></table></div>` : '<p class="vacio">Todas las liquidaciones están confirmadas 👌</p>'}
-    ${rem.confirmados.length ? `<div class="tabla" style="margin-top:12px"><table><thead><tr><th>Persona</th><th>Período</th><th>Confirmada</th></tr></thead><tbody>
-      ${rem.confirmados.sort((a, b) => (a[1] < b[1] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(fMes(x[1]))}</td><td><span class="chip up">${esc(fCorta(x[2]))}</span></td></tr>`).join('')}
+  const nombreDoc = x => (x[3] && x[3] !== 'Liquidación de sueldo' ? `${x[3]}: ${x[4] || fMes(x[1])}` : `Liquidación ${fMes(x[1])}`);
+  html += `<div class="card"><h3>Confirmación de documentos</h3><div class="sub">"Recibí conforme" en la app · liquidaciones, contratos y anexos</div>
+    ${rem.porConfirmar.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th>Documento</th><th>Estado</th></tr></thead><tbody>
+      ${rem.porConfirmar.sort((a, b) => (a[1] < b[1] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(nombreDoc(x))}</td><td>${estadoConf(x[2])}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="vacio">Todos los documentos están confirmados 👌</p>'}
+    ${rem.confirmados.length ? `<div class="tabla" style="margin-top:12px"><table><thead><tr><th>Persona</th><th>Documento</th><th>Confirmado</th></tr></thead><tbody>
+      ${rem.confirmados.sort((a, b) => (a[2] < b[2] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(nombreDoc(x))}</td><td><span class="chip up">${esc(fCorta(x[2]))}</span></td></tr>`).join('')}
       </tbody></table></div>` : ''}</div>`;
 
   $('contenido').innerHTML = html;
