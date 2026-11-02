@@ -149,6 +149,7 @@
   .mes-k.ok b { color: var(--green); }
   .mes-nota { font-size: 12px; color: var(--mute); margin: 10px 0 0; }
   .t-corr { background: var(--steel); }
+  .tile.ancho, .tile.t-dash { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; } /* franja ancha y compacta */
   /* Corregir marcas */
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px; padding: 8px 12px; font-weight: 600; font-size: 14px; color: var(--steel); }
@@ -607,6 +608,13 @@
     $('badgeCorr').textContent = e.corrige || 0; $('badgeCorr').classList.toggle('hidden', !(corr && e.corrige));
     if (e.urlDashboard) $('tileDash').href = enApi ? 'dashboard.html' : e.urlDashboard;
     $('tileDash').classList.toggle('hidden', !e.urlDashboard);
+    ajustarMenu();
+  }
+  /* Si quedan botones impares, el último ocupa todo el ancho (así no queda un espacio vacío en la grilla) */
+  function ajustarMenu() {
+    const vis = [...document.querySelectorAll('.menu .tile:not(.t-dash)')].filter(t => !t.classList.contains('hidden'));
+    vis.forEach(t => t.classList.remove('ancho'));
+    if (vis.length % 2) vis[vis.length - 1].classList.add('ancho');
   }
   function refrescarEstado() {
     if (!S.token || Date.now() - S.estadoHora < 20000) return; // lo recién recibido sigue vigente
