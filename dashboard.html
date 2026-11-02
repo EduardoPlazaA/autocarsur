@@ -217,7 +217,7 @@
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="remu">Remuneraciones</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -484,7 +484,7 @@ function pintar() {
   const r = rango(E.per, E.fecha);
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, remu: tabRemu })[E.tab](r);
   etiquetarTablas();
 }
 /* Copia el nombre de cada columna en sus celdas: en el celular las tablas se muestran como tarjetas */
@@ -918,6 +918,93 @@ function tabEfectivo() {
   });
 }
 
+/* ═══════════════ Remuneraciones (siempre reales: salen de las liquidaciones) ═══════════════
+   fila: [periodo, id, nombre, imponible, haberes, asigFamiliar, base, gratificacion, horasExtra, bonos, otrosImp,
+          movilizacion, otrosNoImp, afp, salud, cesantia, otrosDesc, descuentos, liquido] */
+function tabRemu() {
+  const rem = E.R.remuneraciones;
+  if (!rem || !rem.filas.length) {
+    $('contenido').innerHTML = '<div class="card"><h3>Remuneraciones</h3><p class="vacio">Aún no hay liquidaciones cargadas.</p></div>';
+    return;
+  }
+  const ap = rem.aportePct / 100;
+  // Costo empresa = haberes − asignación familiar (la financia el Estado) + aportes del empleador (estimados sobre el imponible)
+  const costo = f => f[4] - f[5] + f[3] * ap, aporte = f => f[3] * ap;
+  const sum = (fs, fn) => fs.reduce((s, f) => s + fn(f), 0);
+  const periodos = [...new Set(rem.filas.map(f => f[0]))].sort();
+  const doce = periodos.slice(-12), ult = doce[doce.length - 1], ant = periodos[periodos.length - 2];
+  const delMes = p => rem.filas.filter(f => f[0] === p);
+  const filas12 = rem.filas.filter(f => doce.includes(f[0]));
+  const cUlt = sum(delMes(ult), costo), cAnt = ant ? sum(delMes(ant), costo) : 0, total12 = sum(filas12, costo);
+  const variacion = (a, b) => (b ? `<span class="chip neu">${a >= b ? '▲' : '▼'} ${pct(Math.abs(a / b - 1))}</span> vs ${fMes(ant)}` : '');
+  const ventaNeta = E.R.demo ? 0 : doce.reduce((s, m) => s + totalMes(m, 'TODOS').nt, 0);
+
+  let html = '<div class="grid kpis">';
+  html += kpi(`Costo empresa · ${fMes(ult)}`, clp(cUlt), variacion(cUlt, cAnt));
+  html += kpi(`Líquido pagado · ${fMes(ult)}`, clp(sum(delMes(ult), f => f[18])), `${delMes(ult).length} persona(s) en la planilla`);
+  html += kpi(`Costo empresa · ${doce.length} meses`, clp(total12), `Promedio mensual ${clp(total12 / doce.length)}`);
+  html += ventaNeta ? kpi('Sobre la venta neta', pct(total12 / ventaNeta), `Remuneraciones / venta sin IVA, ${doce.length} meses`)
+    : kpi('Aportes del empleador', clp(sum(filas12, aporte)), `Estimados al ${String(rem.aportePct).replace('.', ',')}% del imponible`);
+  html += '</div>';
+
+  html += `<div class="card" style="margin-bottom:14px"><h3>Costo mensual de remuneraciones</h3>
+    <div class="sub">${esc(fMes(doce[0]))} – ${esc(fMes(ult))} · no depende del período ni del local elegidos arriba</div>
+    ${leyenda([['Sueldo líquido', COLORES[0]], ['Descuentos del trabajador (AFP, salud, cesantía)', COLORES[1]], ['Aportes del empleador (estimado)', COLORES[2]]])}
+    <div class="lienzo"><canvas id="gRemu"></canvas></div></div>`;
+
+  // Por persona
+  const personas = {};
+  filas12.forEach(f => {
+    const p = personas[f[1]] || (personas[f[1]] = { nombre: f[2], total: 0, meses: 0, ult: 0, liqUlt: 0 });
+    p.total += costo(f); p.meses++;
+    if (f[0] === ult) { p.ult = costo(f); p.liqUlt = f[18]; }
+  });
+  const lp = Object.values(personas).sort((a, b) => b.total - a.total);
+  html += `<div class="grid dos"><div class="card"><h3>Por persona</h3><div class="sub">Costo empresa</div><div class="tabla"><table>
+    <thead><tr><th>Persona</th><th class="r">${esc(fMes(ult))}</th><th class="r">Líquido ${esc(fMes(ult))}</th><th class="r">Promedio mensual</th><th class="r">${doce.length} meses</th></tr></thead><tbody>
+    ${lp.map(p => `<tr><td>${esc(p.nombre)}</td><td class="r num">${p.ult ? clp(p.ult) : '—'}</td><td class="r num">${p.liqUlt ? clp(p.liqUlt) : '—'}</td>
+      <td class="r num">${clp(p.total / p.meses)}</td><td class="r num"><b>${clp(p.total)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td class="r num">${clp(cUlt)}</td><td class="r num">${clp(sum(delMes(ult), f => f[18]))}</td><td class="r num">${clp(total12 / doce.length)}</td><td class="r num">${clp(total12)}</td></tr></tfoot></table></div></div>`;
+
+  // Por concepto
+  const conceptos = [
+    ['Sueldo base', f => f[6]], ['Gratificación', f => f[7]], ['Horas extra', f => f[8]], ['Bonos', f => f[9]],
+    ['Otros imponibles', f => f[10]], ['Movilización y otros no imponibles', f => f[11] + f[12]],
+    [`Aportes del empleador (estimado ${String(rem.aportePct).replace('.', ',')}%)`, aporte],
+  ].filter(([, fn]) => sum(filas12, fn));
+  html += `<div class="card"><h3>Por concepto</h3><div class="sub">Qué compone el costo empresa</div><div class="tabla"><table>
+    <thead><tr><th>Concepto</th><th class="r">${esc(fMes(ult))}</th><th class="r">${doce.length} meses</th><th class="r">% del costo</th></tr></thead><tbody>
+    ${conceptos.map(([n, fn]) => `<tr><td>${esc(n)}</td><td class="r num">${clp(sum(delMes(ult), fn))}</td><td class="r num">${clp(sum(filas12, fn))}</td>
+      <td class="r num">${pct(sum(filas12, fn) / total12)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Costo empresa</td><td class="r num">${clp(cUlt)}</td><td class="r num">${clp(total12)}</td><td class="r num">100%</td></tr></tfoot></table></div>
+    <p class="sub" style="margin-top:10px">El sueldo ya incluye lo que se descuenta al trabajador para AFP, salud y cesantía (${clp(sum(filas12, f => f[17]))} en ${doce.length} meses).
+    La asignación familiar (${clp(sum(filas12, f => f[5]))}) no se cuenta como costo porque la financia el Estado.
+    Los aportes del empleador son una estimación: se ajustan en Config › APORTE_EMPLEADOR_PCT.</p></div></div>`;
+
+  // Confirmación de liquidaciones
+  const estadoConf = e => (e === 'VISTO' ? '<span class="chip warn">La abrió, falta confirmar</span>' : '<span class="chip down">No la ha abierto</span>');
+  html += `<div class="card"><h3>Confirmación de liquidaciones</h3><div class="sub">"Recibí conforme" en la app</div>
+    ${rem.porConfirmar.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th>Período</th><th>Estado</th></tr></thead><tbody>
+      ${rem.porConfirmar.sort((a, b) => (a[1] < b[1] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(fMes(x[1]))}</td><td>${estadoConf(x[2])}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="vacio">Todas las liquidaciones están confirmadas 👌</p>'}
+    ${rem.confirmados.length ? `<div class="tabla" style="margin-top:12px"><table><thead><tr><th>Persona</th><th>Período</th><th>Confirmada</th></tr></thead><tbody>
+      ${rem.confirmados.sort((a, b) => (a[1] < b[1] ? 1 : -1)).map(x => `<tr><td>${esc(x[0])}</td><td>${esc(fMes(x[1]))}</td><td><span class="chip up">${esc(fCorta(x[2]))}</span></td></tr>`).join('')}
+      </tbody></table></div>` : ''}</div>`;
+
+  $('contenido').innerHTML = html;
+  grafico('gRemu', {
+    apilado: true,
+    data: {
+      labels: doce.map(fMes),
+      datasets: [
+        { label: 'Sueldo líquido', data: doce.map(p => Math.round(sum(delMes(p), f => f[18] - f[5]))), backgroundColor: COLORES[0] },
+        { label: 'Descuentos del trabajador', data: doce.map(p => Math.round(sum(delMes(p), f => f[17]))), backgroundColor: COLORES[1] },
+        { label: 'Aportes del empleador', data: doce.map(p => Math.round(sum(delMes(p), aporte))), backgroundColor: COLORES[2] },
+      ],
+    },
+  });
+}
+
 /* ═══════════════ Datos ficticios (misma estructura que los datos reales) ═══════════════ */
 function generarDemo(R) {
   let s = 20261029; const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
@@ -1048,7 +1135,17 @@ const MOCK = {
       depositos: [{ id: 'D1', fecha: hoy, hora: '12:10', por: 'Leandro Nenen', monto: 280000, esperado: 280000, diferencia: 0, retiros: 2, comprobante: false, obs: '' }],
       resumen: { porRetirar: 250000, porRetirarLocal: { 'Violeta Parra': 250000 }, nRetirar: 1, porDepositar: 115000, nDepositar: 1,
         antiguoRetirar: 0, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 1 } };
-    return { demo: true, efectivo, hoy, hora: d.toTimeString().slice(0, 5), locales: ['Violeta Parra', 'Gabriela Mistral'], tolerancia: 5000,
+    const remuneraciones = { aportePct: 7, filas: [], porConfirmar: [['Leonel Gutierrez', '2026-10', 'VISTO'], ['Damaris Alvarado', '2026-10', 'PENDIENTE']],
+      confirmados: [['Leidy Hernandez', '2026-10', hoy]] };
+    [['T002', 'Leidy Hernandez', 820000], ['T003', 'Leandro Nenen', 830000], ['T006', 'Damaris Alvarado', 380000], ['T005', 'Leonel Gutierrez', 600000]].forEach(([id, n, base], k) => {
+      for (let i = 12; i >= 0; i--) {
+        const dt = new Date(d.getFullYear(), d.getMonth() - 1 - i, 1), p = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        const imp = Math.round(base * 1.25 * (1 + (i % 3) * 0.02)), asig = k === 2 ? 22007 : 0, movil = k === 1 ? 30000 : 0, desc = Math.round(imp * 0.19);
+        remuneraciones.filas.push([p, id, n, imp, imp + asig + movil, asig, Math.round(imp * 0.8), imp - Math.round(imp * 0.8), 0, 0, 0, movil, 0,
+          Math.round(imp * 0.114), Math.round(imp * 0.07), desc - Math.round(imp * 0.114) - Math.round(imp * 0.07), 0, desc, imp + asig + movil - desc]);
+      }
+    });
+    return { demo: true, efectivo, remuneraciones, hoy, hora: d.toTimeString().slice(0, 5), locales: ['Violeta Parra', 'Gabriela Mistral'], tolerancia: 5000,
       equipo: [{ id: 'T002', nombre: 'Leidy Hernandez', local: 'Violeta Parra', perfil: 'Encargado' }, { id: 'T003', nombre: 'Leandro Nenen', local: 'Ambos', perfil: 'Trabajador' },
         { id: 'T005', nombre: 'Leonel Gutierrez', local: 'Violeta Parra', perfil: 'Trabajador' }, { id: 'T006', nombre: 'Damaris Alvarado', local: 'Gabriela Mistral', perfil: 'Encargado' }] };
   },

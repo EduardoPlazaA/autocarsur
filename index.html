@@ -125,6 +125,19 @@
   .doc:last-child { border-bottom: 0; }
   .chip { font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 999px; background: var(--amber-tint); color: var(--amber); }
   .chip.ok { background: var(--green-tint); color: var(--green); }
+  .docs-titulo { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); margin: 18px 0 0; }
+  .docs-titulo:first-child { margin-top: 4px; }
+  .docb { border-bottom: 1px solid var(--line); } .docb:last-child { border-bottom: 0; } .docb .doc { border-bottom: 0; }
+  .doc-abrir { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+  .doc-abrir:focus-visible { outline: 2px solid var(--black); outline-offset: 4px; border-radius: 8px; }
+  .doc-abrir small { display: block; color: var(--mute); font-size: 13px; }
+  .doc-ico { flex: none; width: 36px; height: 44px; border-radius: 8px; background: var(--red-tint); color: var(--red); font-size: 10px; font-weight: 800;
+             display: grid; place-items: center; letter-spacing: .04em; }
+  .doc-conf { padding: 0 0 14px 48px; }
+  .btn-conf { width: 100%; border: 0; border-radius: 12px; padding: 12px; font-weight: 800; color: #fff; background: var(--green); }
+  .btn-conf:disabled { background: var(--line); color: var(--mute); }
+  .doc-conf small { display: block; text-align: center; color: var(--mute); font-size: 12px; margin-top: 6px; }
+  .docs-ayuda { font-size: 13px; color: var(--mute); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
 
   /* Modal */
   .overlay { position: fixed; inset: 0; background: rgba(11,11,12,.6); display: grid; place-items: center; padding: 16px; z-index: 10;
@@ -138,6 +151,7 @@
   .m-icon.ok { background: var(--green-tint); color: var(--green); }
   .m-icon.err { background: var(--red-tint); color: var(--red); }
   .m-icon.ask { background: var(--bg); color: var(--black); }
+  .m-icon.doc { background: var(--green-tint); color: var(--green); }
   .modal h3 { margin: 0 0 6px; font-size: 20px; }
   .modal p { margin: 0 0 4px; color: var(--steel); }
   .modal .strong { font-weight: 800; color: var(--black); }
@@ -357,6 +371,7 @@
   const MENSAJES = {
     obtenerInicio: 'Cargando…', ingresar: 'Verificando tu PIN…', marcar: 'Registrando tu marca…',
     registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…',
+    abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
     registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
   const servidor = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
@@ -379,6 +394,7 @@
   const ICON = {
     ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     err: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg>',
     ask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/></svg>',
   };
   const fmtCLP = new Intl.NumberFormat('es-CL');
@@ -416,7 +432,7 @@
     if (S.token && !$('v-menu').classList.contains('hidden')) pintarLocales();
   }
   function elegirRecordado() { const r = store.get('acs_usuario'); if (r && S.trabajadores.some(t => t.id === r)) elegir(r); }
-  (function iniciar() {
+  function iniciar() {
     const incrustado = datosInicio(), guardado = store.get('acs_inicio'), ses = store.get('acs_sesion');
     const conSesion = !!(ses && ses.token && ses.exp > Date.now());
     if (incrustado || guardado) aplicarInicio(incrustado || guardado);
@@ -430,7 +446,7 @@
       if (cfg.estado) pintarEstado(cfg.estado);
       else if (cfg.sesion) sesionError(new Error(cfg.sesion));
     }).catch(() => { if (primeraVez) $('listaNombres').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión y recarga.</div>'; });
-  })();
+  }
 
   function pintarNombres() {
     const c = $('listaNombres'); c.innerHTML = '';
@@ -840,17 +856,56 @@
     $('listaDocs').innerHTML = '<div class="empty">Cargando…</div>';
     api('misDocumentos', S.token).then(r => pintarDocs(r.documentos)).catch(sesionError);
   }
+  const MES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const periodoTxt = p => /^\d{4}-\d{2}/.test(p || '') ? `${MES_LARGO[+p.slice(5, 7) - 1].replace(/^./, c => c.toUpperCase())} ${p.slice(0, 4)}` : (p || '');
+  const porConfirmar = d => d.estado === 'PENDIENTE' || d.estado === 'VISTO';
   function pintarDocs(lista) {
-      const c = $('listaDocs');
-      if (!lista.length) { c.innerHTML = '<div class="empty">No tienes documentos por ahora.<br>Cuando se publique tu liquidación aparecerá aquí.</div>'; return; }
-      c.innerHTML = '';
-      lista.forEach(d => {
-        const el = document.createElement('div'); el.className = 'doc';
-        el.innerHTML = '<div><b></b><br><small style="color:var(--mute)"></small></div><span class="chip"></span>';
-        el.querySelector('b').textContent = d.tipo; el.querySelector('small').textContent = d.periodo || '';
-        const ch = el.querySelector('.chip'); ch.textContent = d.estado === 'CONFIRMADO' ? 'Recibido' : 'Pendiente'; ch.classList.toggle('ok', d.estado === 'CONFIRMADO');
-        c.appendChild(el);
-      });
+    const c = $('listaDocs');
+    if (!lista.length) { c.innerHTML = '<div class="empty">No tienes documentos por ahora.<br>Cuando se publique tu liquidación aparecerá aquí.</div>'; return; }
+    const pend = lista.filter(porConfirmar), anios = {};
+    lista.filter(d => !porConfirmar(d)).forEach(d => { (anios[String(d.periodo).slice(0, 4)] = anios[String(d.periodo).slice(0, 4)] || []).push(d); });
+    let html = pend.length ? '<p class="docs-ayuda">Ábrela, revísala y luego toca <b>Recibí conforme</b>.</p><h3 class="docs-titulo">Por confirmar</h3>' + pend.map(filaDoc).join('') : '';
+    Object.keys(anios).sort().reverse().forEach(a => { html += `<h3 class="docs-titulo">${esc(a)}</h3>` + anios[a].map(filaDoc).join(''); });
+    c.innerHTML = html;
+    c.querySelectorAll('[data-abrir]').forEach(b => b.addEventListener('click', () => abrirDoc(b.dataset.abrir)));
+    c.querySelectorAll('[data-conf]').forEach(b => b.addEventListener('click', () => confirmarDoc(b.dataset.conf)));
+  }
+  function filaDoc(d) {
+    const chip = d.estado === 'PENDIENTE' ? '<span class="chip">Nueva</span>' : d.estado === 'VISTO' ? '<span class="chip">Por confirmar</span>'
+      : d.estado === 'RECIBIDO' ? '<span class="chip ok">Recibida ✓</span>' : '';
+    const det = periodoTxt(d.periodo) + (d.acuse ? ` · confirmada el ${fCorta(d.acuse)}` : '');
+    const conf = porConfirmar(d) ? `<div class="doc-conf"><button type="button" class="btn-conf" data-conf="${esc(d.id)}"${d.estado === 'PENDIENTE' ? ' disabled' : ''}>Recibí conforme</button>
+      ${d.estado === 'PENDIENTE' ? '<small>Primero ábrela para revisarla</small>' : ''}</div>` : '';
+    return `<div class="docb"><div class="doc"><button type="button" class="doc-abrir" data-abrir="${esc(d.id)}"><span class="doc-ico">PDF</span>
+      <span><b>${esc(d.tipo)}</b><small>${esc(det)}</small></span></button>${chip}</div>${conf}</div>`;
+  }
+  /* El PDF se abre en otra pestaña. La pestaña se abre en el mismo toque (si se abre después de esperar al servidor, el navegador la bloquea) */
+  function abrirDoc(id) {
+    let w = null;
+    try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif;padding:24px;color:#6B6F78">Abriendo documento…</p>'); } catch (e) { w = null; }
+    const fallo = texto => { if (w) w.close(); modal('err', 'No se pudo abrir', texto, '', [{ t: 'Entendido', cls: 'dark' }]); };
+    api('abrirDocumento', S.token, id).then(r => {
+      if (!r.ok) return fallo(r.error);
+      const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.tipo || 'application/pdf' }));
+      if (w && !w.closed) w.location.href = url;
+      else { const a = document.createElement('a'); a.href = url; a.download = r.nombre; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60000);
+      if (r.estado) { pintarEstado(r.estado); pintarDocs(r.estado.docs); }
+    }).catch(e => { if (w) w.close(); if (!sesionError(e)) fallo('Sin conexión. Intenta de nuevo.'); });
+  }
+  function confirmarDoc(id) {
+    const d = ((S.estado && S.estado.docs) || []).find(x => x.id === id);
+    if (!d) return;
+    modal('doc', '¿Recibiste conforme?', `${d.tipo} de ${periodoTxt(d.periodo)}`, 'Confirmas que la recibiste y revisaste su contenido.', [
+      { t: 'Sí, recibí conforme', cls: 'green', fn: () => api('confirmarDocumento', S.token, id, navigator.userAgent).then(r => {
+          if (!r.ok) return modal('err', 'No se pudo confirmar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+          if (r.estado) { pintarEstado(r.estado); pintarDocs(r.estado.docs); }
+          modal('ok', 'Recepción confirmada', r.mensaje, '', [{ t: 'Listo', cls: 'dark' }]);
+        }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo confirmar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+      { t: 'Todavía no', sec: true },
+    ]);
   }
 
   /* ── Modal ── */
@@ -869,9 +924,13 @@
   }
   function cerrarModal() { $('overlay').classList.remove('show'); }
 
+  // Arranca al final, cuando todas las funciones y constantes ya existen (con sesión guardada, el menú usa formatos definidos más abajo)
+  iniciar();
+
   /* ── Vista previa local (fuera de Apps Script) ── */
   function mock(fn, ...a) {
-    const est = { ultimaMarca: null, docsPendientes: 1, urlDashboard: 'Dashboard.src.html', docs: [{ tipo: 'Liquidación de sueldo', periodo: 'Octubre 2026', estado: 'PENDIENTE' }],
+    const est = { ultimaMarca: null, docsPendientes: 1, urlDashboard: 'Dashboard.src.html', docs: [{ id: 'LIQ-T002-2026-10', tipo: 'Liquidación de sueldo', periodo: '2026-10', estado: 'PENDIENTE' },
+        { id: 'LIQ-T002-2026-09', tipo: 'Liquidación de sueldo', periodo: '2026-09', estado: 'HISTORICO' }],
       hoy: { fecha: hoyChile(), presupuesto: { 'Violeta Parra': 450000 }, cerrados: [] },
       efectivo: { maneja: true, admin: true, alertaDias: 2, resumen: { porRetirar: 370000, porRetirarLocal: { 'Violeta Parra': 250000, 'Gabriela Mistral': 120000 },
         nRetirar: 2, porDepositar: 310000, nDepositar: 1, antiguoRetirar: 3, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 2 } } };
@@ -889,7 +948,9 @@
         depositos: [{ id: 'D1', fecha: '2026-10-25', hora: '12:10', monto: 280000, diferencia: 0, retiros: 2, obs: '' }] },
       registrarRetiro: { ok: true, mensaje: 'Retiraste $370.000. Queda pendiente de depósito.', aviso: '' },
       registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo retirado ✅' },
-      misDocumentos: { ok: true, documentos: [{ tipo: 'Liquidación de sueldo', periodo: 'Octubre 2026', estado: 'PENDIENTE' }] },
+      misDocumentos: { ok: true, documentos: est.docs },
+      abrirDocumento: { ok: false, error: 'En la vista previa no hay archivos.' },
+      confirmarDocumento: { ok: true, mensaje: 'Confirmaste la recepción.' },
     }[fn];
   }
 })();
