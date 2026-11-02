@@ -606,6 +606,7 @@
     const corr = typeof e.corrige === 'number';
     $('tileCorr').classList.toggle('hidden', !corr);
     $('badgeCorr').textContent = e.corrige || 0; $('badgeCorr').classList.toggle('hidden', !(corr && e.corrige));
+    if (corr) precargarCorr(); // así "Corregir marcas" abre al instante
     if (e.urlDashboard) $('tileDash').href = enApi ? 'dashboard.html' : e.urlDashboard;
     $('tileDash').classList.toggle('hidden', !e.urlDashboard);
     ajustarMenu();
@@ -622,7 +623,7 @@
     servidor('obtenerEstado', S.token).then(r => r.ok && pintarEstado(r.estado)).catch(sesionError);
   }
   $('btnSalir').addEventListener('click', salir);
-  function salir() { store.del('acs_sesion'); S.token = null; S.usuario = null; S.estado = null; S.estadoHora = 0; const id = store.get('acs_usuario'); if (id) elegir(id); else ver('v-nombres'); $('subtitulo').textContent = 'Your Auto Partner'; }
+  function salir() { CO.datos = null; CO.persona = null; store.del('acs_sesion'); S.token = null; S.usuario = null; S.estado = null; S.estadoHora = 0; const id = store.get('acs_usuario'); if (id) elegir(id); else ver('v-nombres'); $('subtitulo').textContent = 'Your Auto Partner'; }
   function sesionError(err) {
     const m = String(err && err.message || err);
     if (m.includes('SESION')) { modal('err', 'Sesión vencida', 'Ingresa nuevamente con tu PIN.', '', [{ t: 'Entendido', fn: salir }]); return true; }
@@ -950,7 +951,19 @@
   }
 
   /* ── Corregir marcas (solo administración): todo el mes llega en una consulta; moverse entre personas y días es instantáneo ── */
-  const CO = { datos: null, persona: null, fecha: null, form: null };
+  const CO = { datos: null, persona: null, fecha: null, form: null, hora: 0, pre: false };
+  const corrFresco = () => CO.datos && Date.now() - CO.hora < 60000;
+  /* Se trae en segundo plano al mostrar el menú de quien corrige marcas (sin indicador de carga) */
+  function precargarCorr() {
+    if (CO.pre || corrFresco()) return;
+    CO.pre = true;
+    servidor('obtenerCorreccion', S.token, (CO.fecha || hoyChile()).slice(0, 7)).then(d => {
+      if (CO.form || (MV && MV.abierto) || (CO.datos && CO.datos.mes !== d.mes)) return; // no pisar lo que se está editando
+      CO.datos = d; CO.hora = Date.now();
+      if (!d.personas.some(p => p.id === CO.persona)) CO.persona = (d.personas[0] || {}).id;
+      if (!$('v-corr').classList.contains('hidden')) pintarCorr();
+    }).catch(() => {}).finally(() => { CO.pre = false; });
+  }
   const MOTIVOS = { marca: ['Olvidó marcar', 'Marcó a otra hora', 'Falló el GPS o la señal', 'Marcó por error'],
     dia: ['Día libre', 'Vacaciones', 'Licencia médica', 'Permiso', 'Feriado'] };
   function abrirCorr() {
@@ -958,12 +971,12 @@
     CO.fecha = CO.fecha || hoyChile(); CO.form = null;
     if (MV.abierto) cerrarMasivo();
     pintarCorr();
-    cargarCorr(CO.fecha.slice(0, 7), !CO.datos);
+    if (!corrFresco() || CO.datos.mes !== CO.fecha.slice(0, 7)) cargarCorr(CO.fecha.slice(0, 7), !CO.datos); // recién traído: no se vuelve a pedir
   }
   function cargarCorr(mes, conIndicador) {
     (conIndicador ? api : servidor)('obtenerCorreccion', S.token, mes).then(d => {
       if (CO.form && CO.datos && CO.datos.mes === d.mes) return; // no repintar mientras se está editando
-      CO.datos = d;
+      CO.datos = d; CO.hora = Date.now();
       if (!d.personas.some(p => p.id === CO.persona)) CO.persona = (d.personas[0] || {}).id;
       pintarCorr();
     }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo cargar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
@@ -1085,7 +1098,7 @@
     if (motivo.length < 3) { $('mvMotivo').classList.add('invalid'); $('mvMotivo').focus(); return; }
     api('corregirMasivo', S.token, datosMasivo({ motivo })).then(r => {
       if (!r.ok) return modal('err', 'No se guardó', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
-      CO.datos = r; S.estadoHora = 0; cerrarMasivo();
+      CO.datos = r; CO.hora = Date.now(); S.estadoHora = 0; cerrarMasivo();
       modal('ok', 'Listo', r.mensaje, 'Quedó registrado con el motivo.', [{ t: 'Seguir', cls: 'dark' }]);
     }).catch(falloMasivo);
   }
@@ -1154,7 +1167,7 @@
       }
       api('corregirMarca', S.token, datos).then(r => {
         if (!r.ok) return modal('err', 'No se guardó', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
-        CO.datos = r; CO.form = null; S.estadoHora = 0; pintarCorr();
+        CO.datos = r; CO.hora = Date.now(); CO.form = null; S.estadoHora = 0; pintarCorr();
         modal('ok', 'Listo', r.mensaje, 'Quedó registrado con el motivo.', [{ t: 'Seguir', cls: 'dark' }]);
       }).catch(e => { if (!sesionError(e)) modal('err', 'No se guardó', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
     });
