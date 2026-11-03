@@ -69,6 +69,9 @@
 
   /* Menú */
   .hello { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .hello-acc { display: flex; gap: 14px; flex-shrink: 0; }
+  .mp-admin { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .mp-admin h3 { margin: 0 0 4px; font-size: 16px; }
   .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 10px; border-radius: 999px;
             background: var(--bg); font-size: 13px; color: var(--steel); }
   .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); }
@@ -302,7 +305,7 @@
     <div class="card">
       <div class="hello">
         <div><h2 id="saludo">Hola</h2><div class="status" id="estado"><i></i><span>Sin marcas hoy</span></div></div>
-        <button class="link" id="btnSalir" type="button">Salir</button>
+        <div class="hello-acc"><button class="link" id="btnPin" type="button">Mi PIN</button><button class="link" id="btnSalir" type="button">Salir</button></div>
       </div>
       <div class="local-pick" id="localPick" role="group" aria-label="Local"></div>
       <div class="franja hidden" id="franjaEfec" aria-label="Efectivo">
@@ -406,6 +409,21 @@
     <div class="segtab" id="rsPer" role="tablist"><button type="button" data-rp="dia">Día</button><button type="button" data-rp="semana">Semana</button><button type="button" data-rp="mes" class="on">Mes</button><button type="button" data-rp="ano">Año</button></div>
     <div class="rs-nav"><button type="button" id="rsAnt" aria-label="Período anterior">‹</button><b id="rsEtiqueta"></b><button type="button" id="rsSig" aria-label="Período siguiente">›</button></div>
     <div id="rsCont"><div class="empty">Cargando…</div></div>
+  </section>
+
+  <!-- 8. Mi PIN -->
+  <section id="v-mipin" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Mi PIN</h2>
+    <p class="sub" id="mpPaso" style="text-align:center">Ingresa tu PIN actual</p>
+    <div class="dots" id="mpDots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+    <div class="pad" id="mpPad"></div>
+    <div class="msg" id="mpMsg" role="alert"></div>
+    <div class="mp-admin hidden" id="mpAdmin">
+      <h3>Reiniciar el PIN de otra persona</h3>
+      <p class="sub">Si alguien olvidó su PIN, genera uno temporal y entrégaselo en persona. Después lo puede cambiar en "Mi PIN".</p>
+      <div class="chips" id="mpPersonas" role="group" aria-label="Trabajador"></div>
+    </div>
   </section>
 
   <!-- 7. Corregir marcas (solo administración) -->
@@ -524,7 +542,7 @@
 
   /* Vistas */
   function ver(id) {
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-corr', 'v-res'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-corr', 'v-res', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -622,6 +640,78 @@
       store.set('acs_sesion', { token: r.token, usuario: r.usuario, estado: r.estado, exp: Date.now() + 13 * 3600 * 1000 });
       entrarMenu(r.estado);
     }).catch(err => { S.ocupado = false; S.pin = ''; pintarDots(); $('pinMsg').textContent = 'Sin conexión. Intenta de nuevo.'; });
+  }
+
+  /* ── Mi PIN: PIN actual → PIN nuevo → repetir (y, para Felipe, PIN temporal de otra persona) ── */
+  const MP = { paso: 'actual', actual: '', nuevo: '', pin: '', ocupado: false };
+  const MP_TEXTO = { actual: 'Ingresa tu PIN actual', nuevo: 'Elige tu PIN nuevo de 4 números', repetir: 'Repite el PIN nuevo' };
+  teclas.forEach(k => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'key' + (k === '' || k === '⌫' ? ' ghost' : '');
+    b.textContent = k; if (k === '') b.disabled = true;
+    b.setAttribute('aria-label', k === '⌫' ? 'Borrar' : k);
+    b.addEventListener('click', () => teclaMp(k));
+    $('mpPad').appendChild(b);
+  });
+  document.addEventListener('keydown', e => {
+    if ($('v-mipin').classList.contains('hidden') || $('overlay').classList.contains('show')) return;
+    if (/^\d$/.test(e.key)) teclaMp(e.key); else if (e.key === 'Backspace') teclaMp('⌫');
+  });
+  $('btnPin').addEventListener('click', abrirMiPin);
+  function abrirMiPin() {
+    Object.assign(MP, { paso: 'actual', actual: '', nuevo: '', pin: '', ocupado: false }); pintarMp();
+    const adm = !!(S.estado && S.estado.reiniciaPin);
+    $('mpAdmin').classList.toggle('hidden', !adm);
+    if (adm) $('mpPersonas').innerHTML = S.trabajadores.filter(t => t.id !== S.usuario.id)
+      .map(t => `<button type="button" data-mpp="${esc(t.id)}">${esc(t.nombre)}</button>`).join('');
+    ver('v-mipin');
+  }
+  function pintarMp(msg) {
+    $('mpPaso').textContent = MP_TEXTO[MP.paso];
+    [...$('mpDots').children].forEach((d, i) => d.classList.toggle('on', i < MP.pin.length));
+    $('mpMsg').textContent = msg || '';
+  }
+  function errorMp(msg, paso) {
+    MP.pin = ''; MP.nuevo = ''; MP.paso = paso; if (paso === 'actual') MP.actual = '';
+    pintarMp(msg);
+    $('mpDots').classList.remove('shake'); void $('mpDots').offsetWidth; $('mpDots').classList.add('shake');
+  }
+  // Mismas reglas que el servidor: 4 números, sin repetir ni seguidos
+  function pinFacil(p) { return /^(\d)\1{3}$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p); }
+  function teclaMp(k) {
+    if (MP.ocupado) return;
+    if (k === '⌫') MP.pin = MP.pin.slice(0, -1); else if (k && MP.pin.length < 4) MP.pin += k;
+    pintarMp();
+    if (MP.pin.length === 4) avanzarMp();
+  }
+  function avanzarMp() {
+    if (MP.paso === 'actual') { MP.actual = MP.pin; MP.pin = ''; MP.paso = 'nuevo'; return pintarMp(); }
+    if (MP.paso === 'nuevo') {
+      if (pinFacil(MP.pin)) return errorMp('Muy fácil de adivinar (como 1111 o 1234). Elige otro.', 'nuevo');
+      if (MP.pin === MP.actual) return errorMp('El PIN nuevo debe ser distinto al actual.', 'nuevo');
+      MP.nuevo = MP.pin; MP.pin = ''; MP.paso = 'repetir'; return pintarMp();
+    }
+    if (MP.pin !== MP.nuevo) return errorMp('No coinciden. Elige el PIN nuevo otra vez.', 'nuevo');
+    MP.ocupado = true; $('mpMsg').textContent = 'Guardando…';
+    api('cambiarMiPin', S.token, MP.actual, MP.nuevo).then(r => {
+      MP.ocupado = false;
+      if (!r.ok) return errorMp(r.error, r.paso === 'actual' ? 'actual' : 'nuevo');
+      Object.assign(MP, { paso: 'actual', actual: '', nuevo: '', pin: '' }); pintarMp();
+      modal('ok', 'PIN cambiado', 'Desde ahora ingresa con tu PIN nuevo.', '', [{ t: 'Listo', fn: () => ver('v-menu') }]);
+    }).catch(err => { MP.ocupado = false; if (!sesionError(err)) errorMp('Sin conexión. Intenta de nuevo.', 'actual'); });
+  }
+  $('mpPersonas').addEventListener('click', e => {
+    const b = e.target.closest('[data-mpp]'); if (!b) return;
+    const t = S.trabajadores.find(x => x.id === b.dataset.mpp);
+    modal('ask', `¿Reiniciar el PIN de ${t.nombre}?`, 'Se genera un PIN temporal y el que tiene ahora deja de funcionar.', '',
+      [{ t: 'Generar PIN temporal', fn: () => reiniciarPin(t) }, { t: 'Cancelar', sec: true }]);
+  });
+  function reiniciarPin(t) {
+    api('reiniciarPinTrabajador', S.token, t.id).then(r => {
+      if (!r.ok) return modal('err', 'No se pudo', r.error, '', [{ t: 'Entendido' }]);
+      modal('ok', `PIN temporal de ${r.nombre}: ${r.pin}`, 'Entrégaselo en persona. Puede cambiarlo desde "Mi PIN" en su menú.',
+        'Queda guardado en la hoja Respaldo_PIN.', [{ t: 'Listo' }]);
+    }).catch(err => { if (!sesionError(err)) modal('err', 'Sin conexión', 'Intenta de nuevo.', '', [{ t: 'Entendido' }]); });
   }
 
   /* ── Menú ── */
