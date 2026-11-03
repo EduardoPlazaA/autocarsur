@@ -991,13 +991,13 @@
     $('cardMes').classList.toggle('hidden', !m);
     if (!m) return;
     $('mesTitulo').textContent = periodoTxt(m.mes);
-    $('turnoHoy').textContent = m.turnoHoy ? `Hoy: ${m.turnoHoy[2]} · ${m.turnoHoy[0]} a ${m.turnoHoy[1]}` : 'Hoy no tienes turno';
+    $('turnoHoy').textContent = m.feriadoHoy ? `Hoy es feriado: ${m.feriadoHoy}` : m.turnoHoy ? `Hoy: ${m.turnoHoy[2]} · ${m.turnoHoy[0]} a ${m.turnoHoy[1]}` : 'Hoy no tienes turno';
     $('mesHE').textContent = m.minutos ? hm(m.minutos) : '0 h';
-    $('mesHEdet').textContent = m.dias.length ? `En ${m.dias.length} día(s)` : 'Sin horas extra este mes';
+    $('mesHEdet').textContent = m.dias.length ? `En ${m.dias.length} día(s)` + (m.feriadosTrabajados ? ` · ${m.feriadosTrabajados} feriado(s)` : '') : 'Sin horas extra este mes';
     $('mesPend').textContent = m.pendientes.length;
     $('mesPendDet').textContent = m.pendientes.length ? m.pendientes.slice(0, 2).map(([f, falta]) => `${fDia(f)}: ${falta}`).join(' · ') + (m.pendientes.length > 2 ? ' · …' : '') : 'Todo en orden ✓';
     $('kPend').className = 'mes-k ' + (m.pendientes.length ? 'alerta' : 'ok');
-    $('mesNota').textContent = `Cuenta como extra lo trabajado ${m.tolerancia} min o más antes o después de tu turno.` +
+    $('mesNota').textContent = `Cuenta como extra lo trabajado ${m.tolerancia} min o más antes o después de tu turno, y todo lo trabajado en un feriado.` +
       (m.pendientes.length ? ' Si olvidaste marcar, avísale a Felipe para corregirlo.' : '') +
       (m.corregidas ? ` ${m.corregidas} marca(s) de este mes fueron corregidas por administración.` : '');
   }
@@ -1129,7 +1129,7 @@
         ${opDesde ? '<div class="empty" style="padding:8px 0">La operación se registra desde el ' + esc(fDia(d.inicio)) + '</div>' : `<div class="rs-grid" style="margin-top:0">
           <div><small>Días trabajados</small><b>${trab}</b><em>${[enCurso ? 'más hoy en curso' : '', libres ? libres + ' libre(s) o con permiso' : ''].filter(Boolean).join(' · ') || '&nbsp;'}</em></div>
           <div><small>Horas trabajadas</small><b>${hm(min)}</b><em>${trab ? 'prom. ' + hm(Math.round(min / trab)) + ' por día' : '&nbsp;'}</em></div>
-          <div><small>Horas extra</small><b>${ext ? hm(ext) : '0'}</b><em>desde ${d.tolerancia} min fuera del turno</em></div>
+          <div><small>Horas extra</small><b>${ext ? hm(ext) : '0'}</b><em>${dias.some(x => x[9] === 'feriado') ? `incluye ${dias.filter(x => x[9] === 'feriado').length} feriado(s) trabajado(s)` : `desde ${d.tolerancia} min fuera del turno`}</em></div>
           <div><small>Atrasos</small><b>${atr.length}</b><em>${atr.length ? hm(atr.reduce((s, x) => s + x[8], 0)) + ' en total' : 'Llegaste a la hora ✓'}</em></div>
           <div><small>Marcas pendientes</small><b>${pend}</b><em>${pend ? 'avísale a Felipe' : 'Todo en orden ✓'}</em></div>
           <div><small>Cierres de caja</small><b>${cierres}</b><em>hechos por ti</em></div></div>`}
@@ -1292,7 +1292,9 @@
     const d = CO.datos, id = CO.persona, f = CO.fecha;
     if (f.slice(0, 7) !== d.mes) { $('corrDia').innerHTML = '<div class="empty">Cargando…</div>'; return; }
     const t = (d.turnos[id] || {})[f], marcas = (d.marcas[id] || {})[f] || [], aus = (d.ausencias[id] || {})[f];
+    const fer = (d.feriados || {})[f];
     let h = `<div class="turno-dia"><b>${esc(fDia(f))}</b> · ${t ? `Turno ${esc(t[2])}, ${t[0]} a ${t[1]}` : 'Sin turno este día'}</div>`;
+    if (fer) h += `<div class="alert warn" style="margin:6px 0 0"><b>Feriado: ${esc(fer)}.</b> Si se trabajó, todo el tiempo cuenta como hora extra.</div>`;
     if (aus !== undefined) {
       h += `<div class="alert warn" style="margin:10px 0 0">Marcado como <b>no trabajó</b>${aus ? ': ' + esc(aus) : ''}</div>
         <button type="button" class="secondary" data-accion-dia="QUITAR_NO_TRABAJO">Deshacer "no trabajó"</button>`;
