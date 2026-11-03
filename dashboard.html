@@ -419,7 +419,7 @@ async function mostrarDatos(R) {
   if (R.urlApp) { $('volverApp').href = EN_API ? './' : R.urlApp; $('volverApp').classList.remove('hidden'); }
   if (!E.fecha) E.fecha = R.ultimaVenta || R.hoy;
   $('badgeDemo').classList.toggle('hidden', !R.demo);
-  $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'} · actualizado ${R.hora}`;
+  $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'}${R.ultimaVenta === R.hoy ? ' a las ' + horaCarga(R) : ''} · actualizado ${R.hora}`;
   pintarFranja();
   $('local').innerHTML = '<option value="TODOS">Todos los locales</option>' + R.locales.map(l => `<option${l === E.local ? ' selected' : ''}>${esc(l)}</option>`).join('');
   if (E.local !== 'TODOS' && !R.locales.includes(E.local)) E.local = 'TODOS';
@@ -436,6 +436,9 @@ function expandirFilas(R) {
     R.marcajes = R.marcajes.map(m => ({ f: m[0], h: m[1], id: m[2], nombre: n[m[2]] || m[2], l: m[3], tipo: m[4], ubic: m[5], dist: m[6] }));
   }
 }
+
+/* Hora de la última carga de Bicom (hora a hora); en modo de prueba, la hora actual */
+function horaCarga(R) { return R.cargaVentas && R.cargaVentas.slice(0, 10) === R.hoy ? R.cargaVentas.slice(11, 16) : R.hora; }
 
 /* Índices: diario[fecha][local] y mensual[mes][local] = {v: venta según selector IVA, n: documentos, p: meta, b: con IVA, nt: sin IVA} */
 const IVA = 1.19;
@@ -611,6 +614,7 @@ function tramos(r) {
 /* ═══════════════ Pestaña Resumen ═══════════════ */
 function tabResumen(r) {
   const R = E.R, corte = min(r.fin, R.ultimaVenta || r.fin), enCurso = corte < r.fin;
+  const diaHoy = E.per === 'dia' && r.ini === R.hoy, aLas = diaHoy ? ` (acumulado a las ${horaCarga(R)})` : '';
   const a = total(r.ini, corte);
   const pptoTotal = total(r.ini, r.fin).p;
   const ant = comparable(r, corte, 'anterior'), aa = comparable(r, corte, 'anio');
@@ -621,10 +625,12 @@ function tabResumen(r) {
 
   const mg = margenRango(r), conv = conversion(r.ini, corte);
   let html = '<div class="grid kpis fila" style="--n:7">';
-  html += kpi(`Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
+  html += kpi(diaHoy ? `Venta del día${aLas}` : `Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
   html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl, 0) : '—',
     a.p ? `Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
-  html += kpi(enCurso ? 'Proyección de cierre' : 'Venta final del período', mm(proy),
+  if (diaHoy) html += kpi('Falta para la meta del día', a.p ? mm(Math.max(0, a.p - a.v)) : '—',
+    a.p ? (a.v >= a.p ? '<span class="chip up">Meta del día cumplida</span>' : `${pct(a.v / a.p, 0)} de la meta de ${mm(a.p)}`) : 'Sin presupuesto cargado');
+  else html += kpi(enCurso ? 'Proyección de cierre' : 'Venta final del período', mm(proy),
     enCurso ? (pptoTotal ? `${pct(proy / pptoTotal, 0)} de la meta del período` : 'Ritmo diario actual') : (pptoTotal ? `${pct(a.v / pptoTotal, 0)} de la meta` : ''));
   html += kpi('Ticket promedio', a.n ? clp(a.v / a.n) : '—', `${ent(a.n)} documentos · ${delta(a.n ? a.v / a.n : 0, tAA.n ? tAA.v / tAA.n : 0, 'vs año ant.')}`);
   html += kpi('Margen bruto', mg.venta ? pct(mg.margen / mg.venta) : '—', mg.venta ? `${mm(mg.margen)} · empresa · ${etiquetaMeses(r)}` : 'Sin datos de margen');
@@ -651,7 +657,7 @@ function tabResumen(r) {
       ${leyenda([['Venta acumulada', COLORES[0], 1], ['Meta acumulada', 'var(--meta)', 1], ['Año anterior', '#C9CCD3', 1]])}<div class="lienzo"><canvas id="gAcu"></canvas></div></div>
   </div>`;
 
-  html += `<div class="grid dos"><div class="card"><h3>Por local</h3><div class="sub">${esc(etiquetaRango(E.per, r))}${enCurso ? ' · a la fecha' : ''}</div><div class="tabla">${tablaLocales(r, corte)}</div></div>
+  html += `<div class="grid dos"><div class="card"><h3>Por local</h3><div class="sub">${esc(etiquetaRango(E.per, r))}${enCurso ? ' · a la fecha' : ''}${diaHoy ? ' · acumulado a las ' + horaCarga(R) : ''}</div><div class="tabla">${tablaLocales(r, corte)}</div></div>
     <div class="card"><h3>Alertas</h3><div class="sub">Lo que requiere atención en el período</div>${alertas(r, corte)}</div></div>`;
   $('contenido').innerHTML = html;
 
