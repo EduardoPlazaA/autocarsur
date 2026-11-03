@@ -150,6 +150,31 @@
   .mes-k.ok b { color: var(--green); }
   .mes-nota { font-size: 12px; color: var(--mute); margin: 10px 0 0; }
   .t-corr { background: var(--steel); }
+  .t-res { background: #24425E; }
+  /* Mi resumen */
+  .rs-nav { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
+  .rs-nav button { flex: none; width: 46px; height: 46px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); font-size: 22px; color: var(--steel); }
+  .rs-nav button:disabled { opacity: .35; }
+  .rs-nav b { flex: 1; text-align: center; font-size: 16px; }
+  .rs-bloque { background: var(--bg); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .rs-bloque h3 { margin: 0 0 8px; font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+  .rs-grande { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .rs-fila { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--mute); margin-top: 6px; }
+  .rs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .rs-grid div { background: var(--paper); border-radius: 10px; padding: 10px; }
+  .rs-grid small { display: block; font-size: 12px; color: var(--mute); font-weight: 600; }
+  .rs-grid b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .rs-grid em { display: block; font-style: normal; font-size: 11px; color: var(--mute); }
+  .rs-barras { display: flex; align-items: flex-end; gap: 2px; height: 84px; margin-top: 14px; }
+  .rs-barras i { flex: 1; background: #24425E; border-radius: 3px 3px 0 0; min-height: 2px; opacity: .9; }
+  .rs-barras i.cero { background: var(--line); }
+  .rs-ejes { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); margin-top: 4px; }
+  .rs-meta { margin-top: 10px; } .rs-meta + .rs-meta { border-top: 1px solid var(--line); padding-top: 10px; }
+  .rs-meta .top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; } .rs-meta .top b { font-variant-numeric: tabular-nums; }
+  .rs-meta .bar { height: 8px; } .rs-meta small { color: var(--mute); font-size: 12px; }
+  .rs-prod { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .rs-prod:last-child { border-bottom: 0; } .rs-prod span { min-width: 0; } .rs-prod b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip.baja { background: var(--red-tint); color: var(--red-dark); }
   .tile.ancho, .tile.t-dash { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; } /* franja ancha y compacta */
   /* Corregir marcas */
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -311,6 +336,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
         <span>Mis documentos<small>Liquidaciones y contratos</small></span>
       </button>
+      <button class="tile t-res hidden" id="tileRes" data-accion="RESUMEN" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Mi resumen<small>Ventas, meta y horas</small></span>
+      </button>
       <button class="tile t-efec hidden" id="tileEfec" data-accion="EFECTIVO" type="button">
         <span class="badge hidden" id="badgeEfec">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
@@ -367,6 +396,16 @@
       <button type="button" data-ef="historial">Depósitos</button>
     </div>
     <div id="efContenido"><div class="empty">Cargando…</div></div>
+  </section>
+
+  <!-- 8. Mi resumen (trabajadores con turno) -->
+  <section id="v-res" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Mi resumen</h2>
+    <p class="sub">Tus ventas, la meta del local en tus días y tu operación</p>
+    <div class="segtab" id="rsPer" role="tablist"><button type="button" data-rp="dia">Día</button><button type="button" data-rp="semana">Semana</button><button type="button" data-rp="mes" class="on">Mes</button><button type="button" data-rp="ano">Año</button></div>
+    <div class="rs-nav"><button type="button" id="rsAnt" aria-label="Período anterior">‹</button><b id="rsEtiqueta"></b><button type="button" id="rsSig" aria-label="Período siguiente">›</button></div>
+    <div id="rsCont"><div class="empty">Cargando…</div></div>
   </section>
 
   <!-- 7. Corregir marcas (solo administración) -->
@@ -442,7 +481,7 @@
     registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…',
     abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
     registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
-    obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
+    obtenerMiResumen: 'Cargando tu resumen…', obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
   const servidor = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
     if (!enGAS) return setTimeout(() => ok(mock(fn, ...args)), 600); // la vista previa simula la demora
@@ -485,7 +524,7 @@
 
   /* Vistas */
   function ver(id) {
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-corr'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-corr', 'v-res'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -613,6 +652,8 @@
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
     pintarEfectivoMenu(e.efectivo);
     pintarMes(e.mes);
+    $('tileRes').classList.toggle('hidden', !e.mes); // quien tiene turno (no dueños)
+    if (e.mes) precargarResumen();
     const corr = typeof e.corrige === 'number';
     $('tileCorr').classList.toggle('hidden', !corr);
     $('badgeCorr').textContent = e.corrige || 0; $('badgeCorr').classList.toggle('hidden', !(corr && e.corrige));
@@ -633,7 +674,7 @@
     servidor('obtenerEstado', S.token).then(r => r.ok && pintarEstado(r.estado)).catch(sesionError);
   }
   $('btnSalir').addEventListener('click', salir);
-  function salir() { CO.datos = null; CO.persona = null; store.del('acs_sesion'); S.token = null; S.usuario = null; S.estado = null; S.estadoHora = 0; const id = store.get('acs_usuario'); if (id) elegir(id); else ver('v-nombres'); $('subtitulo').textContent = 'Your Auto Partner'; }
+  function salir() { CO.datos = null; CO.persona = null; RS.d = null; RS.fecha = null; store.del('acs_sesion'); S.token = null; S.usuario = null; S.estado = null; S.estadoHora = 0; const id = store.get('acs_usuario'); if (id) elegir(id); else ver('v-nombres'); $('subtitulo').textContent = 'Your Auto Partner'; }
   function sesionError(err) {
     const m = String(err && err.message || err);
     if (m.includes('SESION')) { modal('err', 'Sesión vencida', 'Ingresa nuevamente con tu PIN.', '', [{ t: 'Entendido', fn: salir }]); return true; }
@@ -646,6 +687,7 @@
     else if (a === 'CIERRE') abrirCierre();
     else if (a === 'EFECTIVO') abrirEfectivo();
     else if (a === 'CORREGIR') abrirCorr();
+    else if (a === 'RESUMEN') abrirResumen();
     else abrirDocs();
   }));
 
@@ -958,6 +1000,140 @@
     $('mesNota').textContent = `Cuenta como extra lo trabajado ${m.tolerancia} min o más antes o después de tu turno.` +
       (m.pendientes.length ? ' Si olvidaste marcar, avísale a Felipe para corregirlo.' : '') +
       (m.corregidas ? ` ${m.corregidas} marca(s) de este mes fueron corregidas por administración.` : '');
+  }
+
+  /* ── Mi resumen: una consulta trae todo (último año); los filtros de fecha se calculan en el teléfono ── */
+  const RS = { d: null, per: 'mes', fecha: null, hora: 0, pre: false, demo: null };
+  const rsFresco = () => RS.d && Date.now() - RS.hora < 5 * 60000;
+  function precargarResumen() {
+    if (RS.pre || rsFresco()) return;
+    RS.pre = true;
+    servidor('obtenerMiResumen', S.token).then(d => { RS.d = d; RS.demo = null; RS.hora = Date.now(); if (!$('v-res').classList.contains('hidden')) pintarResumen(); })
+      .catch(() => {}).finally(() => { RS.pre = false; });
+  }
+  function abrirResumen() {
+    ver('v-res');
+    RS.fecha = RS.fecha || hoyChile();
+    pintarResumen();
+    if (rsFresco()) return; // recién traído en segundo plano: abre al instante
+    (RS.d ? servidor : api)('obtenerMiResumen', S.token).then(d => { RS.d = d; RS.demo = null; RS.hora = Date.now(); pintarResumen(); })
+      .catch(e => { if (!sesionError(e) && !RS.d) $('rsCont').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
+  }
+  document.querySelectorAll('#rsPer [data-rp]').forEach(b => b.addEventListener('click', () => {
+    RS.per = b.dataset.rp; document.querySelectorAll('#rsPer [data-rp]').forEach(x => x.classList.toggle('on', x === b)); pintarResumen();
+  }));
+  $('rsAnt').addEventListener('click', () => { RS.fecha = moverRS(RS.per, RS.fecha, -1); pintarResumen(); });
+  $('rsSig').addEventListener('click', () => { const f = moverRS(RS.per, RS.fecha, 1); if (rangoRS(RS.per, f)[0] <= hoyChile()) { RS.fecha = f; pintarResumen(); } });
+  const finMesRS = f => { const d = new Date(Date.UTC(+f.slice(0, 4), +f.slice(5, 7), 0)); return d.toISOString().slice(0, 10); };
+  const mesMas = (f, n) => { const d = new Date(Date.UTC(+f.slice(0, 4), +f.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 10); };
+  function rangoRS(per, f) {
+    if (per === 'dia') return [f, f];
+    if (per === 'semana') { const l = lunes(f); return [l, sumarDia(l, 6)]; }
+    if (per === 'mes') return [f.slice(0, 8) + '01', finMesRS(f)];
+    return [f.slice(0, 4) + '-01-01', f.slice(0, 4) + '-12-31'];
+  }
+  function moverRS(per, f, n) {
+    if (per === 'dia') return sumarDia(f, n);
+    if (per === 'semana') return sumarDia(f, 7 * n);
+    if (per === 'mes') return mesMas(f, n);
+    return (+f.slice(0, 4) + n) + f.slice(4);
+  }
+  /* Período comparable anterior, recortado a la misma cantidad de días transcurridos */
+  function anteriorRS(per, ini, fin) {
+    const dias = Math.round((Date.parse(fin) - Date.parse(ini)) / 864e5);
+    const i = per === 'dia' || per === 'semana' ? sumarDia(ini, -7) : per === 'mes' ? mesMas(ini, -1) : (+ini.slice(0, 4) - 1) + ini.slice(4);
+    return [i, sumarDia(i, dias)];
+  }
+  function etiquetaRS(per, ini, fin) {
+    const corto = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+    if (per === 'dia') return fDia(ini);
+    if (per === 'semana') return `Semana ${corto(ini)} – ${corto(fin)}`;
+    if (per === 'mes') return periodoTxt(ini.slice(0, 7));
+    return 'Año ' + ini.slice(0, 4);
+  }
+  const plata = n => (n >= 1e6 ? '$' + (n / 1e6).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' MM' : pesos(n));
+  const cambio = (a, b, et) => (b ? `<span class="chip ${a >= b ? 'ok' : 'baja'}">${a >= b ? '▲' : '▼'} ${Math.round(Math.abs(a / b - 1) * 100)}%</span> ${et}` : `<span class="chip">sin dato</span> ${et}`);
+  /* Modo de prueba: ventas, metas y productos inventados (lo operativo es real) */
+  function demoRS(d) {
+    if (RS.demo) return RS.demo;
+    let s = 0; for (const c of S.usuario.id) s += c.charCodeAt(0); const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
+    const ventas = [], metas = [], productos = [], local = (d.dias.find(x => x[1]) || [])[1] || S.locales[0] || 'Violeta Parra';
+    const CAT = ['Aceite 10W-40 4 L', 'Filtro de aceite', 'Pastillas de freno', 'Batería 45 Ah', 'Refrigerante 1 gal', 'Ampolleta H4', 'Plumillas (par)', 'Aceite 5W-30 4 L'];
+    for (let f = sumarDia(d.hoy, -365); f < d.hoy; f = sumarDia(f, 1)) {
+      const dow = (new Date(f + 'T12:00:00Z').getUTCDay() + 6) % 7; if (dow > 4 && rnd() < 0.7) continue; if (rnd() < 0.08) continue;
+      const v = Math.round((230000 + rnd() * 220000) * (dow === 4 ? 1.2 : 1) / 100) * 100, n = Math.max(1, Math.round(v / (16000 + rnd() * 6000)));
+      ventas.push([f, v, n]);
+      metas.push([f, local, Math.round(v * (1.7 + rnd() * 0.5) / 1000) * 1000, Math.round((0.82 + rnd() * 0.32) * 1000) / 1000]);
+    }
+    const ms = [...new Set(ventas.map(x => x[0].slice(0, 7)))];
+    ms.forEach(m => { const tot = ventas.filter(x => x[0].startsWith(m)).reduce((a, x) => a + x[1], 0);
+      CAT.slice(0, 5).forEach((p, i) => productos.push([m, p, Math.round(8 + rnd() * 20), Math.round(tot * (0.16 - i * 0.025))])); });
+    return (RS.demo = { ventas, metas, productos });
+  }
+  function pintarResumen() {
+    const d = RS.d, c = $('rsCont');
+    const [ini, finP] = rangoRS(RS.per, RS.fecha || hoyChile());
+    $('rsEtiqueta').textContent = etiquetaRS(RS.per, ini, finP);
+    $('rsSig').disabled = rangoRS(RS.per, moverRS(RS.per, RS.fecha || hoyChile(), 1))[0] > hoyChile(); // no se avanza a períodos futuros
+    if (!d) { c.innerHTML = '<div class="empty">Cargando…</div>'; return; }
+    const fin = finP < d.hoy ? finP : d.hoy, en = (f, a, b) => f >= a && f <= b;
+    const src = d.demo ? demoRS(d) : d;
+    const suma = (a, b) => src.ventas.filter(x => en(x[0], a, b)).reduce((t, x) => [t[0] + x[1], t[1] + x[2]], [0, 0]);
+    const [v, n] = suma(ini, fin), [pi, pf] = anteriorRS(RS.per, ini, fin);
+    const primera = src.ventas.reduce((m, x) => (!m || x[0] < m ? x[0] : m), ''); // si el período anterior no está completo en los datos, no se compara
+    const vp = primera && pi >= primera ? suma(pi, pf)[0] : 0;
+    const etAnt = { dia: 'vs mismo día semana anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[RS.per];
+    // Barras: días del período (o los últimos 14 en la vista de un día; meses en la vista del año)
+    let tramos = [];
+    if (RS.per === 'ano') for (let m = 0; m < 12; m++) { const a = ini.slice(0, 4) + '-' + String(m + 1).padStart(2, '0'); tramos.push([a + '-01', finMesRS(a + '-01'), MES_LARGO[m].slice(0, 3)]); }
+    else { const a = RS.per === 'dia' ? sumarDia(ini, -13) : ini; for (let f = a; f <= finP; f = sumarDia(f, 1)) tramos.push([f, f, String(+f.slice(8))]); }
+    const vals = tramos.map(([a, b]) => (a > d.hoy ? null : suma(a, b)[0])), mx = Math.max(1, ...vals.filter(x => x));
+    // Meta del local en sus días
+    const porLocal = {};
+    src.metas.filter(x => en(x[0], ini, fin)).forEach(([f, l, m, p]) => { const o = porLocal[l] || (porLocal[l] = { m: 0, dias: 0, pm: 0, mp: 0 }); o.m += m; o.dias++; if (p !== null) { o.pm += p * m; o.mp += m; } });
+    // Productos (de los meses del período)
+    const prods = {};
+    src.productos.filter(x => x[0] >= ini.slice(0, 7) && x[0] <= fin.slice(0, 7)).forEach(([, desc, q, m]) => { const o = prods[desc] || (prods[desc] = [0, 0]); o[0] += q; o[1] += m; });
+    const top = Object.entries(prods).sort((a, b) => b[1][1] - a[1][1]).slice(0, 5);
+    // Operación
+    const dias = d.dias.filter(x => en(x[0], ini, fin));
+    const trab = dias.filter(x => x[6] > 0).length, enCurso = dias.some(x => x[9] === 'curso'), min = dias.reduce((s, x) => s + x[6], 0), ext = dias.reduce((s, x) => s + x[7], 0);
+    const atr = dias.filter(x => x[8] > 0), pend = dias.filter(x => x[9] === 'pendiente').length, libres = dias.filter(x => x[9] === 'libre').length;
+    const cierres = d.cierres.filter(x => en(x[0], ini, fin)).length;
+    const opDesde = d.inicio && fin < d.inicio;
+
+    c.innerHTML = `
+      ${d.demo ? '<p class="docs-ayuda">Ventas y metas con <b>datos de prueba</b> hasta que se conecte Bicom. Tus horas y marcas son reales.</p>' : ''}
+      ${d.sinVendedor ? '<p class="docs-ayuda">Todavía no encontramos tus ventas en Bicom. Avísale a Felipe para que vincule tu nombre.</p>' : ''}
+      <div class="rs-bloque"><h3>Mis ventas</h3>
+        <div class="rs-grande">${plata(v)}</div>
+        <div class="rs-fila">${cambio(v, vp, etAnt)}</div>
+        <div class="rs-grid"><div><small>Clientes atendidos</small><b>${n.toLocaleString('es-CL')}</b><em>boletas emitidas</em></div>
+          <div><small>Ticket promedio</small><b>${n ? pesos(v / n) : '—'}</b><em>venta por cliente</em></div></div>
+        <div class="rs-barras" aria-hidden="true">${vals.map(x => `<i class="${x ? '' : 'cero'}" style="height:${x ? Math.max(4, x / mx * 100) : 2}%"></i>`).join('')}</div>
+        <div class="rs-ejes"><span>${esc(tramos[0][2])}</span><span>${esc(tramos[Math.floor(tramos.length / 2)][2])}</span><span>${esc(tramos[tramos.length - 1][2])}</span></div>
+      </div>
+      <div class="rs-bloque"><h3>Meta del local en tus días</h3>
+        ${Object.keys(porLocal).length ? Object.entries(porLocal).map(([l, o]) => { const p = o.mp ? o.pm / o.mp : null; return `<div class="rs-meta">
+          <div class="top"><span>${esc(l)} · ${o.dias} día(s)</span><b>${p === null ? '—' : Math.round(p * 100) + '%'}</b></div>
+          <div class="bar"><i class="${p >= 1 ? 'ok' : ''}" style="width:${p === null ? 0 : Math.min(100, p * 100)}%"></i></div>
+          <small>Meta del local esos días: ${plata(o.m)}${p === null ? ' · el cumplimiento aparece cuando estén las ventas de Bicom' : ' · cumplimiento del local'}</small></div>`; }).join('')
+        : '<div class="empty" style="padding:8px 0">Sin meta cargada para tus días en este período</div>'}
+      </div>
+      <div class="rs-bloque"><h3>Mis productos más vendidos</h3>
+        ${top.length ? top.map(([desc, [q, m]]) => `<div class="rs-prod"><span>${esc(desc)} <small style="color:var(--mute)">· ${q} u.</small></span><b>${plata(m)}</b></div>`).join('')
+          : '<div class="empty" style="padding:8px 0">Sin ventas en este período</div>'}
+        ${RS.per === 'dia' || RS.per === 'semana' ? '<p class="mes-nota">Productos del mes completo.</p>' : ''}
+      </div>
+      <div class="rs-bloque"><h3>Mi operación</h3>
+        ${opDesde ? '<div class="empty" style="padding:8px 0">La operación se registra desde el ' + esc(fDia(d.inicio)) + '</div>' : `<div class="rs-grid" style="margin-top:0">
+          <div><small>Días trabajados</small><b>${trab}</b><em>${[enCurso ? 'más hoy en curso' : '', libres ? libres + ' libre(s) o con permiso' : ''].filter(Boolean).join(' · ') || '&nbsp;'}</em></div>
+          <div><small>Horas trabajadas</small><b>${hm(min)}</b><em>${trab ? 'prom. ' + hm(Math.round(min / trab)) + ' por día' : '&nbsp;'}</em></div>
+          <div><small>Horas extra</small><b>${ext ? hm(ext) : '0'}</b><em>desde ${d.tolerancia} min fuera del turno</em></div>
+          <div><small>Atrasos</small><b>${atr.length}</b><em>${atr.length ? hm(atr.reduce((s, x) => s + x[8], 0)) + ' en total' : 'Llegaste a la hora ✓'}</em></div>
+          <div><small>Marcas pendientes</small><b>${pend}</b><em>${pend ? 'avísale a Felipe' : 'Todo en orden ✓'}</em></div>
+          <div><small>Cierres de caja</small><b>${cierres}</b><em>hechos por ti</em></div></div>`}
+      </div>`;
   }
 
   /* ── Corregir marcas (solo administración): todo el mes llega en una consulta; moverse entre personas y días es instantáneo ── */
@@ -1298,6 +1474,12 @@
       registrarRetiro: { ok: true, mensaje: 'Retiraste $370.000. Queda pendiente de depósito.', aviso: '' },
       registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo retirado ✅' },
       misDocumentos: { ok: true, documentos: est.docs },
+      obtenerMiResumen: (() => { const h = hoyChile(), d = n => sumarDia(h, -n);
+        return { ok: true, demo: true, hoy: h, nombre: 'Leidy Hernandez', tolerancia: 15, inicio: d(12), ventas: [], productos: [], metas: [], cierres: [[d(2), 'Violeta Parra'], [d(5), 'Violeta Parra']],
+          dias: [[d(12), 'Violeta Parra', '09:00', '19:30', '09:20', '20:00', 640, 30, 20, ''], [d(11), 'Violeta Parra', '09:00', '15:30', '08:58', '15:35', 397, 0, 0, ''],
+            [d(10), 'Violeta Parra', '09:00', '19:30', '09:01', '19:31', 630, 0, 0, ''], [d(9), 'Violeta Parra', '09:00', '15:30', '', '', 0, 0, 0, 'pendiente'],
+            [d(8), 'Violeta Parra', '09:00', '19:30', '08:55', '19:50', 655, 20, 0, ''], [d(5), 'Violeta Parra', '09:00', '19:30', '09:00', '19:30', 630, 0, 0, ''],
+            [d(4), 'Violeta Parra', '09:00', '15:30', '', '', 0, 0, 0, 'libre'], [d(0), 'Violeta Parra', '09:00', '19:30', '09:03', '', 0, 0, 0, 'curso']] }; })(),
       obtenerCorreccion: (() => { const h = hoyChile(), m = h.slice(0, 7), ayer = sumarDia(h, -1);
         return { ok: true, mes: m, hoy: h, locales: ['Violeta Parra', 'Gabriela Mistral'],
           personas: [{ id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T003', nombre: 'Leandro Nenen' }, { id: 'T005', nombre: 'Leonel Gutierrez' }, { id: 'T006', nombre: 'Damaris Alvarado' }],
