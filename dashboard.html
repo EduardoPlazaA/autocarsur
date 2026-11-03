@@ -179,7 +179,7 @@
 </head>
 <body>
 <header>
-  <img src="logo.jpg" alt="">
+  <img id="logoInicio" role="button" tabindex="0" title="Ir al menú principal de la app" aria-label="Ir al menú principal de la app" src="logo.jpg" alt="">
   <div class="marca"><b>AUTOCAR<span>SUR</span></b><small>Dashboard de gestión</small></div>
   <div class="der">
     <span id="sync" class="sync hidden" aria-live="polite">Actualizando…</span>
@@ -372,6 +372,14 @@ $('entrar').onclick = async () => {
   } catch (e) { $('errLogin').textContent = 'No se pudo conectar. Intenta de nuevo.'; }
   finally { validarPin(); }
 };
+/* El logo vuelve al menú principal de la app */
+function irApp() {
+  const a = $('volverApp'), href = a && a.getAttribute('href');
+  if (href && href !== '#') window.open(a.href, '_top'); else if (EN_API) location.href = './';
+}
+$('logoInicio').style.cursor = 'pointer';
+$('logoInicio').onclick = irApp;
+$('logoInicio').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irApp(); } };
 $('salir').onclick = () => { guardar('acs_dash', null); guardar('acs_dash_datos', null); location.reload(); };
 
 /* ═══════════════ Carga de datos ═══════════════ */

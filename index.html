@@ -30,6 +30,7 @@
   header { background: var(--black); color: #fff; padding: 16px 16px 52px; }
   .top { display: flex; align-items: center; gap: 12px; max-width: 520px; margin: 0 auto; }
   .logo { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,.15); }
+  #btnLogo { cursor: pointer; } #btnLogo:active { transform: scale(.94); } #btnLogo:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .logo img { width: 100%; height: 100%; display: block; transform: scale(1.04); }
   .brand { flex: 1; min-width: 0; }
   .brand b { font-size: 17px; letter-spacing: 1.5px; font-weight: 700; }
@@ -245,7 +246,7 @@
 <body>
 <header>
   <div class="top">
-    <div class="logo"><img src="logo.jpg" alt="AutoCarSur"></div>
+    <div class="logo" id="btnLogo" role="button" tabindex="0" aria-label="Ir al menú principal" title="Ir al menú principal"><img src="logo.jpg" alt="AutoCarSur"></div>
     <div class="brand"><b>AUTOCAR<span>SUR</span></b><small id="subtitulo">Your Auto Partner</small></div>
     <div class="clock"><b id="reloj">--:--</b><small id="fecha"></small></div>
   </div>
@@ -488,6 +489,15 @@
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
+  /* El logo lleva al menú principal desde cualquier pantalla (o a la lista de nombres si aún no ingresa) */
+  function irInicio() {
+    if ($('overlay').classList.contains('show')) cerrarModal();
+    if (MV.abierto) cerrarMasivo();
+    CO.form = null;
+    if (S.token && S.usuario) { ver('v-menu'); refrescarEstado(); } else ver('v-nombres');
+  }
+  $('btnLogo').addEventListener('click', irInicio);
+  $('btnLogo').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); } });
 
   /* ── Inicio: se muestra al instante lo que ya está en el teléfono y se actualiza en segundo plano ── */
   // Datos de inicio incrustados por el servidor (versión Google); en la página publicada se usan los guardados en el teléfono
