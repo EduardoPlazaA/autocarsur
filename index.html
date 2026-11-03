@@ -206,6 +206,8 @@
   .form-corr .chips button { font-size: 13px; padding: 7px 10px; }
   .docs-tabs button { font-size: 13px; padding: 9px 2px; white-space: nowrap; }
   .segtab .cuenta { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; line-height: 18px; }
+  .docs-modo { margin: 4px 0 14px; }
+  .eq-personas { margin-bottom: 12px; }
   .docs-ayuda { font-size: 13px; color: var(--mute); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
 
   /* Modal */
@@ -444,9 +446,11 @@
   <!-- 5. Documentos -->
   <section id="v-docs" class="card hidden">
     <button class="back" data-volver type="button">← Menú</button>
-    <h2>Mis documentos</h2>
-    <p class="sub">Liquidaciones, contratos y anexos</p>
+    <h2 id="docsTitulo">Mis documentos</h2>
+    <p class="sub" id="docsSub">Liquidaciones, contratos y anexos</p>
+    <div class="segtab docs-modo hidden" id="docsModo" role="tablist"><button type="button" data-modo="mios">Mis documentos</button><button type="button" data-modo="equipo">Mi equipo</button></div>
     <div id="listaDocs"><div class="empty">Cargando…</div></div>
+    <div id="listaEquipo" class="hidden"></div>
   </section>
 </main>
 <footer>AutoCarSur · Alerce, Puerto Montt</footer>
@@ -496,7 +500,7 @@
   }
   const MENSAJES = {
     obtenerInicio: 'Cargando…', ingresar: 'Verificando tu PIN…', marcar: 'Registrando tu marca…',
-    registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…',
+    registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…', docsEquipo: 'Cargando los documentos del equipo…', abrirDocumentoEquipo: 'Abriendo el documento…',
     abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
     registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
     obtenerMiResumen: 'Cargando tu resumen…', obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
@@ -1452,11 +1456,61 @@
   }
 
   /* ── Documentos ── */
+  // Felipe (docsEquipo): además de los suyos ve los del equipo; al abrir uno ajeno no cambia el estado de la persona
+  const DE = { modo: null, datos: null, hora: 0, persona: null, tab: null };
   function abrirDocs() {
     ver('v-docs');
-    if (S.estado && S.estado.docs) return pintarDocs(S.estado.docs); // sin consultar
-    $('listaDocs').innerHTML = '<div class="empty">Cargando…</div>';
-    api('misDocumentos', S.token).then(r => pintarDocs(r.documentos)).catch(sesionError);
+    const eq = !!(S.estado && S.estado.docsEquipo);
+    $('docsModo').classList.toggle('hidden', !eq);
+    if (!eq) DE.modo = 'mios'; else if (!DE.modo) DE.modo = S.estado.docs && S.estado.docs.length ? 'mios' : 'equipo';
+    modoDocs(DE.modo);
+  }
+  $('docsModo').addEventListener('click', e => { const b = e.target.closest('[data-modo]'); if (b) modoDocs(b.dataset.modo); });
+  function modoDocs(m) {
+    DE.modo = m;
+    $('docsModo').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.modo === m));
+    $('listaDocs').classList.toggle('hidden', m !== 'mios'); $('listaEquipo').classList.toggle('hidden', m !== 'equipo');
+    $('docsTitulo').textContent = m === 'equipo' ? 'Documentos del equipo' : 'Mis documentos';
+    $('docsSub').textContent = m === 'equipo' ? 'Lo que tiene cada persona y si ya lo confirmó' : 'Liquidaciones, contratos y anexos';
+    if (m === 'mios') {
+      if (S.estado && S.estado.docs) return pintarDocs(S.estado.docs); // sin consultar
+      $('listaDocs').innerHTML = '<div class="empty">Cargando…</div>';
+      return api('misDocumentos', S.token).then(r => pintarDocs(r.documentos)).catch(sesionError);
+    }
+    if (DE.datos) pintarEquipo(); else $('listaEquipo').innerHTML = '<div class="empty">Cargando…</div>';
+    if (DE.datos && Date.now() - DE.hora < 60000) return; // lo recién recibido sigue vigente
+    (DE.datos ? servidor : api)('docsEquipo', S.token).then(r => { DE.datos = r; DE.hora = Date.now(); if (DE.modo === 'equipo') pintarEquipo(); }).catch(sesionError);
+  }
+  function pintarEquipo() {
+    const c = $('listaEquipo'), d = DE.datos;
+    if (!d.personas.length) { c.innerHTML = '<div class="empty">Todavía no hay documentos del equipo.</div>'; return; }
+    if (!DE.persona || !d.docs[DE.persona]) DE.persona = (d.personas.find(p => d.docs[p.id].some(porConfirmar)) || d.personas[0]).id;
+    const lista = d.docs[DE.persona], nombre = d.personas.find(p => p.id === DE.persona).nombre;
+    if (!DE.tab || !lista.some(x => x.tipo === DE.tab)) DE.tab = (GRUPOS_DOC.find(g => lista.some(x => x.tipo === g[0])) || GRUPOS_DOC[0])[0];
+    let html = '<div class="chips eq-personas" role="group" aria-label="Persona">' + d.personas.map(p => {
+      const n = d.docs[p.id].filter(porConfirmar).length;
+      return `<button type="button" data-eqp="${esc(p.id)}" class="${p.id === DE.persona ? 'on' : ''}">${esc(p.nombre.split(' ')[0])}${n ? ` · ${n}` : ''}</button>`;
+    }).join('') + '</div>';
+    html += '<div class="segtab docs-tabs" role="tablist">' + GRUPOS_DOC.map(([t, et]) => {
+      const p = lista.filter(x => x.tipo === t && porConfirmar(x)).length;
+      return `<button type="button" data-eqt="${esc(t)}" class="${t === DE.tab ? 'on' : ''}">${et}${p ? `<span class="cuenta">${p}</span>` : ''}</button>`;
+    }).join('') + '</div>';
+    const sel = lista.filter(x => x.tipo === DE.tab), pend = sel.filter(porConfirmar).length, anios = {};
+    sel.forEach(x => { (anios[String(x.periodo).slice(0, 4)] = anios[String(x.periodo).slice(0, 4)] || []).push(x); });
+    if (sel.length) html += `<p class="docs-ayuda">${pend ? `${nombre} tiene ${pend} sin confirmar.` : `${nombre} tiene todo confirmado.`} Si abres un documento, su estado no cambia.</p>`;
+    Object.keys(anios).sort().reverse().forEach(a => { html += `<h3 class="docs-titulo">${esc(a)}</h3>` + anios[a].map(filaDocEq).join(''); });
+    if (!sel.length) html += `<div class="empty">${esc(nombre)} no tiene ${GRUPOS_DOC.find(g => g[0] === DE.tab)[1].toLowerCase()} cargados.</div>`;
+    c.innerHTML = html;
+    c.querySelectorAll('[data-eqp]').forEach(b => b.addEventListener('click', () => { DE.persona = b.dataset.eqp; pintarEquipo(); }));
+    c.querySelectorAll('[data-eqt]').forEach(b => b.addEventListener('click', () => { DE.tab = b.dataset.eqt; pintarEquipo(); }));
+    c.querySelectorAll('[data-abreq]').forEach(b => b.addEventListener('click', () => abrirDoc(b.dataset.abreq, DE.persona)));
+  }
+  function filaDocEq(d) {
+    const chip = d.estado === 'PENDIENTE' ? '<span class="chip">Sin abrir</span>' : d.estado === 'VISTO' ? '<span class="chip">Abierto, sin confirmar</span>'
+      : d.estado === 'RECIBIDO' ? '<span class="chip ok">Recibido ✓</span>' : '';
+    const det = (d.titulo ? d.tipo + ' · ' : '') + periodoTxt(d.periodo) + (d.acuse ? ` · confirmado el ${fCorta(d.acuse)}` : '');
+    return `<div class="docb"><div class="doc"><button type="button" class="doc-abrir" data-abreq="${esc(d.id)}"><span class="doc-ico">PDF</span>
+      <span><b>${esc(d.titulo || d.tipo)}</b><small>${esc(det)}</small></span></button>${chip}</div></div>`;
   }
   const MES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const periodoTxt = p => /^\d{4}-\d{2}/.test(p || '') ? `${MES_LARGO[+p.slice(5, 7) - 1].replace(/^./, c => c.toUpperCase())} ${p.slice(0, 4)}` : (p || '');
@@ -1493,11 +1547,11 @@
       <span><b>${esc(d.titulo || d.tipo)}</b><small>${esc(det)}</small></span></button>${chip}</div>${conf}</div>`;
   }
   /* El PDF se abre en otra pestaña. La pestaña se abre en el mismo toque (si se abre después de esperar al servidor, el navegador la bloquea) */
-  function abrirDoc(id) {
+  function abrirDoc(id, persona) { // persona: documento de otra persona (Felipe), no cambia su estado
     let w = null;
     try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif;padding:24px;color:#6B6F78">Abriendo documento…</p>'); } catch (e) { w = null; }
     const fallo = texto => { if (w) w.close(); modal('err', 'No se pudo abrir', texto, '', [{ t: 'Entendido', cls: 'dark' }]); };
-    api('abrirDocumento', S.token, id).then(r => {
+    (persona ? api('abrirDocumentoEquipo', S.token, persona, id) : api('abrirDocumento', S.token, id)).then(r => {
       if (!r.ok) return fallo(r.error);
       const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
