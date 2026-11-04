@@ -1094,8 +1094,8 @@
     $('mesPend').textContent = m.pendientes.length;
     $('mesPendDet').textContent = m.pendientes.length ? m.pendientes.slice(0, 2).map(([f, falta]) => `${fDia(f)}: ${falta}`).join(' · ') + (m.pendientes.length > 2 ? ' · …' : '') : 'Todo en orden ✓';
     $('kPend').className = 'mes-k ' + (m.pendientes.length ? 'alerta' : 'ok');
-    $('mesNota').textContent = `Cuenta como extra lo trabajado ${m.tolerancia} min o más antes o después de tu turno, y todo lo trabajado en un feriado.` +
-      (m.pendientes.length ? ' Si olvidaste marcar, avísale a Felipe para corregirlo.' : '') +
+    $('mesNota').textContent = 'Las horas extraordinarias se consideran solo con acuerdo previo de Felipe Guerrero.' +
+      (m.pendientes.length ? ' Si olvidaste marcar, infórmalo a Felipe para su corrección.' : '') +
       (m.corregidas ? ` ${m.corregidas} marca(s) de este mes fueron corregidas por administración.` : '');
   }
 
