@@ -248,8 +248,10 @@
   @media (prefers-reduced-motion: reduce) { .rueda { animation: girar 1.6s linear infinite !important; } }
 
   /* Control de efectivo */
-  .franja { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  .franja div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  /* Las dos tarjetas comparten filas (etiqueta / monto / detalle): el monto queda a la misma altura aunque una etiqueta ocupe 2 líneas */
+  .franja { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; column-gap: 10px; row-gap: 0; margin-top: 12px; }
+  .franja div { background: var(--bg); border-radius: 12px; padding: 10px 12px; display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+  @supports not (grid-template-rows: subgrid) { .franja div { display: block; } .franja small { line-height: 1.25; min-height: 2.5em; } }
   .franja small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
   .franja b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
   .franja em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
@@ -274,6 +276,19 @@
           padding: 16px; color: var(--steel); font-weight: 700; cursor: pointer; text-align: center; }
   .foto img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; }
   .foto.ok { border-style: solid; border-color: var(--green); }
+  /* ── Tarjetas lado a lado con filas compartidas: etiqueta / monto / detalle quedan a la misma altura aunque el texto se parta en 1, 2 o 3 líneas ── */
+  @supports (grid-template-rows: subgrid) {
+    .mes-grid, .kpis, .rs-grid { grid-template-rows: auto auto auto; row-gap: 0; }
+    .mes-k, .kpi, .rs-grid > div { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+    .rs-grid > div { margin-bottom: 8px; }
+    .rs-grid > div:last-child, .rs-grid > div:nth-last-child(2):nth-child(odd) { margin-bottom: 0; }
+    .menu { row-gap: 0; margin-bottom: -12px; }
+    .menu .tile { margin-bottom: 12px; }
+    .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+    .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) > span:not(.badge) { display: contents; }
+    .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) > svg { align-self: start; }
+  }
+  @supports not (grid-template-rows: subgrid) { .mes-k small, .kpi small, .rs-grid small { min-height: 2.5em; line-height: 1.25; } }
 </style>
 </head>
 <body>

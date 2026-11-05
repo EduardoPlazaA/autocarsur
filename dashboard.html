@@ -144,8 +144,10 @@
   @media (prefers-reduced-motion: reduce) { .rueda { animation: girar 1.6s linear infinite !important; } }
 
   /* Franja de efectivo (siempre visible) */
-  .franjaEf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
-  .franjaEf > div { background: var(--paper); padding: 10px 20px; min-width: 0; }
+  .franjaEf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+  /* Cada tarjeta comparte las filas etiqueta / monto / detalle con las demás: los montos quedan alineados aunque una etiqueta ocupe más líneas */
+  .franjaEf > div { background: var(--paper); padding: 10px 20px; min-width: 0; display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+  @supports not (grid-template-rows: subgrid) { .franjaEf > div { display: block; } .franjaEf small { min-height: 2.6em; } }
   .franjaEf small { display: block; font-size: 11px; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; }
   .franjaEf b { font-size: 20px; color: var(--black); font-variant-numeric: tabular-nums; }
   .franjaEf em { display: block; font-style: normal; font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -178,6 +180,12 @@
     table.tarjetas tfoot tr { border-bottom: 0; }
     table.tarjetas .mini { max-width: 50%; }
   }
+  /* ── Tarjetas KPI lado a lado con filas compartidas (etiqueta / valor / detalle / barra): quedan a la misma altura aunque la etiqueta se parta ── */
+  @supports (grid-template-rows: subgrid) {
+    .kpis { row-gap: 0; margin-bottom: 0; }
+    .kpi { display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 0; align-content: start; margin-bottom: 14px; }
+  }
+  @supports not (grid-template-rows: subgrid) { .kpi .et { min-height: 2.6em; } }
 </style>
 </head>
 <body>
@@ -449,13 +457,19 @@ function horaCarga(R) { return R.cargaVentas && R.cargaVentas.slice(0, 10) === R
 const IVA = 1.19;
 function prepararIndices(R) {
   const di = {}, me = {};
-  const celda = (o, k, l) => ((o[k] = o[k] || {})[l] = o[k][l] || { v: 0, n: 0, p: 0, b: 0, nt: 0 });
+  const celda = (o, k, l) => ((o[k] = o[k] || {})[l] = o[k][l] || { v: 0, n: 0, p: 0, b: 0, nt: 0, vp: 0 });
   R.dias.forEach(([f, l, v, n, vn]) => {
     if (!incluirLocal(l, R)) return;
     const neto = vn == null ? Math.round(v / IVA) : vn;
     [celda(di, f, l), celda(me, f.slice(0, 7), l)].forEach(a => { a.v += E.conIva ? v : neto; a.n += n; a.b += v; a.nt += neto; });
   });
   R.ppto.forEach(([f, l, p]) => { const m = E.conIva ? p : p / IVA; celda(di, f, l).p += m; celda(me, f.slice(0, 7), l).p += m; });
+  // vp = venta de los días que tienen meta: el cumplimiento se mide solo sobre esos días
+  Object.keys(di).forEach(f => { for (const l in di[f]) { const c = di[f][l]; if (c.p > 0) { c.vp = c.v; celda(me, f.slice(0, 7), l).vp += c.v; } } });
+  R.inicioPpto = R.ppto.reduce((m, x) => (x[2] > 0 && (!m || x[0] < m) ? x[0] : m), '');
+  // Primer día con ventas (total y por local): sin datos completos del período anterior no se muestran variaciones
+  const ini0 = {}; R.dias.forEach(([f, l, v]) => { if (v > 0 && incluirLocal(l, R)) { if (!ini0[l] || f < ini0[l]) ini0[l] = f; if (!ini0.TODOS || f < ini0.TODOS) ini0.TODOS = f; } });
+  R.inicioDatos = ini0;
   R.diario = di; R.mensual = me;
   R.ultimaVenta = R.dias.reduce((m, d) => (d[2] > 0 && d[0] > m ? d[0] : m), '');
   R.primerCierre = R.cierres.reduce((m, c) => (!m || c.f < m ? c.f : m), '');
@@ -463,7 +477,7 @@ function prepararIndices(R) {
 
 /* Suma ventas, documentos y presupuesto entre dos fechas para el local elegido */
 function total(ini, fin, local = E.local) {
-  const t = { v: 0, n: 0, p: 0, b: 0, nt: 0 };
+  const t = { v: 0, n: 0, p: 0, b: 0, nt: 0, vp: 0 };
   for (let f = ini; f <= fin; f = sumar(f, 1)) {
     const d = E.R.diario[f]; if (!d) continue;
     for (const l in d) if (local === 'TODOS' || l === local) for (const k in t) t[k] += d[l][k];
@@ -471,10 +485,16 @@ function total(ini, fin, local = E.local) {
   return t;
 }
 function totalMes(mes, local = E.local) {
-  const t = { v: 0, n: 0, p: 0, b: 0, nt: 0 }, d = E.R.mensual[mes] || {};
+  const t = { v: 0, n: 0, p: 0, b: 0, nt: 0, vp: 0 }, d = E.R.mensual[mes] || {};
   for (const l in d) if (local === 'TODOS' || l === local) for (const k in t) t[k] += d[l][k];
   return t;
 }
+
+const VACIO = () => ({ v: 0, n: 0, p: 0, b: 0, nt: 0, vp: 0 });
+const inicioDe = local => ((E.R && E.R.inicioDatos) || {})[local] || '9999-12-31';
+/* Totales de un período de comparación, solo si los datos lo cubren completo (los de Bicom parten el 1-nov-2025); si no, "sin dato" */
+const totalSiCubre = (ini, fin, local = E.local) => (ini >= inicioDe(local) ? total(ini, fin, local) : VACIO());
+const totalCmp = (c, local = E.local) => (c.ok ? total(c.ini, c.fin, local) : VACIO());
 
 /* ═══════════════ Períodos ═══════════════ */
 function rango(per, f) {
@@ -496,16 +516,41 @@ function etiquetaRango(per, r) {
   return `Año ${r.ini.slice(0, 4)}`;
 }
 /* Período comparable recortado a la misma cantidad de días transcurridos */
-function comparable(r, corte, tipo) {
+function comparable(r, corte, tipo, local = E.local) {
   const per = E.per;
   let ini;
   if (tipo === 'anterior') ini = per === 'dia' || per === 'semana' ? sumar(r.ini, -7) : sumarMeses(r.ini, per === 'mes' ? -1 : -12);
   else ini = per === 'dia' || per === 'semana' ? sumar(r.ini, -364) : sumarMeses(r.ini, -12);
   const r2 = rango(per === 'dia' ? 'dia' : per, ini);
-  return { ini: r2.ini, fin: min(r2.fin, sumar(r2.ini, entre(r.ini, corte))) };
+  return { ini: r2.ini, fin: min(r2.fin, sumar(r2.ini, entre(r.ini, corte))), ok: r2.ini >= inicioDe(local) };
 }
 
 /* ═══════════════ Pintado general ═══════════════ */
+/* Tarjetas grandes lado a lado (.dos): título, subtítulo y leyenda ocupan el mismo alto, así los gráficos y tablas arrancan alineados */
+function alinearTarjetas() {
+  document.querySelectorAll('#contenido .dos').forEach(g => {
+    g.querySelectorAll('.reserva-alinear').forEach(e => e.remove());
+    const cs = [...g.children];
+    cs.forEach(c => c.querySelectorAll(':scope > h3, :scope > .sub, :scope > .leyenda').forEach(e => { e.style.minHeight = ''; }));
+    const filas = {}; cs.forEach(c => { const t = Math.round(c.getBoundingClientRect().top / 4); (filas[t] = filas[t] || []).push(c); });
+    Object.values(filas).forEach(f => {
+      if (f.length < 2) return;
+      ['h3', '.sub', '.leyenda'].forEach(sel => {
+        const els = f.map(c => c.querySelector(':scope > ' + sel)), h = Math.max(0, ...els.map(e => (e ? e.offsetHeight : 0)));
+        if (!h) return;
+        const ref = els.find(Boolean), cs0 = getComputedStyle(ref), margenV = (parseFloat(cs0.marginTop) || 0) + (parseFloat(cs0.marginBottom) || 0);
+        f.forEach((c, i) => {
+          if (els[i]) { els[i].style.minHeight = h + 'px'; return; }
+          const hueco = document.createElement('div'); hueco.className = 'reserva-alinear'; hueco.style.height = (h + margenV) + 'px';
+          const ancla = c.querySelector(':scope > .sub') || c.querySelector(':scope > h3'); // la leyenda va después del subtítulo
+          if (ancla) ancla.after(hueco); else c.prepend(hueco);
+        });
+      });
+    });
+  });
+}
+let tAlinear = null;
+window.addEventListener('resize', () => { clearTimeout(tAlinear); tAlinear = setTimeout(alinearTarjetas, 120); });
 function pintar() {
   E.charts.forEach(c => c.destroy()); E.charts = [];
   const r = rango(E.per, E.fecha);
@@ -513,6 +558,7 @@ function pintar() {
   $('rango').textContent = etiquetaRango(E.per, r);
   ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, clientes: tabClientes, remu: tabRemu })[E.tab](r);
   etiquetarTablas();
+  alinearTarjetas();
 }
 /* Copia el nombre de cada columna en sus celdas: en el celular las tablas se muestran como tarjetas */
 function etiquetarTablas() {
@@ -631,20 +677,27 @@ function tabResumen(r) {
   const a = total(r.ini, corte);
   const pptoTotal = total(r.ini, r.fin).p;
   const ant = comparable(r, corte, 'anterior'), aa = comparable(r, corte, 'anio');
-  const tAnt = total(ant.ini, ant.fin), tAA = total(aa.ini, aa.fin);
-  const cumpl = a.p ? a.v / a.p : NaN;
-  const proy = !enCurso ? a.v : a.p ? a.v / a.p * pptoTotal : a.v / (entre(r.ini, corte) + 1) * (entre(r.ini, r.fin) + 1);
+  const tAnt = totalCmp(ant), tAA = totalCmp(aa);
+  // Cumplimiento y proyección solo sobre los días con presupuesto; la proyección nunca pasa de 2 veces el ritmo diario en lo que falta
+  const parcialPpto = a.p > 0 && a.vp < a.v * 0.995;
+  const cumpl = a.p ? a.vp / a.p : NaN;
+  const iniReal = max(r.ini, inicioDe(E.local) < '9999' ? inicioDe(E.local) : r.ini);
+  const diasEl = Math.max(1, entre(iniReal, corte) + 1), diasTot = Math.max(diasEl, entre(iniReal, r.fin) + 1);
+  const resto = corte < r.fin ? total(sumar(corte, 1), r.fin) : VACIO();
+  const metaCompleta = a.p > 0 && !parcialPpto && (corte >= r.fin || resto.p > 0);
+  const ritmoDia = a.v / diasEl, tope = a.v + 2 * ritmoDia * (diasTot - diasEl);
+  const proy = !enCurso ? a.v : Math.min(tope, metaCompleta ? a.v + resto.p * (a.vp / a.p) : ritmoDia * diasTot);
   const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[E.per];
 
   const mg = margenRango(r), conv = conversion(r.ini, corte);
   let html = '<div class="grid kpis fila" style="--n:7">';
   html += kpi(diaHoy ? `Venta del día${aLas}` : `Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
   html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl, 0) : '—',
-    a.p ? `Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
+    a.p ? `${parcialPpto ? `Solo los días con presupuesto (desde ${fCorta(R.inicioPpto)} ${R.inicioPpto.slice(0, 4)}) · ` : ''}Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
   if (diaHoy) html += kpi('Falta para la meta del día', a.p ? mm(Math.max(0, a.p - a.v)) : '—',
     a.p ? (a.v >= a.p ? '<span class="chip up">Meta del día cumplida</span>' : `${pct(a.v / a.p, 0)} de la meta de ${mm(a.p)}`) : 'Sin presupuesto cargado');
   else html += kpi(enCurso ? 'Proyección de cierre' : 'Venta final del período', mm(proy),
-    enCurso ? (pptoTotal ? `${pct(proy / pptoTotal, 0)} de la meta del período` : 'Ritmo diario actual') : (pptoTotal ? `${pct(a.v / pptoTotal, 0)} de la meta` : ''));
+    enCurso ? (metaCompleta ? `${pct(proy / pptoTotal, 0)} de la meta del período` : 'Ritmo diario actual' + (a.p ? ' · el presupuesto no cubre todo el período' : '')) : (metaCompleta ? `${pct(a.v / pptoTotal, 0)} de la meta` : ''));
   html += kpi('Ticket promedio', a.n ? clp(a.v / a.n) : '—', `${ent(a.n)} documentos · ${delta(a.n ? a.v / a.n : 0, tAA.n ? tAA.v / tAA.n : 0, 'vs año ant.')}`);
   html += kpi('Margen bruto', mg.venta ? pct(mg.margen / mg.venta) : '—', mg.venta ? `${mm(mg.margen)} · empresa · ${etiquetaMensual(r)}` : 'Sin datos de margen');
   html += kpi('IVA débito', mm(a.b - a.nt), a.b ? `${pct((a.b - a.nt) / a.b)} de la venta · neto ${mm(a.nt)} · bruto ${mm(a.b)}` : 'Sin ventas');
@@ -654,13 +707,13 @@ function tabResumen(r) {
 
   // Acumulados de la semana, el mes y el año, contra el mismo período del año anterior (la semana: misma semana, 364 días antes)
   const ref = min(R.ultimaVenta || E.fecha, E.fecha), iniSem = sumar(ref, -dsem(ref));
-  const wtd = total(iniSem, ref), wtdAA = total(sumar(iniSem, -364), sumar(ref, -364));
-  const mtd = total(ref.slice(0, 7) + '-01', ref), mtdAA = total(sumarMeses(ref.slice(0, 7) + '-01', -12), sumarMeses(ref, -12));
-  const ytd = total(ref.slice(0, 4) + '-01-01', ref), ytdAA = total(sumarMeses(ref.slice(0, 4) + '-01-01', -12), sumarMeses(ref, -12));
+  const wtd = total(iniSem, ref), wtdAA = totalSiCubre(sumar(iniSem, -364), sumar(ref, -364));
+  const mtd = total(ref.slice(0, 7) + '-01', ref), mtdAA = totalSiCubre(sumarMeses(ref.slice(0, 7) + '-01', -12), sumarMeses(ref, -12));
+  const ytd = total(ref.slice(0, 4) + '-01-01', ref), ytdAA = totalSiCubre(sumarMeses(ref.slice(0, 4) + '-01-01', -12), sumarMeses(ref, -12));
   html += '<div class="grid kpis fila" style="--n:3">';
-  html += kpi(`Acumulado semana al ${fCorta(ref)}`, mm(wtd.v), (wtd.p ? `<span class="chip ${wtd.v >= wtd.p ? 'up' : 'down'}">${pct(wtd.v / wtd.p, 0)} meta</span> ` : '') + delta(wtd.v, wtdAA.v, 'vs misma semana año ant.'), wtd.p ? barraCumpl(wtd.v / wtd.p) : '');
-  html += kpi(`Acumulado mes al ${fCorta(ref)}`, mm(mtd.v), (mtd.p ? `<span class="chip ${mtd.v >= mtd.p ? 'up' : 'down'}">${pct(mtd.v / mtd.p, 0)} meta</span> ` : '') + delta(mtd.v, mtdAA.v, 'vs año ant.'), mtd.p ? barraCumpl(mtd.v / mtd.p) : '');
-  html += kpi(`Acumulado año al ${fCorta(ref)}`, mm(ytd.v), (ytd.p ? `<span class="chip ${ytd.v >= ytd.p ? 'up' : 'down'}">${pct(ytd.v / ytd.p, 0)} meta</span> ` : '') + delta(ytd.v, ytdAA.v, 'vs año ant.'), ytd.p ? barraCumpl(ytd.v / ytd.p) : '');
+  html += kpi(`Acumulado semana al ${fCorta(ref)}`, mm(wtd.v), (wtd.p ? `<span class="chip ${wtd.vp >= wtd.p ? 'up' : 'down'}">${pct(wtd.vp / wtd.p, 0)} meta</span> ` : '') + delta(wtd.v, wtdAA.v, 'vs misma semana año ant.'), wtd.p ? barraCumpl(wtd.vp / wtd.p) : '');
+  html += kpi(`Acumulado mes al ${fCorta(ref)}`, mm(mtd.v), (mtd.p ? `<span class="chip ${mtd.vp >= mtd.p ? 'up' : 'down'}">${pct(mtd.vp / mtd.p, 0)} meta</span> ` : '') + delta(mtd.v, mtdAA.v, 'vs año ant.'), mtd.p ? barraCumpl(mtd.vp / mtd.p) : '');
+  html += kpi(`Acumulado año al ${fCorta(ref)}`, mm(ytd.v), (ytd.p ? `<span class="chip ${ytd.vp >= ytd.p ? 'up' : 'down'}">${pct(ytd.vp / ytd.p, 0)} meta</span> ` : '') + delta(ytd.v, ytdAA.v, 'vs año ant.'), ytd.p ? barraCumpl(ytd.vp / ytd.p) : '');
   html += '</div>';
 
   html += `<div class="grid dos">
@@ -692,7 +745,7 @@ function tabResumen(r) {
   const ac = tA.map(x => {
     const tt = total(x.ini, x.fin);
     const iniAA = off ? sumar(x.ini, off) : sumarMeses(x.ini, -12), finAA = off ? sumar(x.fin, off) : sumarMeses(x.fin, -12);
-    sv += tt.v; sp += tt.p; sa += total(iniAA, finAA).v;
+    sv += tt.v; sp += tt.p; sa += totalSiCubre(iniAA, finAA).v;
     return { v: x.ini <= (R.ultimaVenta || '') ? sv : null, p: sp || null, a: sa };
   });
   grafico('gAcu', {
@@ -710,21 +763,21 @@ function tabResumen(r) {
 
 function tablaLocales(r, corte) {
   const filas = E.R.locales.map(l => {
-    const a = total(r.ini, corte, l), aa = comparable(r, corte, 'anio'), tAA = total(aa.ini, aa.fin, l);
+    const a = total(r.ini, corte, l), aa = comparable(r, corte, 'anio', l), tAA = totalCmp(aa, l);
     const cv = conversion(r.ini, corte, l), dif = cierresRango(r.ini, corte, l).filter(c => Math.abs(c.dif) > E.R.tolerancia).length;
     return { l, a, tAA, cv, dif };
   });
-  const T = filas.reduce((s, x) => ({ v: s.v + x.a.v, p: s.p + x.a.p, n: s.n + x.a.n, aa: s.aa + x.tAA.v }), { v: 0, p: 0, n: 0, aa: 0 });
+  const T = filas.reduce((s, x) => ({ v: s.v + x.a.v, vp: s.vp + x.a.vp, p: s.p + x.a.p, n: s.n + x.a.n, aa: s.aa + x.tAA.v, vc: s.vc + (x.tAA.v ? x.a.v : 0) }), { v: 0, vp: 0, p: 0, n: 0, aa: 0, vc: 0 });
   const fila = x => `<tr><td><span class="mini" style="width:10px;background:${colorLocal(x.l)}"></span> ${esc(x.l)}</td>
     <td class="r num">${mm(x.a.v)}</td><td class="r num">${x.a.p ? mm(x.a.p) : '—'}</td>
-    <td class="r num" style="color:${x.a.p ? colorCumpl(x.a.v / x.a.p) : 'inherit'};font-weight:700">${x.a.p ? pct(x.a.v / x.a.p, 0) : '—'}</td>
+    <td class="r num" style="color:${x.a.p ? colorCumpl(x.a.vp / x.a.p) : 'inherit'};font-weight:700">${x.a.p ? pct(x.a.vp / x.a.p, 0) : '—'}</td>
     <td class="r num">${x.tAA.v ? pct(x.a.v / x.tAA.v - 1, 0) : '—'}</td><td class="r num">${x.a.n ? clp(x.a.v / x.a.n) : '—'}</td>
     <td class="r num">${x.cv.visitas ? pct(x.cv.compras / x.cv.visitas, 0) : '—'}</td>
     <td class="r num">${x.dif ? `<span class="chip down">${x.dif}</span>` : '0'}</td></tr>`;
   return `<table><thead><tr><th>Local</th><th class="r">Venta</th><th class="r">Meta</th><th class="r">Cumpl.</th><th class="r">vs año ant.</th>
     <th class="r">Ticket</th><th class="r">Conversión</th><th class="r">Dif. caja</th></tr></thead><tbody>${filas.map(fila).join('')}</tbody>
-    <tfoot><tr><td>Total</td><td class="r num">${mm(T.v)}</td><td class="r num">${T.p ? mm(T.p) : '—'}</td><td class="r num">${T.p ? pct(T.v / T.p, 0) : '—'}</td>
-    <td class="r num">${T.aa ? pct(T.v / T.aa - 1, 0) : '—'}</td><td class="r num">${T.n ? clp(T.v / T.n) : '—'}</td><td></td><td></td></tr></tfoot></table>`;
+    <tfoot><tr><td>Total</td><td class="r num">${mm(T.v)}</td><td class="r num">${T.p ? mm(T.p) : '—'}</td><td class="r num">${T.p ? pct(T.vp / T.p, 0) : '—'}</td>
+    <td class="r num">${T.aa ? pct(T.vc / T.aa - 1, 0) : '—'}</td><td class="r num">${T.n ? clp(T.v / T.n) : '—'}</td><td></td><td></td></tr></tfoot></table>`;
 }
 
 function alertas(r, corte) {
@@ -733,7 +786,7 @@ function alertas(r, corte) {
   localesVisibles().forEach(l => {
     const a = total(r.ini, corte, l);
     if (!a.p) add('warn', `${l}: no hay presupuesto cargado para este período.`);
-    else if (a.v / a.p < 0.9) add('down', `${l}: va al ${pct(a.v / a.p, 0)} de la meta (faltan ${mm(a.p - a.v)}).`);
+    else if (a.vp / a.p < 0.9) add('down', `${l}: va al ${pct(a.vp / a.p, 0)} de la meta (faltan ${mm(a.p - a.vp)}).`);
   });
   const cie = cierresRango(r.ini, corte);
   const difs = cie.filter(c => Math.abs(c.dif) > R.tolerancia);
@@ -834,7 +887,7 @@ function tabVentas(r) {
       labels: tT.map(x => x.et),
       datasets: [
         { label: 'Venta', data: tT.map(x => (x.ini <= (R.ultimaVenta || '') ? total(x.ini, x.fin).v : null)), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
-        { type: 'line', label: 'Año anterior', data: tT.map(x => total(x.aIni, x.aFin).v || null), borderColor: '#C9CCD3', borderWidth: 2, pointRadius: 2, order: 1 },
+        { type: 'line', label: 'Año anterior', data: tT.map(x => totalSiCubre(x.aIni, x.aFin).v || null), borderColor: '#C9CCD3', borderWidth: 2, pointRadius: 2, order: 1 },
         { type: 'line', label: 'Presupuesto', data: tT.map(x => total(x.ini, x.fin).p || null), borderColor: '#8A8F98', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, order: 0 },
       ],
     },
