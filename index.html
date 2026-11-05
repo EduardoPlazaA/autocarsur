@@ -650,7 +650,8 @@
   }
   function validarPin() {
     S.ocupado = true; $('pinMsg').textContent = '';
-    api('ingresar', S.elegido.id, S.pin).then(r => {
+    const confianzas = store.get('acs_conf') || {}; // teléfono de confianza: los intentos de otros no lo bloquean
+    api('ingresar', S.elegido.id, S.pin, confianzas[S.elegido.id] || '').then(r => {
       S.ocupado = false;
       if (!r.ok) {
         S.pin = ''; pintarDots(); $('pinMsg').textContent = r.error;
@@ -658,6 +659,7 @@
         return;
       }
       S.token = r.token; S.usuario = r.usuario;
+      if (r.confianza) { const c = store.get('acs_conf') || {}; c[r.usuario.id] = r.confianza; store.set('acs_conf', c); }
       store.set('acs_usuario', r.usuario.id);
       store.set('acs_sesion', { token: r.token, usuario: r.usuario, estado: r.estado, exp: Date.now() + 13 * 3600 * 1000 });
       entrarMenu(r.estado);

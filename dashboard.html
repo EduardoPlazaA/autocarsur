@@ -377,8 +377,10 @@ $('pin').onkeydown = e => { if (e.key === 'Enter' && !$('entrar').disabled) $('e
 $('entrar').onclick = async () => {
   $('entrar').disabled = true; $('errLogin').textContent = '';
   try {
-    const r = await llamar('ingresarDashboard', elegido, $('pin').value);
+    const confianzas = leer('acs_conf') || {}; // teléfono de confianza: los intentos de otros no lo bloquean
+    const r = await llamar('ingresarDashboard', elegido, $('pin').value, confianzas[elegido] || '');
     if (!r.ok) { $('errLogin').textContent = r.error; $('pin').value = ''; return; }
+    if (r.confianza) { confianzas[elegido] = r.confianza; guardar('acs_conf', confianzas); }
     E.sesion = { token: r.token, usuario: r.usuario }; guardar('acs_dash', E.sesion);
     $('vLogin').classList.add('hidden'); abrirDashboard(r.datos); // los datos llegan junto con el ingreso
   } catch (e) { $('errLogin').textContent = 'No se pudo conectar. Intenta de nuevo.'; }
