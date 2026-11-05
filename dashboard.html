@@ -551,6 +551,10 @@ const localesVisibles = () => (E.local === 'TODOS' ? E.R.locales : [E.local]);
 /* Locales cerrados (Munita): cuentan en los totales solo si la casilla "Incluir locales cerrados" está marcada */
 function incluirLocal(l, R = E.R) { return E.conCerrados || !((R && R.cerrados) || []).includes(l); }
 const colorLocal = l => COLORES[Math.max(0, E.R.locales.indexOf(l)) % COLORES.length];
+/* Pagos y vendedores llegan por día (aaaa-mm-dd); productos y margen, por mes (aaaa-mm). Una fila pertenece al período si su día cae dentro o, si es mensual, si su mes lo toca */
+const enPeriodo = (k, r) => (String(k).length > 7 ? k >= r.ini && k <= r.fin : meses(r).includes(k));
+const etiquetaPer = r => (E.per === 'dia' || E.per === 'semana' ? etiquetaRango(E.per, r) : etiquetaMeses(r));
+const etiquetaMensual = r => etiquetaMeses(r) + (E.per === 'dia' || E.per === 'semana' ? ' (mes completo: este detalle es mensual)' : '');
 const meses = r => { const m = []; for (let x = r.ini.slice(0, 7); x <= r.fin.slice(0, 7); x = sumarMeses(x + '-01', 1).slice(0, 7)) m.push(x); return m; };
 const etiquetaMeses = r => { const m = meses(r); return m.length === 1 ? fMes(m[0]) : `${fMes(m[0])} – ${fMes(m[m.length - 1])}`; };
 function kpi(et, val, det, barra) {
@@ -642,7 +646,7 @@ function tabResumen(r) {
   else html += kpi(enCurso ? 'Proyección de cierre' : 'Venta final del período', mm(proy),
     enCurso ? (pptoTotal ? `${pct(proy / pptoTotal, 0)} de la meta del período` : 'Ritmo diario actual') : (pptoTotal ? `${pct(a.v / pptoTotal, 0)} de la meta` : ''));
   html += kpi('Ticket promedio', a.n ? clp(a.v / a.n) : '—', `${ent(a.n)} documentos · ${delta(a.n ? a.v / a.n : 0, tAA.n ? tAA.v / tAA.n : 0, 'vs año ant.')}`);
-  html += kpi('Margen bruto', mg.venta ? pct(mg.margen / mg.venta) : '—', mg.venta ? `${mm(mg.margen)} · empresa · ${etiquetaMeses(r)}` : 'Sin datos de margen');
+  html += kpi('Margen bruto', mg.venta ? pct(mg.margen / mg.venta) : '—', mg.venta ? `${mm(mg.margen)} · empresa · ${etiquetaMensual(r)}` : 'Sin datos de margen');
   html += kpi('IVA débito', mm(a.b - a.nt), a.b ? `${pct((a.b - a.nt) / a.b)} de la venta · neto ${mm(a.nt)} · bruto ${mm(a.b)}` : 'Sin ventas');
   html += kpi('Conversión de visitas', conv.visitas ? pct(conv.compras / conv.visitas, 0) : '—',
     conv.visitas ? `${ent(conv.compras)} compras de ${ent(conv.visitas)} visitas` : 'Sin cierres con visitas');
@@ -786,10 +790,10 @@ function tabVentas(r) {
       <div class="lienzo"><canvas id="gDow"></canvas></div></div>
   </div>
   <div class="grid dos">
-    <div class="card"><h3>Formas de pago</h3><div class="sub">${etiquetaMeses(r)} · con IVA</div>
+    <div class="card"><h3>Formas de pago</h3><div class="sub">${etiquetaPer(r)} · con IVA</div>
       ${pagos.length ? `<div class="tabla"><table><tbody>${pagos.map(p => `<tr><td>${esc(p[0])}</td><td style="width:45%"><span class="mini" style="width:${p[1] / pagos[0][1] * 100}%"></span></td>
         <td class="r num">${mm(p[1])}</td><td class="r num">${pct(p[1] / totPagos, 0)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin datos</p>'}</div>
-    <div class="card"><h3>Ranking de vendedores</h3><div class="sub">${etiquetaMeses(r)} · según Bicom · con IVA</div>
+    <div class="card"><h3>Ranking de vendedores</h3><div class="sub">${etiquetaPer(r)} · según Bicom · con IVA</div>
       ${vend.length ? `<div class="tabla"><table><thead><tr><th>Vendedor</th><th></th><th class="r">Venta</th><th class="r">Docs</th><th class="r">Ticket</th></tr></thead><tbody>
       ${vend.map(v => `<tr><td>${esc(v[0])}</td><td style="width:35%"><span class="mini" style="width:${v[1] / vend[0][1] * 100}%"></span></td><td class="r num">${mm(v[1])}</td>
         <td class="r num">${ent(v[2])}</td><td class="r num">${v[2] ? clp(v[1] / v[2]) : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin datos</p>'}</div>
@@ -831,13 +835,13 @@ function tabVentas(r) {
 /* Suma un arreglo mensual [mes, local, clave, monto…] dentro de los meses del período */
 function agrupar(filas, r, iClave, iMonto) {
   const ms = meses(r), acc = {};
-  filas.forEach(x => { if (ms.includes(x[0]) && incluirLocal(x[1]) && (E.local === 'TODOS' || x[1] === E.local)) acc[x[iClave]] = (acc[x[iClave]] || 0) + x[iMonto]; });
+  filas.forEach(x => { if (enPeriodo(x[0], r) && incluirLocal(x[1]) && (E.local === 'TODOS' || x[1] === E.local)) acc[x[iClave]] = (acc[x[iClave]] || 0) + x[iMonto]; });
   return Object.entries(acc).sort((a, b) => b[1] - a[1]);
 }
 function agruparVendedores(r) {
   const ms = meses(r), acc = {};
   E.R.vendedores.forEach(([m, l, n, v, d]) => {
-    if (!ms.includes(m) || !incluirLocal(l) || (E.local !== 'TODOS' && l !== E.local)) return;
+    if (!enPeriodo(m, r) || !incluirLocal(l) || (E.local !== 'TODOS' && l !== E.local)) return;
     const a = acc[n] || (acc[n] = [n, 0, 0]); a[1] += v; a[2] += d;
   });
   return Object.values(acc).sort((a, b) => b[1] - a[1]);
@@ -864,11 +868,11 @@ function tabProductos(r) {
 
   $('contenido').innerHTML = `
   <div class="grid dos">
-    <div class="card"><h3>Productos más vendidos</h3><div class="sub">${etiquetaMeses(r)} · con IVA · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)}</div>
+    <div class="card"><h3>Productos más vendidos</h3><div class="sub">${etiquetaMensual(r)} · con IVA · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)}</div>
       ${top.length ? `<div class="tabla"><table><thead><tr><th>Producto</th><th>Familia</th><th class="r">Unid.</th><th class="r">Venta</th><th class="r">% total</th></tr></thead><tbody>
       ${top.map(p => `<tr><td>${esc(p.d)}<br><small style="color:var(--mute)">${esc(p.c)}</small></td><td>${esc(p.f)}</td><td class="r num">${ent(p.q)}</td>
         <td class="r num">${mm(p.v)}</td><td class="r num">${pct(p.v / totV)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin datos</p>'}</div>
-    <div class="card"><h3>Margen por familia</h3><div class="sub">${etiquetaMeses(r)} · total empresa (Bicom no lo separa por local) · venta neta</div>
+    <div class="card"><h3>Margen por familia</h3><div class="sub">${etiquetaMensual(r)} · total empresa (Bicom no lo separa por local) · venta neta</div>
       ${familias.length ? `<div class="tabla"><table><thead><tr><th>Familia</th><th class="r">Venta neta</th><th class="r">Margen</th><th class="r">Margen %</th><th></th></tr></thead><tbody>
       ${familias.map(f => `<tr><td>${esc(f.f)}</td><td class="r num">${mm(f.v)}</td><td class="r num">${mm(f.g)}</td><td class="r num"><b>${pct(f.g / f.v, 0)}</b></td>
         <td style="width:25%"><span class="mini" style="width:${f.g / familias[0].g * 100}%;background:var(--green)"></span></td></tr>`).join('')}</tbody>
