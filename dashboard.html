@@ -216,6 +216,7 @@
     </div>
     <span class="rango" id="rango"></span>
     <select id="local"></select>
+    <label id="chkCerrados" class="hidden" title="Locales cerrados (Munita): cuentan en el total histórico. Desmárcalo para comparar solo los locales que siguen abiertos." style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mute);cursor:pointer"><input type="checkbox" id="conCerrados" checked> Incluir locales cerrados</label>
     <div class="seg" id="segIva" title="Las metas se cargan con IVA; sin IVA se dividen por 1,19">
       <button data-i="1" class="on">Con IVA</button><button data-i="0">Sin IVA</button>
     </div>
@@ -325,7 +326,7 @@ const guardar = (k, v) => { try { v == null ? localStorage.removeItem(k) : local
 const leer = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 
 /* ═══════════════ Estado ═══════════════ */
-const E = { sesion: leer('acs_dash'), R: null, per: 'mes', fecha: null, local: 'TODOS', tab: 'resumen', conIva: true, charts: [] };
+const E = { sesion: leer('acs_dash'), R: null, per: 'mes', fecha: null, local: 'TODOS', tab: 'resumen', conIva: true, conCerrados: true, charts: [] };
 const $ = id => document.getElementById(id);
 
 /* ═══════════════ Ingreso ═══════════════ */
@@ -426,6 +427,7 @@ async function mostrarDatos(R) {
   pintarFranja();
   $('local').innerHTML = '<option value="TODOS">Todos los locales</option>' + R.locales.map(l => `<option${l === E.local ? ' selected' : ''}>${esc(l)}</option>`).join('');
   if (E.local !== 'TODOS' && !R.locales.includes(E.local)) E.local = 'TODOS';
+  $('chkCerrados').classList.toggle('hidden', !(R.cerrados || []).length);
   pintar();
 }
 
@@ -449,6 +451,7 @@ function prepararIndices(R) {
   const di = {}, me = {};
   const celda = (o, k, l) => ((o[k] = o[k] || {})[l] = o[k][l] || { v: 0, n: 0, p: 0, b: 0, nt: 0 });
   R.dias.forEach(([f, l, v, n, vn]) => {
+    if (!incluirLocal(l, R)) return;
     const neto = vn == null ? Math.round(v / IVA) : vn;
     [celda(di, f, l), celda(me, f.slice(0, 7), l)].forEach(a => { a.v += E.conIva ? v : neto; a.n += n; a.b += v; a.nt += neto; });
   });
@@ -542,8 +545,11 @@ $('ant').onclick = () => { E.fecha = mover(E.per, E.fecha, -1); pintar(); };
 $('sig').onclick = () => { E.fecha = mover(E.per, E.fecha, 1); pintar(); };
 $('fecha').onchange = e => { if (e.target.value) { E.fecha = e.target.value; pintar(); } };
 $('local').onchange = e => { E.local = e.target.value; pintar(); };
+$('conCerrados').onchange = e => { E.conCerrados = e.target.checked; prepararIndices(E.R); pintar(); };
 
 const localesVisibles = () => (E.local === 'TODOS' ? E.R.locales : [E.local]);
+/* Locales cerrados (Munita): cuentan en los totales solo si la casilla "Incluir locales cerrados" está marcada */
+function incluirLocal(l, R = E.R) { return E.conCerrados || !((R && R.cerrados) || []).includes(l); }
 const colorLocal = l => COLORES[Math.max(0, E.R.locales.indexOf(l)) % COLORES.length];
 const meses = r => { const m = []; for (let x = r.ini.slice(0, 7); x <= r.fin.slice(0, 7); x = sumarMeses(x + '-01', 1).slice(0, 7)) m.push(x); return m; };
 const etiquetaMeses = r => { const m = meses(r); return m.length === 1 ? fMes(m[0]) : `${fMes(m[0])} – ${fMes(m[m.length - 1])}`; };
@@ -825,13 +831,13 @@ function tabVentas(r) {
 /* Suma un arreglo mensual [mes, local, clave, monto…] dentro de los meses del período */
 function agrupar(filas, r, iClave, iMonto) {
   const ms = meses(r), acc = {};
-  filas.forEach(x => { if (ms.includes(x[0]) && (E.local === 'TODOS' || x[1] === E.local)) acc[x[iClave]] = (acc[x[iClave]] || 0) + x[iMonto]; });
+  filas.forEach(x => { if (ms.includes(x[0]) && incluirLocal(x[1]) && (E.local === 'TODOS' || x[1] === E.local)) acc[x[iClave]] = (acc[x[iClave]] || 0) + x[iMonto]; });
   return Object.entries(acc).sort((a, b) => b[1] - a[1]);
 }
 function agruparVendedores(r) {
   const ms = meses(r), acc = {};
   E.R.vendedores.forEach(([m, l, n, v, d]) => {
-    if (!ms.includes(m) || (E.local !== 'TODOS' && l !== E.local)) return;
+    if (!ms.includes(m) || !incluirLocal(l) || (E.local !== 'TODOS' && l !== E.local)) return;
     const a = acc[n] || (acc[n] = [n, 0, 0]); a[1] += v; a[2] += d;
   });
   return Object.values(acc).sort((a, b) => b[1] - a[1]);
@@ -846,7 +852,7 @@ function margenRango(r) {
 function tabProductos(r) {
   const R = E.R, ms = meses(r), acc = {};
   R.productos.forEach(([m, l, c, d, f, q, v]) => {
-    if (!ms.includes(m) || (E.local !== 'TODOS' && l !== E.local)) return;
+    if (!ms.includes(m) || !incluirLocal(l) || (E.local !== 'TODOS' && l !== E.local)) return;
     const a = acc[c] || (acc[c] = { c, d, f, q: 0, v: 0 }); a.q += q; a.v += v;
   });
   const top = Object.values(acc).sort((a, b) => b.v - a.v).slice(0, 15);
