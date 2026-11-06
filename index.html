@@ -261,6 +261,10 @@
   .op-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
   .op-cab span { color: var(--mute); font-size: 12px; text-align: right; }
   .op-cab span.viejo { color: var(--amber); font-weight: 700; }
+  .op-btnrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .op-btnrow button { border: 1.5px solid var(--line); background: var(--paper); color: var(--black); border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .op-btnrow button:disabled { opacity: .6; cursor: default; }
+  .op-btnrow small { color: var(--mute); font-size: 12px; }
   .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
   .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
@@ -349,6 +353,7 @@
       </div>
       <div class="opHoy hidden" id="opHoy" aria-label="Operación de hoy">
         <div class="op-cab"><b>Hoy en los locales</b><span id="opAct"></span></div>
+        <div class="op-btnrow"><button type="button" id="btnAct">↻ Actualizar ventas</button><small id="opMsg" aria-live="polite"></small></div>
         <div class="op-grid" id="opGrid"></div>
       </div>
     </div>
@@ -992,6 +997,16 @@
   const diasTxt = (d, alerta) => `<span class="dias${alerta ? ' alerta' : ''}">${d === 0 ? 'hoy' : d === 1 ? '1 día' : d + ' días'}</span>`;
   const fCorta = f => { const [a, m, d] = f.split('-'); return `${+d}/${+m}`; };
 
+  $('btnAct').addEventListener('click', () => {
+    const b = $('btnAct'), m = $('opMsg');
+    if (b.disabled) return;
+    b.disabled = true; b.textContent = 'Actualizando…'; m.textContent = '';
+    servidor('actualizarVentasAhora', S.token).then(r => {
+      if (r && r.operacion) { pintarOperacion(r.operacion); if (S.estado) S.estado.operacion = r.operacion; }
+      m.textContent = r && r.ok ? 'Listo' : (r && r.error) || 'No se pudo actualizar.';
+    }).catch(e => { if (!sesionError(e)) m.textContent = 'No se pudo actualizar. Revisa tu conexión.'; })
+      .finally(() => { b.disabled = false; b.textContent = '↻ Actualizar ventas'; });
+  });
   function pintarOperacion(op) {
     const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
     caja.classList.toggle('hidden', !ok);
