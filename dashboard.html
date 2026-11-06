@@ -36,6 +36,10 @@
   .marca small { display: block; color: #A9ACB4; font-size: 12px; margin-top: 1px; }
   header .der { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #C9CBD1; }
   .sync { font-size: 12px; color: #C9CBD1; display: inline-flex; align-items: center; gap: 6px; }
+  .act-linea { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0 4px; font-size: 13px; color: var(--mute); }
+  .act-linea .viejo { color: var(--amber); font-weight: 700; }
+  .act-linea button { border: 1.5px solid var(--line); background: var(--paper); color: var(--black); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .act-linea button:disabled { opacity: .6; cursor: default; }
   .sync::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #5A5C63; border-top-color: #fff; animation: girar .8s linear infinite; }
   .demo { background: var(--amber); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .05em;
           padding: 4px 8px; border-radius: 6px; }
@@ -230,6 +234,7 @@
     </div>
     <span class="der" id="actualizado"></span>
   </div>
+  <div class="act-linea" id="actLinea"><span id="actTxt"></span><button type="button" id="btnAct">↻ Actualizar ventas</button><small id="actMsg" aria-live="polite"></small></div>
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
@@ -435,11 +440,57 @@ async function mostrarDatos(R) {
   $('badgeDemo').classList.toggle('hidden', !R.demo);
   $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'}${R.ultimaVenta === R.hoy ? ' a las ' + horaCarga(R) : ''} · actualizado ${R.hora}`;
   pintarFranja();
+  pintarActualizacion(R);
   $('local').innerHTML = '<option value="TODOS">Todos los locales</option>' + R.locales.map(l => `<option${l === E.local ? ' selected' : ''}>${esc(l)}</option>`).join('');
   if (E.local !== 'TODOS' && !R.locales.includes(E.local)) E.local = 'TODOS';
   $('chkCerrados').classList.toggle('hidden', !(R.cerrados || []).length);
   pintar();
 }
+
+/* ── Última actualización, versión de los datos y botón "Actualizar ventas" ── */
+const DSEM_ACT = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MES_ACT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function ahoraChile() {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const g = k => p.find(x => x.type === k).value;
+  return { f: `${g('year')}-${g('month')}-${g('day')}`, h: Number(g('hour')) % 24, m: Number(g('minute')) };
+}
+/* "Última actualización: vie 6 nov · 10:56" (BICOM_ULTIMA_CARGA, hora de Chile); en ámbar y "desactualizado" si es de otro día o pasaron más de 90 min entre 9 y 21 h */
+function pintarActualizacion(R) {
+  const caja = $('actLinea'); if (!caja) return;
+  caja.classList.toggle('hidden', !!(R && R.demo));
+  const uc = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec((R && R.cargaVentas) || ''), n = ahoraChile();
+  let viejo = true;
+  if (uc && `${uc[1]}-${uc[2]}-${uc[3]}` === n.f) viejo = n.h >= 9 && n.h <= 21 && (n.h * 60 + n.m) - (Number(uc[4]) * 60 + Number(uc[5])) > 90;
+  const d = uc ? new Date(Date.UTC(+uc[1], +uc[2] - 1, +uc[3])) : null;
+  $('actTxt').textContent = (uc ? `Última actualización: ${DSEM_ACT[d.getUTCDay()]} ${+uc[3]} ${MES_ACT[+uc[2] - 1]} · ${uc[4]}:${uc[5]}` : 'Sin actualización registrada') + (viejo ? ' · desactualizado' : '');
+  $('actTxt').classList.toggle('viejo', viejo);
+}
+/* Si el servidor tiene una carga más nueva que la que se ve, trae todo de nuevo y redibuja TODO (KPI, tablas y gráficos del período activo) */
+let revalidando = false;
+async function revalidar(forzar) {
+  if (revalidando || !E.sesion || !E.R || E.R.demo) return;
+  revalidando = true;
+  try {
+    const v = forzar ? null : await servidor('ultimaCargaDashboard', E.sesion.token);
+    if (forzar || (v && v.ok && v.cargaVentas !== (E.R.cargaVentas || ''))) {
+      sincronizando(true);
+      await mostrarDatos(await servidor('obtenerDashboard', E.sesion.token));
+    }
+  } catch (e) { /* sin conexión o sesión vencida: se reintenta en la próxima revisión */ } finally { revalidando = false; sincronizando(false); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') revalidar(); });
+setInterval(() => { if (document.visibilityState === 'visible' && E.R) { pintarActualizacion(E.R); revalidar(); } }, 120000);
+$('btnAct').onclick = async () => {
+  const b = $('btnAct'), m = $('actMsg');
+  if (b.disabled) return;
+  b.disabled = true; b.textContent = 'Actualizando…'; m.textContent = '';
+  try {
+    const r = await servidor('actualizarVentasAhora', E.sesion.token);
+    m.textContent = r && r.ok ? 'Listo' : (r && r.error) || 'No se pudo actualizar.';
+    await revalidar(!!(r && r.ok)); // si se actualizó: datos nuevos y todo redibujado; si no, solo si otra carga dejó algo más nuevo
+  } catch (e) { m.textContent = /SESION|SIN_ACCESO/.test(String(e && e.message || e)) ? 'Tu sesión venció: vuelve a ingresar.' : 'No se pudo actualizar. Revisa tu conexión.'; }
+  finally { b.disabled = false; b.textContent = '↻ Actualizar ventas'; }
+};
 
 /* Cierres y marcas reales llegan como filas compactas (viajan más livianas): aquí se convierten en objetos */
 function expandirFilas(R) {
@@ -1392,6 +1443,8 @@ function generarDemo(R) {
 
 /* ═══════════════ Vista previa local (fuera de Apps Script) ═══════════════ */
 const MOCK = {
+  ultimaCargaDashboard: () => ({ ok: true, cargaVentas: '' }),
+  actualizarVentasAhora: () => ({ ok: false, error: 'En la vista previa no se actualizan las ventas.' }),
   obtenerInicioDashboard: () => ({ usuarios: [{ id: 'T001', nombre: 'Felipe Guerrero' }, { id: 'T007', nombre: 'Eduardo Plaza' }] }),
   ingresarDashboard: (id) => ({ ok: true, token: 'demo', usuario: { id, nombre: id === 'T001' ? 'Felipe Guerrero' : 'Eduardo Plaza' }, datos: MOCK.obtenerDashboard() }),
   obtenerDashboard: () => {
