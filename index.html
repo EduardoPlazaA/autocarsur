@@ -256,6 +256,18 @@
   .franja b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
   .franja em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
   .franja .alerta em { color: var(--red); font-weight: 700; }
+  /* Operación de hoy (solo dashboard): una tarjeta por local, filas compartidas */
+  .opHoy { margin-top: 12px; }
+  .op-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+  .op-cab span { color: var(--mute); font-size: 12px; text-align: right; }
+  .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
+  .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+  @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
+  .op-loc small { color: var(--mute); font-size: 12px; font-weight: 600; }
+  .op-est { font-size: 12px; font-weight: 700; color: var(--mute); }
+  .op-loc.abierto .op-est { color: var(--green); }
+  .op-loc b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
+  .op-loc em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
   .t-efec { grid-column: 1 / -1; min-height: 0; display: flex; align-items: center; gap: 12px; background: var(--green); }
   .segtab { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
   .segtab button { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 9px 4px; font: inherit; font-size: 14px; font-weight: 700; color: var(--mute); }
@@ -331,6 +343,10 @@
       <div class="franja hidden" id="franjaEfec" aria-label="Efectivo">
         <div id="fRetirar"><small>💵 Por retirar en locales</small><b>$0</b><em></em></div>
         <div id="fDepositar"><small>👜 Por depositar</small><b>$0</b><em></em></div>
+      </div>
+      <div class="opHoy hidden" id="opHoy" aria-label="Operación de hoy">
+        <div class="op-cab"><b>Hoy en los locales</b><span id="opAct"></span></div>
+        <div class="op-grid" id="opGrid"></div>
       </div>
     </div>
     <div class="card hidden" id="cardMes" aria-live="polite">
@@ -765,6 +781,7 @@
     st.lastChild.textContent = u ? `${u.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} ${u.hora} · ${u.local}` : 'Sin marcas hoy';
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
     pintarEfectivoMenu(e.efectivo);
+    pintarOperacion(e.operacion);
     pintarMes(e.mes);
     $('tileRes').classList.toggle('hidden', !e.mes); // quien tiene turno (no dueños)
     if (e.mes) precargarResumen();
@@ -933,6 +950,22 @@
   const pesos = n => '$' + fmtCLP.format(Math.round(n || 0));
   const diasTxt = (d, alerta) => `<span class="dias${alerta ? ' alerta' : ''}">${d === 0 ? 'hoy' : d === 1 ? '1 día' : d + ' días'}</span>`;
   const fCorta = f => { const [a, m, d] = f.split('-'); return `${+d}/${+m}`; };
+
+  function pintarOperacion(op) {
+    const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
+    caja.classList.toggle('hidden', !ok);
+    if (!ok) { $('opGrid').innerHTML = ''; return; }
+    $('opAct').textContent = op.actualizado ? 'Ventas actualizadas a las ' + op.actualizado : 'Sin carga de ventas hoy';
+    const g = $('opGrid'); g.innerHTML = '';
+    op.locales.forEach(l => {
+      const d = document.createElement('div'); d.className = 'op-loc' + (l.abierto ? ' abierto' : '');
+      const mk = (tag, txt, cls) => { const e = document.createElement(tag); e.textContent = txt; if (cls) e.className = cls; d.appendChild(e); };
+      mk('small', l.local); mk('span', l.abierto ? 'Abierto' : 'Sin abrir', 'op-est'); mk('b', pesos(l.venta));
+      mk('em', l.meta ? Math.round(l.pct) + '% de la meta (' + pesos(l.meta) + ')' : 'Sin meta hoy');
+      mk('em', l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
+      g.appendChild(d);
+    });
+  }
 
   function pintarEfectivoMenu(ef) {
     const tile = $('tileEfec'), franja = $('franjaEfec');
