@@ -260,6 +260,7 @@
   .opHoy { margin-top: 12px; }
   .op-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
   .op-cab span { color: var(--mute); font-size: 12px; text-align: right; }
+  .op-cab span.viejo { color: var(--amber); font-weight: 700; }
   .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
   .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
@@ -995,7 +996,11 @@
     const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
     caja.classList.toggle('hidden', !ok);
     if (!ok) { $('opGrid').innerHTML = ''; return; }
-    $('opAct').textContent = op.actualizado ? 'Ventas actualizadas a las ' + op.actualizado : 'Sin carga de ventas hoy';
+    const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const uc = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})$/.exec(op.ultimaCarga || '');
+    const dUC = uc ? new Date(Date.UTC(+uc[1], +uc[2] - 1, +uc[3])) : null;
+    $('opAct').textContent = (uc ? `Última actualización: ${DS[dUC.getUTCDay()]} ${+uc[3]} ${MS[+uc[2] - 1]} · ${uc[4]}` : 'Sin actualización registrada') + (op.desactualizado ? ' · desactualizado' : '');
+    $('opAct').classList.toggle('viejo', !!op.desactualizado);
     const g = $('opGrid'); g.innerHTML = '';
     op.locales.forEach(l => {
       const d = document.createElement('div'); d.className = 'op-loc' + (l.abierto ? ' abierto' : '');
