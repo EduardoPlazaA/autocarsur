@@ -1073,8 +1073,8 @@ function pintarFranja() {
       <em>${r.nRetirar ? Object.entries(r.porRetirarLocal).map(([l, m]) => `${esc(l)} ${mm(m)}`).join(' · ') : 'Nada pendiente'}</em></div>
     <div class="${r.nDepositar && r.antiguoDepositar >= lim ? 'alerta' : ''}"><small>👜 Por depositar (en poder de Leandro)</small><b class="num">${clp(r.porDepositar)}</b>
       <em>${r.nDepositar ? `${r.nDepositar} monto(s) · el más antiguo hace ${r.antiguoDepositar} día(s)` : 'Nada pendiente'}</em></div>
-    <div class="${r.diferenciaMes ? 'alerta' : ''}"><small>🏦 Depositado este mes</small><b class="num">${clp(r.depositadoMes)}</b>
-      <em>${r.diferenciaMes ? 'Diferencias: ' + (r.diferenciaMes > 0 ? '+' : '-') + clp(Math.abs(r.diferenciaMes)) : 'Sin diferencias'}</em></div>`;
+    <div class="${r.diferenciaMes || r.nBajados ? 'alerta' : ''}"><small>🏦 Depositado este mes</small><b class="num">${clp(r.depositadoMes)}</b>
+      <em>${r.nBajados ? `⚠️ ${r.nBajados} retiro(s) corregido(s) a la baja` : r.diferenciaMes ? 'Diferencias: ' + (r.diferenciaMes > 0 ? '+' : '-') + clp(Math.abs(r.diferenciaMes)) : 'Sin diferencias'}</em></div>`;
   $('franjaEf').classList.remove('hidden');
 }
 $('franjaEf').onclick = () => document.querySelector('#tabs button[data-t="efectivo"]').click();
@@ -1089,6 +1089,11 @@ function tabEfectivo() {
   html += kpi('Depositado este mes', clp(r.depositadoMes), r.diferenciaMes ? `<span class="chip down">Diferencias ${r.diferenciaMes > 0 ? '+' : '-'}${clp(Math.abs(r.diferenciaMes))}</span>` : '<span class="chip up">Todo cuadra</span>');
   html += kpi('Alertas', ent(r.alertas), `Montos con ${lim} día(s) o más sin moverse`);
   html += '</div>';
+  const baj = (ef.retirosBajados || []).filter(loc);
+  if (baj.length) html += `<div class="card" style="margin-bottom:14px;border:1px solid var(--red)"><h3>⚠️ Retiros corregidos a la baja</h3><div class="sub">Cierres de los últimos 14 días en que se redujo el efectivo a retirar (queda el historial en Cierres_Correcciones)</div>
+    <div class="tabla"><table><thead><tr><th>Fecha</th><th>Local</th><th>Corrigió</th><th class="r">Antes</th><th class="r">Ahora</th><th>Motivo</th></tr></thead><tbody>
+    ${baj.map(x => `<tr><td>${fCorta(x.fecha)} ${esc(x.hora)}</td><td>${esc(x.local)}</td><td>${esc(x.por)}</td><td class="r num">${clp(x.antes)}</td><td class="r num"><b>${clp(x.nuevo)}</b></td><td class="obs">${esc(x.motivo)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
   html += `<div class="grid dos">
     <div class="card"><h3>Pendiente de retiro</h3><div class="sub">Efectivo declarado en los cierres que sigue en el local</div>
     ${ret.length ? `<div class="tabla"><table><thead><tr><th>Local</th><th>Cierre</th><th>Declarado por</th><th class="r">Monto</th><th class="r">Antigüedad</th></tr></thead><tbody>

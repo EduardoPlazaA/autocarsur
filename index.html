@@ -264,7 +264,8 @@
   .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
   .op-loc small { color: var(--mute); font-size: 12px; font-weight: 600; }
-  .op-loc em.op-pend { color: var(--red); font-weight: 700; }
+  .op-loc em.op-pend, .op-loc b.op-pend { color: var(--red); font-weight: 700; }
+  .op-alerta { grid-row: auto; border: 1px solid var(--red); display: block; }
   .op-est { font-size: 12px; font-weight: 700; color: var(--mute); }
   .op-loc.abierto .op-est { color: var(--green); }
   .op-loc b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
@@ -1003,6 +1004,13 @@
       mk('em', l.meta ? Math.round(l.pct) + '% de la meta (' + pesos(l.meta) + ')' : 'Sin meta hoy');
       mk('em', l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
       const ca = l.cierreAyer; mk('em', ca === 'pendiente' ? 'Cierre de ayer: pendiente' : ca === 'hecho' ? 'Cierre de ayer: hecho' : 'Ayer sin actividad', ca === 'pendiente' ? 'op-pend' : '');
+      g.appendChild(d);
+    });
+    (op.alertas || []).forEach(a => { // retiros de efectivo corregidos a la baja hoy
+      const d = document.createElement('div'); d.className = 'op-loc op-alerta';
+      const mk = (tag, txt, cls) => { const e = document.createElement(tag); e.textContent = txt; if (cls) e.className = cls; d.appendChild(e); };
+      mk('small', a.local + ' · ' + a.hora); mk('b', 'Retiro bajado: ' + pesos(a.antes) + ' → ' + pesos(a.nuevo), 'op-pend');
+      mk('em', a.por + ' corrigió el cierre. Motivo: ' + a.motivo);
       g.appendChild(d);
     });
   }
