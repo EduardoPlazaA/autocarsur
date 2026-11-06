@@ -261,9 +261,10 @@
   .op-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
   .op-cab span { color: var(--mute); font-size: 12px; text-align: right; }
   .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
-  .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+  .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
   .op-loc small { color: var(--mute); font-size: 12px; font-weight: 600; }
+  .op-loc em.op-pend { color: var(--red); font-weight: 700; }
   .op-est { font-size: 12px; font-weight: 700; color: var(--mute); }
   .op-loc.abierto .op-est { color: var(--green); }
   .op-loc b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
@@ -357,6 +358,7 @@
       </div>
       <p class="mes-nota" id="mesNota"></p>
     </div>
+    <div class="alert warn hidden" id="avisoCierre" role="status"></div>
     <div class="menu">
       <button class="tile t-in" data-accion="ENTRADA" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
@@ -402,6 +404,7 @@
     <h2>Cierre de día</h2>
     <p class="sub" id="cierreLocal"></p>
     <div id="cierreAlerta" class="alert hidden" role="alert"></div>
+    <button class="primary dark hidden" id="btnCorregir" type="button" style="margin-bottom:14px">Corregir cierre</button>
     <form id="formCierre" novalidate>
       <div class="row2 field">
         <div><label>Fecha</label><div class="ro" id="cFecha"></div></div>
@@ -420,6 +423,7 @@
         <div class="kpi"><small>Conversión</small><b id="kConv">—</b><div class="bar"><i id="barConv"></i></div></div>
       </div>
       <div class="field"><label for="obs">Observaciones <span class="opt">(opcional)</span></label><textarea id="obs" maxlength="1000" placeholder="Ej: faltó cambio, llegó proveedor, incidente…"></textarea></div>
+      <div class="field hidden" id="fMotivo"><label for="motivo">Motivo de la corrección</label><textarea id="motivo" maxlength="300" placeholder="Ej: me equivoqué en el retiro"></textarea></div>
       <button class="primary dark" id="btnCierre" type="submit">Registrar cierre</button>
     </form>
   </section>
@@ -782,6 +786,11 @@
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
     pintarEfectivoMenu(e.efectivo);
     pintarOperacion(e.operacion);
+    const av = $('avisoCierre'), cp = e.cierrePendiente;
+    av.textContent = cp ? `El cierre de ayer (${fCorta(cp.fecha)}) de ${cp.local} quedó pendiente. Avisa a Felipe.` : ''; av.classList.toggle('hidden', !cp);
+    // Perfiles sin marcaje (Config › SIN_MARCAJE): sin Entrada, Salida ni Cierre de día, ni estado de marcas ni selector de local
+    ['.t-in', '.t-out', '.t-close'].forEach(c => document.querySelector('.menu ' + c).classList.toggle('hidden', !!e.sinMarcaje));
+    $('estado').classList.toggle('hidden', !!e.sinMarcaje); $('localPick').classList.toggle('hidden', !!e.sinMarcaje);
     pintarMes(e.mes);
     $('tileRes').classList.toggle('hidden', !e.mes); // quien tiene turno (no dueños)
     if (e.mes) precargarResumen();
@@ -879,7 +888,7 @@
     ['retiroEfectivo', 'saldoCaja', 'ventasDia', 'visitas', 'sinCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
     $('cierreLocal').textContent = S.local; $('cierreAlerta').classList.add('hidden');
     presupuesto = 0; S.idEnvio = nuevoId(); calcular();
-    $('btnCierre').disabled = false;
+    $('btnCierre').disabled = false; salirCorreccion();
     const hoy = S.estado && S.estado.hoy;
     if (hoy && hoy.fecha === hoyChile()) aplicarMeta(hoy.presupuesto[S.local] || 0, hoy.cerrados.includes(S.local)); // sin consultar
     else {
@@ -891,9 +900,32 @@
   function aplicarMeta(meta, cerrado) {
     presupuesto = meta;
     $('cPpto').textContent = presupuesto ? '$' + fmtCLP.format(presupuesto) : 'Sin meta cargada para hoy';
-    if (cerrado) alerta('El cierre de este local ya fue registrado hoy.', true);
+    if (cerrado) {
+      alerta('El cierre de este local ya fue registrado hoy.', true);
+      servidor('miCierreHoy', S.token, S.local).then(r => {
+        if (!r || !r.ok || !r.cierre) return;
+        const c = r.cierre; S.cierreHoy = c;
+        alerta(`El cierre de ${S.local} de hoy lo registró ${c.por} a las ${c.hora} (ventas $${fmtCLP.format(c.ventas)}, retiro $${fmtCLP.format(c.retiro)}, saldo $${fmtCLP.format(c.saldo)}).` + (r.puedeCorregir ? '' : ' Si hay un error, avisa al administrador.'), true);
+        $('btnCorregir').classList.toggle('hidden', !r.puedeCorregir);
+      }).catch(() => {});
+    }
     calcular();
   }
+  /* Corregir el cierre de hoy (solo quien lo hizo): mismo formulario con los valores actuales y un motivo */
+  function entrarCorreccion(c) {
+    S.corrige = true; S.idEnvio = nuevoId();
+    const m = n => (n ? fmtCLP.format(n) : '0');
+    $('retiroEfectivo').value = m(c.retiro); $('saldoCaja').value = m(c.saldo); $('ventasDia').value = m(c.ventas);
+    $('visitas').value = String(c.visitas); $('sinCompra').value = String(c.sinCompra); $('obs').value = c.obs || ''; $('motivo').value = '';
+    $('fMotivo').classList.remove('hidden'); $('btnCorregir').classList.add('hidden'); $('cierreAlerta').classList.add('hidden');
+    $('btnCierre').textContent = 'Guardar corrección'; $('cierreLocal').textContent = S.local + ' · corrigiendo el cierre de hoy';
+    calcular(); ver('v-cierre');
+  }
+  function salirCorreccion() {
+    S.corrige = false; $('fMotivo').classList.add('hidden'); $('btnCorregir').classList.add('hidden'); $('motivo').value = '';
+    $('btnCierre').textContent = 'Registrar cierre';
+  }
+  $('btnCorregir').addEventListener('click', () => { if (S.cierreHoy) entrarCorreccion(S.cierreHoy); });
   ['retiroEfectivo', 'saldoCaja', 'ventasDia'].forEach(id => $(id).addEventListener('input', e => {
     const d = e.target.value.replace(/\D/g, '').slice(0, 10);
     e.target.value = d ? fmtCLP.format(Number(d)) : ''; e.target.classList.remove('invalid'); calcular();
@@ -924,6 +956,12 @@
     if (Number(num('sinCompra')) > Number(num('visitas'))) { $('sinCompra').classList.add('invalid'); alerta('Las visitas sin compra no pueden superar el total de visitas.'); return; }
 
     const ret = Number(num('retiroEfectivo'));
+    if (S.corrige) {
+      if ($('motivo').value.trim().length < 5) { $('motivo').classList.add('invalid'); alerta('Escribe el motivo de la corrección.'); return; }
+      modal('ask', '¿Guardar la corrección?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : ''), 'Queda guardado el valor anterior, tu nombre y el motivo. Felipe verá que el cierre fue corregido.', [
+        { t: 'Sí, guardar corrección', cls: 'dark', fn: enviarCierre }, { t: 'Revisar', sec: true }]);
+      return;
+    }
     gps().catch(() => {}); // la ubicación se busca mientras la persona revisa los montos
     modal('ask', '¿Registrar cierre?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : ''), 'Revisa los montos: el cierre no se puede editar.', [
       { t: 'Sí, registrar cierre', cls: 'dark', fn: enviarCierre }, { t: 'Revisar', sec: true },
@@ -932,15 +970,16 @@
   function enviarCierre() {
     S.ocupado = true; const b = $('btnCierre'); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Enviando…';
     cerrarModal();
-    ubicar().then(p => api('registrarCierre', S.token, {
-      local: S.local, retiroEfectivo: num('retiroEfectivo'), saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
+    ubicar().then(p => api(S.corrige ? 'corregirCierre' : 'registrarCierre', S.token, {
+      motivo: S.corrige ? $('motivo').value.trim() : undefined, local: S.local, retiroEfectivo: num('retiroEfectivo'), saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
       visitasSinCompra: num('sinCompra'), observaciones: $('obs').value, lat: p.lat, lng: p.lng, precision: p.precision, idEnvio: S.idEnvio,
     })).then(r => {
-      S.ocupado = false; b.textContent = 'Registrar cierre'; b.disabled = false;
-      if (r.ok) { pintarEstado(r.estado); modal('ok', '¡Cierre registrado!', r.mensaje, r.resumen || '', [{ t: 'Volver al menú', cls: 'dark', fn: () => ver('v-menu') }]); }
-      else modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+      S.ocupado = false; b.textContent = S.corrige ? 'Guardar corrección' : 'Registrar cierre'; b.disabled = false;
+      if (r.ok) { const fueCorreccion = S.corrige; salirCorreccion(); pintarEstado(r.estado); modal('ok', fueCorreccion ? '¡Cierre corregido!' : '¡Cierre registrado!', r.mensaje, r.resumen || '', [{ t: 'Volver al menú', cls: 'dark', fn: () => ver('v-menu') }]); }
+      else if (r.puedeCorregir && r.cierre && !S.corrige) modal('err', 'El cierre ya existe', r.error, '', [{ t: 'Corregir cierre', cls: 'dark', fn: () => { S.cierreHoy = r.cierre; entrarCorreccion(r.cierre); } }, { t: 'Entendido', sec: true }]);
+      else modal('err', S.corrige ? 'No se pudo corregir' : 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
     }).catch(e => {
-      S.ocupado = false; b.textContent = 'Registrar cierre'; b.disabled = false;
+      S.ocupado = false; b.textContent = S.corrige ? 'Guardar corrección' : 'Registrar cierre'; b.disabled = false;
       if (!sesionError(e)) modal('err', 'No se pudo registrar', typeof e === 'string' ? e : 'Sin conexión. Tus datos siguen en el formulario: intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]);
     });
   }
@@ -963,6 +1002,7 @@
       mk('small', l.local); mk('span', l.abierto ? 'Abierto' : 'Sin abrir', 'op-est'); mk('b', pesos(l.venta));
       mk('em', l.meta ? Math.round(l.pct) + '% de la meta (' + pesos(l.meta) + ')' : 'Sin meta hoy');
       mk('em', l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
+      const ca = l.cierreAyer; mk('em', ca === 'pendiente' ? 'Cierre de ayer: pendiente' : ca === 'hecho' ? 'Cierre de ayer: hecho' : 'Ayer sin actividad', ca === 'pendiente' ? 'op-pend' : '');
       g.appendChild(d);
     });
   }

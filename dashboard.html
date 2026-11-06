@@ -444,7 +444,7 @@ async function mostrarDatos(R) {
 /* Cierres y marcas reales llegan como filas compactas (viajan más livianas): aquí se convierten en objetos */
 function expandirFilas(R) {
   if (R.cierres.length && Array.isArray(R.cierres[0])) {
-    R.cierres = R.cierres.map(c => ({ f: c[0], h: c[1], l: c[2], resp: c[3], saldo: c[4], ventas: c[5], ppto: c[6], visitas: c[7], sinCompra: c[8], obs: c[9], ubic: c[10] }));
+    R.cierres = R.cierres.map(c => ({ f: c[0], h: c[1], l: c[2], resp: c[3], saldo: c[4], ventas: c[5], ppto: c[6], visitas: c[7], sinCompra: c[8], obs: c[9], ubic: c[10], corr: c[11] || '' }));
   }
   if (R.marcajes.length && Array.isArray(R.marcajes[0])) {
     const n = R.nombres || {};
@@ -1010,7 +1010,7 @@ function tabCaja(r) {
       <td class="r num">${clp(c.saldo)}</td><td class="r num">${c.ppto ? pct(c.ventas / c.ppto, 0) : '—'}</td><td class="r num">${ent(c.visitas)}</td>
       <td class="r num">${c.visitas ? pct((c.visitas - c.sinCompra) / c.visitas, 0) : '—'}</td>
       <td>${c.ubic === 'EN LOCAL' ? '<span class="chip up">En local</span>' : `<span class="chip warn">${esc(c.ubic || '—')}</span>`}</td>
-      <td class="obs">${esc(c.obs)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin cierres en el período</p>'}</div>`;
+      <td class="obs">${esc(c.obs)}${c.corr ? `<br><span class="chip warn" title="${esc(c.corr)}">Corregido</span> <small style="color:var(--mute)">${esc(c.corr)}</small>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin cierres en el período</p>'}</div>`;
   if (sin.length) html += `<div class="card"><h3>Días con ventas y sin cierre</h3><div class="sub">Desde que se usa la app</div>
     <div class="turno">${sin.map(([f, l]) => `<span style="background:var(--amber-tint);color:var(--amber)">${DIAS[dsem(f)]} ${fCorta(f)}<small>${esc(l)}</small></span>`).join('')}</div></div>`;
   $('contenido').innerHTML = html;
