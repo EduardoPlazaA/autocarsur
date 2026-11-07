@@ -72,7 +72,10 @@
 
   /* Menú */
   .hello { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-  .hello-acc { display: flex; gap: 14px; flex-shrink: 0; }
+  .hello-acc { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .acc-links { display: flex; gap: 14px; }
+  .act-btn { border: 1.5px solid var(--line); background: var(--paper); color: var(--black); border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 12px; white-space: nowrap; cursor: pointer; }
+  .act-btn:disabled { opacity: .6; cursor: default; }
   .mp-admin { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
   .mp-admin h3 { margin: 0 0 4px; font-size: 16px; }
   .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 10px; border-radius: 999px;
@@ -258,13 +261,11 @@
   .franja .alerta em { color: var(--red); font-weight: 700; }
   /* Operación de hoy (solo dashboard): una tarjeta por local, filas compartidas */
   .opHoy { margin-top: 12px; }
-  .op-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
-  .op-cab span { color: var(--mute); font-size: 12px; text-align: right; }
+  .op-cab { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  .op-cab span { color: var(--mute); font-size: 12px; }
   .op-cab span.viejo { color: var(--amber); font-weight: 700; }
-  .op-btnrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  .op-btnrow button { border: 1.5px solid var(--line); background: var(--paper); color: var(--black); border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 13px; cursor: pointer; }
-  .op-btnrow button:disabled { opacity: .6; cursor: default; }
-  .op-btnrow small { color: var(--mute); font-size: 12px; }
+  .op-msg { display: block; color: var(--mute); font-size: 12px; margin-top: 4px; }
+  .op-msg:empty { display: none; }
   .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
   .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
@@ -273,6 +274,7 @@
   .op-alerta { grid-row: auto; border: 1px solid var(--red); display: block; }
   .op-est { font-size: 12px; font-weight: 700; color: var(--mute); }
   .op-loc.abierto .op-est { color: var(--green); }
+  .op-loc.cerrado .op-est { color: var(--black); }
   .op-loc b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
   .op-loc em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
   .t-efec { grid-column: 1 / -1; min-height: 0; display: flex; align-items: center; gap: 12px; background: var(--green); }
@@ -344,7 +346,7 @@
     <div class="card">
       <div class="hello">
         <div><h2 id="saludo">Hola</h2><div class="status" id="estado"><i></i><span>Sin marcas hoy</span></div></div>
-        <div class="hello-acc"><button class="link" id="btnPin" type="button">Mi PIN</button><button class="link" id="btnSalir" type="button">Salir</button></div>
+        <div class="hello-acc"><div class="acc-links"><button class="link" id="btnPin" type="button">Mi PIN</button><button class="link" id="btnSalir" type="button">Salir</button></div><button type="button" class="act-btn hidden" id="btnAct">↻ Actualizar ventas</button></div>
       </div>
       <div class="local-pick" id="localPick" role="group" aria-label="Local"></div>
       <div class="franja hidden" id="franjaEfec" aria-label="Efectivo">
@@ -353,7 +355,7 @@
       </div>
       <div class="opHoy hidden" id="opHoy" aria-label="Operación de hoy">
         <div class="op-cab"><b>Hoy en los locales</b><span id="opAct"></span></div>
-        <div class="op-btnrow"><button type="button" id="btnAct">↻ Actualizar ventas</button><small id="opMsg" aria-live="polite"></small></div>
+        <small class="op-msg" id="opMsg" aria-live="polite"></small>
         <div class="op-grid" id="opGrid"></div>
       </div>
     </div>
@@ -815,6 +817,8 @@
     vis.forEach(t => t.classList.remove('ancho'));
     if (vis.length % 2) vis[vis.length - 1].classList.add('ancho');
   }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refrescarEstado(); });
+  setInterval(() => { if (document.visibilityState === 'visible' && S.estado && S.estado.operacion && !$('v-menu').classList.contains('hidden')) refrescarEstado(); }, 60000);
   function refrescarEstado() {
     if (!S.token || Date.now() - S.estadoHora < 20000) return; // lo recién recibido sigue vigente
     S.estadoHora = Date.now();
@@ -1009,8 +1013,8 @@
   });
   function pintarOperacion(op) {
     const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
-    caja.classList.toggle('hidden', !ok);
-    if (!ok) { $('opGrid').innerHTML = ''; return; }
+    caja.classList.toggle('hidden', !ok); $('btnAct').classList.toggle('hidden', !ok);
+    if (!ok) { $('opGrid').innerHTML = ''; $('opMsg').textContent = ''; return; }
     const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const uc = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})$/.exec(op.ultimaCarga || '');
     const dUC = uc ? new Date(Date.UTC(+uc[1], +uc[2] - 1, +uc[3])) : null;
@@ -1018,11 +1022,11 @@
     $('opAct').classList.toggle('viejo', !!op.desactualizado);
     const g = $('opGrid'); g.innerHTML = '';
     op.locales.forEach(l => {
-      const d = document.createElement('div'); d.className = 'op-loc' + (l.abierto ? ' abierto' : '');
+      const d = document.createElement('div'); d.className = 'op-loc' + (l.cerrado ? ' cerrado' : l.abierto ? ' abierto' : '');
       const mk = (tag, txt, cls) => { const e = document.createElement(tag); e.textContent = txt; if (cls) e.className = cls; d.appendChild(e); };
-      mk('small', l.local); mk('span', l.abierto ? 'Abierto' : 'Sin abrir', 'op-est'); mk('b', pesos(l.venta));
+      mk('small', l.local); mk('span', l.cerrado ? 'Cerrado' : l.abierto ? 'Abierto' : 'Sin abrir', 'op-est'); mk('b', pesos(l.venta));
       mk('em', l.meta ? Math.round(l.pct) + '% de la meta (' + pesos(l.meta) + ')' : 'Sin meta hoy');
-      mk('em', l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
+      mk('em', l.cerrado ? 'Cerró ' + l.horaCierre + ' · ' + l.quienCierre : l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
       const ca = l.cierreAyer; mk('em', ca === 'pendiente' ? 'Cierre de ayer: pendiente' : ca === 'hecho' ? 'Cierre de ayer: hecho' : 'Ayer sin actividad', ca === 'pendiente' ? 'op-pend' : '');
       g.appendChild(d);
     });
@@ -1724,10 +1728,14 @@
       hoy: { fecha: hoyChile(), presupuesto: { 'Violeta Parra': 450000 }, cerrados: [] },
       mes: { mes: hoyChile().slice(0, 7), minutos: 205, dias: [['2026-11-03', 35], ['2026-11-05', 170]], pendientes: [['2026-11-04', 'falta la salida']], corregidas: 1, tolerancia: 15, turnoHoy: ['09:00', '19:30', 'Violeta Parra'] },
       corrige: 3,
+      sinMarcaje: a[0] === 'T001' || a[0] === 'T007',
+      operacion: a[0] === 'T001' || a[0] === 'T007' ? { fecha: hoyChile(), ultimaCarga: hoyChile() + ' 10:56', desactualizado: false, locales: [
+        { local: 'Violeta Parra', abierto: true, hora: '09:02', quien: 'Leidy Hernandez', venta: 66470, meta: 460000, pct: 14, cierreAyer: 'hecho' },
+        { local: 'Gabriela Mistral', abierto: false, hora: '', quien: '', venta: 49500, meta: 220000, pct: 22, cierreAyer: 'pendiente' }] } : null,
       efectivo: a[0] === 'T003' ? { maneja: true, admin: false, alertaDias: 2, resumen: { porRetirar: 370000, porRetirarLocal: { 'Violeta Parra': 250000, 'Gabriela Mistral': 120000 },
         nRetirar: 2, porDepositar: 310000, nDepositar: 1, antiguoRetirar: 3, antiguoDepositar: 2, depositadoMes: 280000, diferenciaMes: 0, alertas: 2 } } : null }; // vista previa: solo Leandro maneja efectivo
     return {
-      obtenerInicio: { trabajadores: [{ id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T006', nombre: 'Damaris Alvarado' }], locales: ['Violeta Parra', 'Gabriela Mistral'] },
+      obtenerInicio: { trabajadores: [{ id: 'T001', nombre: 'Felipe Guerrero' }, { id: 'T002', nombre: 'Leidy Hernandez' }, { id: 'T006', nombre: 'Damaris Alvarado' }], locales: ['Violeta Parra', 'Gabriela Mistral'] },
       ingresar: a[1] === '1234' ? { ok: true, token: 'demo', usuario: { id: a[0], nombre: 'Leidy Hernandez', local: 'Violeta Parra' }, estado: est } : { ok: false, error: 'PIN incorrecto. (Demo: 1234)' },
       obtenerEstado: { ok: true, estado: est },
       marcar: { ok: true, mensaje: 'Entrada registrada a las ' + fHora.format(new Date()), aviso: '', estado: { ultimaMarca: { tipo: a[1] && a[1].tipo, hora: fHora.format(new Date()), local: a[1] && a[1].local }, docsPendientes: 1 } },
