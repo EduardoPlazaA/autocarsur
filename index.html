@@ -312,6 +312,14 @@
           padding: 16px; color: var(--steel); font-weight: 700; cursor: pointer; text-align: center; }
   .foto img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; }
   .foto.ok { border-style: solid; border-color: var(--green); }
+  /* Gastos con efectivo (compras chicas para clientes): se restan de lo que hay que depositar */
+  .mov.gasto { grid-template-columns: 1fr auto; }
+  .mov.gasto .monto { color: var(--red); }
+  .mov.gasto .det { font-size: 13px; font-weight: 700; }
+  .gasto-form { border: 1.5px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 10px; }
+  .gasto-form .primary { margin-top: 4px; }
+  .totalbar.claro { background: var(--bg); color: var(--black); margin: 8px 0 0; padding: 10px 14px; }
+  .totalbar.claro b { font-size: 16px; }
   /* ── Tarjetas lado a lado con filas compartidas: etiqueta / monto / detalle quedan a la misma altura aunque el texto se parta en 1, 2 o 3 líneas ── */
   @supports (grid-template-rows: subgrid) {
     .mes-grid, .kpis, .rs-grid { grid-template-rows: auto auto auto; row-gap: 0; }
@@ -576,7 +584,7 @@
     obtenerInicio: 'Cargando…', ingresar: 'Verificando tu PIN…', marcar: 'Registrando tu marca…',
     registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…', docsEquipo: 'Cargando los documentos del equipo…', abrirDocumentoEquipo: 'Abriendo el documento…',
     abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
-    registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
+    registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…', registrarGastoEfectivo: 'Guardando el gasto…',
     obtenerMiResumen: 'Cargando tu resumen…', obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
 
@@ -1119,8 +1127,8 @@
     $('fDepositar').classList.toggle('alerta', r.nDepositar > 0 && r.antiguoDepositar >= (ef.alertaDias || 2));
   }
 
-  const EF = { datos: null, tab: 'retirar', foto: null, tocado: false };
-  const firmaEf = d => JSON.stringify(d ? [d.porRetirar, d.porDepositar, d.depositos] : null);
+  const EF = { datos: null, tab: 'retirar', foto: null, fotoGasto: null, tocado: false };
+  const firmaEf = d => JSON.stringify(d ? [d.porRetirar, d.porDepositar, d.depositos, d.gastos] : null);
   function abrirEfectivo() {
     ver('v-efectivo');
     const d = S.estado && S.estado.efectivo && S.estado.efectivo.datos;
@@ -1145,7 +1153,7 @@
     if (EF.tab === 'retirar') c.innerHTML = vistaRetirar(d);
     else if (EF.tab === 'depositar') c.innerHTML = vistaDepositar(d);
     else c.innerHTML = vistaHistorial(d);
-    EF.foto = null; EF.tocado = false; // pantalla nueva: sin foto ni montos editados
+    EF.foto = null; EF.fotoGasto = null; EF.tocado = false; // pantalla nueva: sin fotos ni montos editados
     activarEfectivo();
   }
 
@@ -1166,13 +1174,27 @@
 
   function vistaDepositar(d) {
     if (!d.porDepositar.length) return '<div class="empty">No tienes efectivo pendiente de depósito 👌</div>';
+    const gastos = d.gastos || [];
     return d.porDepositar.map(r => `
       <label class="mov">
         <input type="checkbox" data-dep="${esc(r.id)}" data-monto="${r.recibido || 0}" checked>
         <span class="det">${esc(r.local)} · cierre ${fCorta(r.fecha)} ${diasTxt(r.dias, r.alerta)}<small>Retirado el ${fCorta(r.fechaRetiro)}</small></span>
         <span class="monto">${pesos(r.recibido)}</span>
       </label>`).join('') + `
+      <div class="grupo">Gastos con este efectivo</div>
+      ${gastos.map(g => `<div class="mov gasto" data-gasto="${g.monto}"><span class="det">${esc(g.motivo)}<small>${fCorta(g.fecha)} ${esc(g.hora)} · ${esc(g.por)}${g.foto ? ' · 📎 factura' : ''}</small></span>
+        <span class="monto">−${pesos(g.monto)}</span></div>`).join('') || '<p class="sub" style="margin:0">Sin gastos. Si pagaste algo con este efectivo (por ejemplo, una compra para un cliente), regístralo aquí.</p>'}
+      <button type="button" class="secondary" id="btnNuevoGasto">＋ Gasto con efectivo</button>
+      <div class="gasto-form hidden" id="formGasto">
+        <div class="field"><label for="montoGasto">Monto</label><div class="money"><input id="montoGasto" inputmode="numeric" autocomplete="off"></div></div>
+        <div class="field"><label for="motivoGasto">Motivo</label><input id="motivoGasto" maxlength="200" autocomplete="off" placeholder="Ej: repuesto para cliente Juan Pérez"></div>
+        <div class="field"><label>Foto de la factura o boleta</label>
+          <label class="foto" id="fotoGastoBox"><input type="file" id="fotoGasto" accept="image/*" capture="environment" hidden><span>📷 Tomar o elegir foto</span></label></div>
+        <button class="primary dark" id="btnGasto" type="button">Guardar gasto</button>
+      </div>
       <div class="totalbar"><span>Total marcado</span><b id="totDep">$0</b></div>
+      ${gastos.length ? `<div class="totalbar claro" style="margin-top:-6px"><span>Menos gastos</span><b>−${pesos(gastos.reduce((s, g) => s + g.monto, 0))}</b></div>
+      <div class="totalbar"><span>A depositar</span><b id="totNeto">$0</b></div>` : ''}
       <div class="field"><label for="montoDep">Monto depositado</label><div class="money"><input id="montoDep" inputmode="numeric" autocomplete="off"></div></div>
       <div class="field"><label>Foto del comprobante</label>
         <label class="foto" id="fotoBox"><input type="file" id="fotoDep" accept="image/*" capture="environment" hidden><span>📷 Tomar o elegir foto</span></label></div>
@@ -1190,7 +1212,7 @@
 
   function activarEfectivo() {
     const formatear = inp => inp.addEventListener('input', () => { const v = inp.value.replace(/\D/g, '').slice(0, 10); inp.value = v ? fmtCLP.format(Number(v)) : ''; totales(); });
-    document.querySelectorAll('#efContenido [data-recibido], #montoDep').forEach(formatear);
+    document.querySelectorAll('#efContenido [data-recibido], #montoDep, #montoGasto').forEach(formatear);
     if ($('montoDep')) $('montoDep').addEventListener('input', () => { $('montoDep').dataset.tocado = '1'; });
     document.querySelectorAll('#efContenido input[type=checkbox]').forEach(c => c.addEventListener('change', totales));
     document.querySelectorAll('#efContenido input, #efContenido textarea').forEach(el => el.addEventListener('input', () => { EF.tocado = true; }));
@@ -1199,8 +1221,12 @@
     if ($('btnRetiro')) $('btnRetiro').onclick = confirmarRetiro;
     if ($('btnDeposito')) $('btnDeposito').onclick = confirmarDeposito;
     if ($('fotoDep')) $('fotoDep').onchange = e => cargarFoto(e.target.files[0]);
+    if ($('fotoGasto')) $('fotoGasto').onchange = e => cargarFoto(e.target.files[0], 'fotoGastoBox', 'fotoGasto');
+    if ($('btnNuevoGasto')) $('btnNuevoGasto').onclick = () => { $('formGasto').classList.remove('hidden'); $('btnNuevoGasto').classList.add('hidden'); $('montoGasto').focus(); };
+    if ($('btnGasto')) $('btnGasto').onclick = confirmarGasto;
   }
   const valor = inp => Number(String(inp.value).replace(/\D/g, '')) || 0;
+  const gastosEf = () => ((EF.datos && EF.datos.gastos) || []).reduce((s, g) => s + g.monto, 0);
   function totales() {
     if ($('totRetiro')) {
       let t = 0; document.querySelectorAll('[data-ret]').forEach(c => { if (c.checked) t += valor(document.querySelector(`[data-recibido="${c.dataset.ret}"]`)); });
@@ -1208,8 +1234,10 @@
     }
     if ($('totDep')) {
       let t = 0; document.querySelectorAll('[data-dep]').forEach(c => { if (c.checked) t += Number(c.dataset.monto); });
+      const neto = Math.max(0, t - gastosEf()); // lo marcado menos los gastos con efectivo
       $('totDep').textContent = pesos(t);
-      if (!$('montoDep').dataset.tocado) $('montoDep').value = t ? fmtCLP.format(t) : '';
+      if ($('totNeto')) $('totNeto').textContent = pesos(neto);
+      if (!$('montoDep').dataset.tocado) $('montoDep').value = neto ? fmtCLP.format(neto) : '';
     }
   }
 
@@ -1229,7 +1257,7 @@
   }
 
   /* La foto se achica en el teléfono antes de subirla (máx. 1280 px, JPEG 70%: legible y liviana) */
-  function cargarFoto(archivo) {
+  function cargarFoto(archivo, cajaId = 'fotoBox', clave = 'foto') {
     if (!archivo) return;
     const img = new Image(), url = URL.createObjectURL(archivo);
     img.onload = () => {
@@ -1237,9 +1265,9 @@
       cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
       const dataUrl = cv.toDataURL('image/jpeg', 0.7);
-      EF.foto = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
-      const box = $('fotoBox'); box.classList.add('ok');
-      box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Comprobante"><br>Toca para cambiarla`;
+      EF[clave] = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
+      const box = $(cajaId); box.classList.add('ok');
+      box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Foto"><br>Toca para cambiarla`;
       EF.tocado = true;
       URL.revokeObjectURL(url);
     };
@@ -1249,16 +1277,33 @@
 
   function confirmarDeposito() {
     const ids = [...document.querySelectorAll('[data-dep]')].filter(c => c.checked).map(c => c.dataset.dep);
-    const esperado = [...document.querySelectorAll('[data-dep]')].filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
+    const retirado = [...document.querySelectorAll('[data-dep]')].filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
+    const gastos = gastosEf(), esperado = retirado - gastos;
     const monto = valor($('montoDep'));
     const falta = !ids.length ? 'Marca al menos un monto.' : !monto ? 'Ingresa el monto depositado.' : !EF.foto ? 'Adjunta la foto del comprobante.' : '';
     if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
     const dif = monto - esperado, id = nuevoId();
-    modal('ask', `¿Registrar depósito de ${pesos(monto)}?`, `${ids.length} monto(s) retirado(s) por ${pesos(esperado)}`,
-      dif ? `⚠️ No cuadra: diferencia ${dif > 0 ? '+' : '-'}${pesos(Math.abs(dif))}. Felipe lo verá.` : 'Cuadra con lo retirado ✅', [
+    modal('ask', `¿Registrar depósito de ${pesos(monto)}?`, `${ids.length} monto(s) retirado(s) por ${pesos(retirado)}` + (gastos ? ` menos ${pesos(gastos)} en gastos` : ''),
+      dif ? `⚠️ No cuadra: diferencia ${dif > 0 ? '+' : '-'}${pesos(Math.abs(dif))}. Felipe lo verá.` : 'Cuadra con lo esperado ✅', [
       { t: 'Sí, registrar', cls: 'green', fn: () => api('registrarDeposito', S.token, { ids, monto, foto: EF.foto, obs: $('obsDep').value, idEnvio: id }).then(r => {
         if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
         modal('ok', '¡Depósito registrado!', r.mensaje, r.aviso || '', [{ t: 'Continuar', cls: 'dark' }]);
+        efectivoActualizado(r);
+      }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+      { t: 'Revisar', sec: true },
+    ]);
+  }
+
+  /* Gasto pagado con el efectivo por depositar: monto, motivo y foto de la factura (se resta de lo que hay que depositar) */
+  function confirmarGasto() {
+    const monto = valor($('montoGasto')), motivo = $('motivoGasto').value.trim();
+    const falta = !monto ? 'Ingresa el monto del gasto.' : motivo.length < 4 ? 'Escribe el motivo (por ejemplo, para qué cliente fue).' : !EF.fotoGasto ? 'Adjunta la foto de la factura o boleta.' : '';
+    if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
+    const id = nuevoId();
+    modal('ask', `¿Registrar gasto de ${pesos(monto)}?`, motivo, 'Se descuenta de lo que tienes por depositar.', [
+      { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarGastoEfectivo', S.token, { monto, motivo, foto: EF.fotoGasto, idEnvio: id }).then(r => {
+        if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+        modal('ok', '¡Gasto registrado!', r.mensaje, r.aviso || '', [{ t: 'Continuar', cls: 'dark' }]);
         efectivoActualizado(r);
       }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
       { t: 'Revisar', sec: true },
@@ -1810,7 +1855,8 @@
         porDepositar: [{ id: 'R0', fecha: '2026-10-26', hora: '19:30', local: 'Violeta Parra', fechaRetiro: '2026-10-28', recibido: 310000, dias: 2, alerta: true }],
         depositos: [{ id: 'D1', fecha: '2026-10-25', hora: '12:10', monto: 280000, diferencia: 0, retiros: 2, obs: '' }] },
       registrarRetiro: { ok: true, mensaje: 'Retiraste $370.000. Queda pendiente de depósito.', aviso: '' },
-      registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo retirado ✅' },
+      registrarDeposito: { ok: true, mensaje: 'Depósito de $310.000 registrado.', aviso: 'Cuadra con lo esperado ✅' },
+      registrarGastoEfectivo: { ok: false, error: 'En la vista previa no se registran gastos.' },
       misDocumentos: { ok: true, documentos: est.docs },
       obtenerMiResumen: (() => { const h = hoyChile(), d = n => sumarDia(h, -n);
         return { ok: true, demo: true, hoy: h, nombre: 'Leidy Hernandez', tolerancia: 15, inicio: d(12), ventas: [], productos: [], metas: [], cierres: [[d(2), 'Violeta Parra'], [d(5), 'Violeta Parra']],
