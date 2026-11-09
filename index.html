@@ -249,6 +249,18 @@
   .cargador small { color: #6B6F78; font-size: 13px; min-height: 1em; }
   @keyframes girar { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .rueda { animation: girar 1.6s linear infinite !important; } }
+  /* Barra de carga (V41) */
+  .barra-carga { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; height: 3px; width: 0; z-index: 40; pointer-events: none;
+                 background: #C8312B; box-shadow: 0 0 6px rgba(200,49,43,.45); opacity: 0; transition: width .25s ease-out, opacity .3s ease; }
+  .barra-carga.show { opacity: 1; }
+  .cargador .pista { width: 100%; height: 6px; border-radius: 3px; background: #ECECEF; overflow: hidden; }
+  .cargador .pista i { display: block; height: 100%; width: 0; background: #C8312B; border-radius: 3px; transition: width .25s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .barra-carga, .cargador .pista i { transition: none; } }
+  .op-alarma { border: 2px solid var(--red); background: var(--red-tint); border-radius: 12px; padding: 10px 12px; margin-top: 8px;
+               display: flex; flex-direction: column; gap: 2px; }
+  .op-alarma b { color: var(--red-dark); font-size: 14px; }
+  .op-alarma span { font-size: 13px; color: var(--black); margin-bottom: 4px; }
+  .op-alarma span:last-child { margin-bottom: 0; }
 
   /* Control de efectivo */
   /* Las dos tarjetas comparten filas (etiqueta / monto / detalle): el monto queda a la misma altura aunque una etiqueta ocupe 2 líneas */
@@ -356,6 +368,7 @@
       <div class="opHoy hidden" id="opHoy" aria-label="Operación de hoy">
         <div class="op-cab"><b>Hoy en los locales</b><span id="opAct"></span></div>
         <small class="op-msg" id="opMsg" aria-live="polite"></small>
+        <div class="op-alarma hidden" id="opAlarma" role="alert"></div>
         <div class="op-grid" id="opGrid"></div>
       </div>
     </div>
@@ -512,8 +525,9 @@
   </div>
 </div>
 
+<div class="barra-carga" id="barraCarga" aria-hidden="true"></div>
 <div class="cargador" id="cargador" role="status" aria-live="polite">
-  <div class="caja"><div class="rueda" aria-hidden="true"></div><p id="cargaTxt">Cargando…</p><small id="cargaSub"></small></div>
+  <div class="caja"><div class="rueda" aria-hidden="true"></div><p id="cargaTxt">Cargando…</p><div class="pista" aria-hidden="true"><i id="cargaBarra"></i></div><small id="cargaSub"></small></div>
 </div>
 
 <script>
@@ -552,7 +566,30 @@
     registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…',
     obtenerMiResumen: 'Cargando tu resumen…', obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
-  const servidor = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
+
+  /* Barra de carga: avanza arriba de la pantalla mientras haya consultas al servidor (también las de segundo plano) y se
+     repite dentro del aviso de espera. Avanza rápido al comienzo y se frena cerca del final; al responder se completa. */
+  const BARRA = { n: 0, p: 0, t: null, fin: null };
+  function barraPinta(p) {
+    const b = document.getElementById('barraCarga'), i = document.getElementById('cargaBarra');
+    if (b) b.style.width = p + '%';
+    if (i) i.style.width = p + '%';
+  }
+  function barraIni() {
+    if (BARRA.n++ > 0) return;
+    clearTimeout(BARRA.fin); clearInterval(BARRA.t);
+    BARRA.p = 10; barraPinta(BARRA.p);
+    const b = document.getElementById('barraCarga'); if (b) b.classList.add('show');
+    BARRA.t = setInterval(() => { BARRA.p += (94 - BARRA.p) * 0.07; barraPinta(BARRA.p.toFixed(1)); }, 200);
+  }
+  function barraFin() {
+    BARRA.n = Math.max(0, BARRA.n - 1);
+    if (BARRA.n) return;
+    clearInterval(BARRA.t); barraPinta(100);
+    BARRA.fin = setTimeout(() => { const b = document.getElementById('barraCarga'); if (b) b.classList.remove('show'); setTimeout(() => { if (!BARRA.n) barraPinta(0); }, 300); }, 250);
+  }
+  const servidor = (fn, ...args) => { barraIni(); return servidorSinBarra(fn, ...args).finally(barraFin); };
+  const servidorSinBarra = (fn, ...args) => enApi ? porApi(fn, args) : new Promise((ok, fail) => {
     if (!enGAS) return setTimeout(() => ok(mock(fn, ...args)), 600); // la vista previa simula la demora
     google.script.run.withSuccessHandler(ok).withFailureHandler(fail)[fn](...args);
   });
@@ -1014,7 +1051,8 @@
   function pintarOperacion(op) {
     const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
     caja.classList.toggle('hidden', !ok); $('btnAct').classList.toggle('hidden', !ok);
-    if (!ok) { $('opGrid').innerHTML = ''; $('opMsg').textContent = ''; return; }
+    if (!ok) { $('opGrid').innerHTML = ''; $('opMsg').textContent = ''; $('opAlarma').classList.add('hidden'); return; }
+    pintarAlarmas(op);
     const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const uc = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})$/.exec(op.ultimaCarga || '');
     const dUC = uc ? new Date(Date.UTC(+uc[1], +uc[2] - 1, +uc[3])) : null;
@@ -1037,6 +1075,28 @@
       mk('em', a.por + ' corrigió el cierre. Motivo: ' + a.motivo);
       g.appendChild(d);
     });
+  }
+
+  /* Alarma (Felipe y Eduardo): cierres de hoy registrados a más de 100 m del local. Vibra y suena una vez por cierre nuevo. */
+  function pintarAlarmas(op) {
+    const al = $('opAlarma'), lejos = op.cierresLejos || [];
+    al.classList.toggle('hidden', !lejos.length); al.innerHTML = '';
+    lejos.forEach(c => {
+      const b = document.createElement('b'), s = document.createElement('span');
+      b.textContent = '⚠ Cierre de ' + c.local + ' hecho a ' + c.metros + ' m del local';
+      s.textContent = c.quien + ' · ' + c.hora + ' · límite ' + (op.limiteMetros || 100) + ' m';
+      al.append(b, s);
+    });
+    const vistas = store.get('acs_alarmas') || {}, nuevas = lejos.filter(c => !vistas[op.fecha + '|' + c.local + '|' + c.hora]);
+    if (!nuevas.length) return;
+    nuevas.forEach(c => { vistas[op.fecha + '|' + c.local + '|' + c.hora] = 1; });
+    Object.keys(vistas).forEach(k => { if (k.slice(0, 10) < op.fecha) delete vistas[k]; });
+    store.set('acs_alarmas', vistas);
+    try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) {}
+    try {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (C) { const a = new C(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.35); }
+    } catch (e) {}
   }
 
   function pintarEfectivoMenu(ef) {

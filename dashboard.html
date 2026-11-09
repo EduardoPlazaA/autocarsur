@@ -146,6 +146,13 @@
                     transform: scale(.96); transition: transform .15s ease; }
   .cargador.show .caja { transform: none; }
   .rueda { width: 44px; height: 44px; border-radius: 50%; border: 4px solid #ECECEF; border-top-color: #C8312B; animation: girar .8s linear infinite; }
+  /* Barra de carga (V41) */
+  .barra-carga { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; height: 3px; width: 0; z-index: 40; pointer-events: none;
+                 background: #C8312B; box-shadow: 0 0 6px rgba(200,49,43,.45); opacity: 0; transition: width .25s ease-out, opacity .3s ease; }
+  .barra-carga.show { opacity: 1; }
+  .cargador .pista { width: 100%; height: 6px; border-radius: 3px; background: #ECECEF; overflow: hidden; }
+  .cargador .pista i { display: block; height: 100%; width: 0; background: #C8312B; border-radius: 3px; transition: width .25s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .barra-carga, .cargador .pista i { transition: none; } }
   .cargador p { margin: 0; font-weight: 700; font-size: 16px; color: #0B0B0C; }
   .cargador small { color: #6B6F78; font-size: 13px; min-height: 1em; }
   @keyframes girar { to { transform: rotate(360deg); } }
@@ -249,8 +256,9 @@
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
 
+<div class="barra-carga" id="barraCarga" aria-hidden="true"></div>
 <div class="cargador" id="cargador" role="status" aria-live="polite">
-  <div class="caja"><div class="rueda" aria-hidden="true"></div><p id="cargaTxt">Cargando…</p><small id="cargaSub"></small></div>
+  <div class="caja"><div class="rueda" aria-hidden="true"></div><p id="cargaTxt">Cargando…</p><div class="pista" aria-hidden="true"><i id="cargaBarra"></i></div><small id="cargaSub"></small></div>
 </div>
 
 <script>
@@ -333,7 +341,35 @@ function porApi(fn, args) {
     if (!cargas) { clearTimeout(tLento); document.getElementById('cargador').classList.remove('show'); }
   }
 const MENSAJES = { verComprobante: 'Cargando comprobante…', obtenerInicioDashboard: 'Cargando…', ingresarDashboard: 'Verificando tu PIN…', obtenerDashboard: 'Cargando indicadores del negocio…' };
+
+  /* Barra de carga: avanza arriba de la pantalla mientras haya consultas al servidor (también las de segundo plano) y se
+     repite dentro del aviso de espera. Avanza rápido al comienzo y se frena cerca del final; al responder se completa. */
+  const BARRA = { n: 0, p: 0, t: null, fin: null };
+  function barraPinta(p) {
+    const b = document.getElementById('barraCarga'), i = document.getElementById('cargaBarra');
+    if (b) b.style.width = p + '%';
+    if (i) i.style.width = p + '%';
+  }
+  function barraIni() {
+    if (BARRA.n++ > 0) return;
+    clearTimeout(BARRA.fin); clearInterval(BARRA.t);
+    BARRA.p = 10; barraPinta(BARRA.p);
+    const b = document.getElementById('barraCarga'); if (b) b.classList.add('show');
+    BARRA.t = setInterval(() => { BARRA.p += (94 - BARRA.p) * 0.07; barraPinta(BARRA.p.toFixed(1)); }, 200);
+  }
+  function barraFin() {
+    BARRA.n = Math.max(0, BARRA.n - 1);
+    if (BARRA.n) return;
+    clearInterval(BARRA.t); barraPinta(100);
+    BARRA.fin = setTimeout(() => { const b = document.getElementById('barraCarga'); if (b) b.classList.remove('show'); setTimeout(() => { if (!BARRA.n) barraPinta(0); }, 300); }, 250);
+  }
+// Toda consulta muestra la barra, salvo la revisión silenciosa de cada 2 minutos (ultimaCargaDashboard)
 function servidor(fn, ...args) {
+  if (fn === 'ultimaCargaDashboard') return servidorSinBarra(fn, ...args);
+  barraIni();
+  return servidorSinBarra(fn, ...args).finally(barraFin);
+}
+function servidorSinBarra(fn, ...args) {
   return EN_API ? porApi(fn, args) : ES_VISTA_PREVIA ? new Promise(ok => setTimeout(() => ok(MOCK[fn](...args)), 600))
     : new Promise((ok, mal) => google.script.run.withSuccessHandler(ok).withFailureHandler(mal)[fn](...args));
 }
