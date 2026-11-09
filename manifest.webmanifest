@@ -1,7 +1,13 @@
 {
+  "id": "./",
   "name": "AutoCarSur",
   "short_name": "AutoCarSur",
+  "description": "App interna de AutoCarSur: marcas, cierres, documentos y ventas",
+  "lang": "es",
   "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0B0B0C",
   "theme_color": "#0B0B0C",
   "icons": [
