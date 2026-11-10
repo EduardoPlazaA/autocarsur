@@ -562,7 +562,20 @@ $('btnAct').onclick = async () => {
 };
 
 /* Cierres y marcas reales llegan como filas compactas (viajan más livianas): aquí se convierten en objetos */
+/* Ventas históricas (Excel, total de la empresa sin local): local "Histórico (sin local)", solo antes del primer día de Bicom */
+const HIST = 'Histórico (sin local)';
+function sumarHistorico(R) {
+  if (R._hist || !(R.historico || []).length) return;
+  const primerBicom = R.dias.reduce((m, d) => (!m || d[0] < m ? d[0] : m), '') || '9999-12-31';
+  const h = R.historico.filter(x => x[0] < primerBicom);
+  h.forEach(([f, v, bol]) => R.dias.push([f, HIST, v, bol, Math.round(v / IVA)]));
+  R.histClientes = {}; h.forEach(([f, , bol, ent]) => { if (ent || bol) R.histClientes[f] = { entradas: ent, boletas: bol }; });
+  R.finHistorico = h.length ? h[h.length - 1][0] : '';
+  R._hist = true;
+}
+const histEn = r => !!(r && E.R && E.R.finHistorico && r.ini <= E.R.finHistorico);
 function expandirFilas(R) {
+  sumarHistorico(R);
   if (R.cierres.length && Array.isArray(R.cierres[0])) {
     R.cierres = R.cierres.map(c => ({ f: c[0], h: c[1], l: c[2], resp: c[3], saldo: c[4], ventas: c[5], ppto: c[6], visitas: c[7], sinCompra: c[8], obs: c[9], ubic: c[10], corr: c[11] || '' }));
   }
@@ -711,6 +724,7 @@ function pintar() {
   E.charts.forEach(c => c.destroy()); E.charts = [];
   controlesPeriodo();
   const r = rango(E.per, E.fecha);
+  E.rango = PER() === 'dia' ? { ini: sumar(r.ini, -13), fin: r.fin } : r; // el gráfico diario mira 14 días hacia atrás
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
   ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, clientes: tabClientes, remu: tabRemu })[E.tab](r);
@@ -759,10 +773,10 @@ $('persIni').onchange = fechaPers; $('persFin').onchange = fechaPers;
 $('local').onchange = e => { E.local = e.target.value; pintar(); };
 $('conCerrados').onchange = e => { E.conCerrados = e.target.checked; prepararIndices(E.R); pintar(); };
 
-const localesVisibles = () => (E.local === 'TODOS' ? E.R.locales : [E.local]);
+const localesVisibles = () => (E.local === 'TODOS' ? E.R.locales.concat(histEn(E.rango) ? [HIST] : []) : [E.local]);
 /* Locales cerrados (Munita): cuentan en los totales solo si la casilla "Incluir locales cerrados" está marcada */
 function incluirLocal(l, R = E.R) { return E.conCerrados || !((R && R.cerrados) || []).includes(l); }
-const colorLocal = l => COLORES[Math.max(0, E.R.locales.indexOf(l)) % COLORES.length];
+const colorLocal = l => (l === HIST ? '#A3A8B3' : COLORES[Math.max(0, E.R.locales.indexOf(l)) % COLORES.length]);
 /* Pagos y vendedores llegan por día (aaaa-mm-dd); productos y margen, por mes (aaaa-mm). Una fila pertenece al período si su día cae dentro o, si es mensual, si su mes lo toca */
 const enPeriodo = (k, r) => (String(k).length > 7 ? k >= r.ini && k <= r.fin : meses(r).includes(k));
 const etiquetaPer = r => (PER() === 'dia' || PER() === 'semana' ? etiquetaRango(E.per, r) : etiquetaMeses(r));
@@ -950,7 +964,7 @@ function tabResumen(r) {
 }
 
 function tablaLocales(r, corte) {
-  const filas = E.R.locales.map(l => {
+  const filas = E.R.locales.concat(histEn(r) ? [HIST] : []).map(l => {
     const a = total(r.ini, corte, l), aa = comparable(r, corte, 'anio', l), tAA = totalCmp(aa, l);
     const cv = conversion(r.ini, corte, l), dif = cierresRango(r.ini, corte, l).filter(c => Math.abs(c.dif) > E.R.tolerancia).length;
     return { l, a, tAA, cv, dif };
@@ -971,7 +985,7 @@ function tablaLocales(r, corte) {
 function alertas(r, corte) {
   const R = E.R, items = [];
   const add = (nivel, texto) => items.push([nivel, texto]);
-  localesVisibles().forEach(l => {
+  localesVisibles().filter(l => l !== HIST).forEach(l => {
     const a = total(r.ini, corte, l);
     if (!a.p) add('warn', `${l}: no hay presupuesto cargado para este período.`);
     else if (a.vp / a.p < 0.9) add('down', `${l}: va al ${pct(a.vp / a.p, 0)} de la meta (faltan ${mm(a.p - a.vp)}).`);
@@ -1314,12 +1328,20 @@ function clientes(ini, fin, local = E.local) {
   const cie = cierresRango(ini, fin, local);
   let boletas = 0, conBicom = 0;
   cie.forEach(c => { const d = (E.R.diario[c.f] || {})[c.l]; if (d) { boletas += d.n; conBicom++; } });
-  return { entradas: cie.reduce((s, c) => s + c.visitas, 0), compras: cie.reduce((s, c) => s + c.visitas - c.sinCompra, 0),
-    dias: new Set(cie.map(c => c.f)).size, cierres: cie.length, boletas, conBicom };
+  const r = { entradas: cie.reduce((s, c) => s + c.visitas, 0), compras: cie.reduce((s, c) => s + c.visitas - c.sinCompra, 0),
+    dias: new Set(cie.map(c => c.f)).size, cierres: cie.length, boletas, conBicom, hist: 0 };
+  const H = E.R.histClientes || {};
+  if (local === 'TODOS' && E.R.finHistorico && ini <= E.R.finHistorico) { // registro histórico: las boletas hacen de "compras"
+    for (let f = ini; f <= min(fin, E.R.finHistorico); f = sumar(f, 1)) {
+      const x = H[f]; if (!x) continue;
+      r.entradas += x.entradas; r.compras += x.boletas; r.boletas += x.boletas; r.dias++; r.conBicom++; r.hist++;
+    }
+  }
+  return r;
 }
 function tabClientes(r) {
   const R = E.R;
-  if (!R.primerCierre) {
+  if (!R.primerCierre && !R.finHistorico) {
     $('contenido').innerHTML = '<div class="card"><h3>Clientes</h3><p class="vacio">Aún no hay cierres de día con visitas. Este indicador se llena con lo que anota cada local en el cierre.</p></div>';
     return;
   }
@@ -1337,11 +1359,12 @@ function tabClientes(r) {
   html += '</div>';
 
   // Por mes, desde el primer cierre (máximo 24 meses): crece a medida que se acumulan los cierres
-  const ms = []; for (let m = R.primerCierre.slice(0, 7); m <= corte.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.push(m);
+  const desdeCli = E.local === 'TODOS' && R.finHistorico && r.ini <= R.finHistorico ? r.ini.slice(0, 7) : (R.primerCierre || r.ini).slice(0, 7);
+  const ms = []; for (let m = desdeCli; m <= corte.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.push(m);
   const filasMes = ms.slice(-24).map(m => Object.assign({ m }, clientes(m + '-01', min(finMes(m + '-01'), corte))));
   const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
   html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
-    <div class="sub">Por mes · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día; boletas según Bicom en los días con cierre</div>
+    <div class="sub">Por mes · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día; boletas según Bicom en los días con cierre${a.hist || histEn(r) ? ' · hasta oct-2025: entradas y boletas del registro histórico (Excel), sin separar por local' : ''}</div>
     ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
   html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
     <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
