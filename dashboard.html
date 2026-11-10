@@ -77,6 +77,9 @@
   .nav button { width: 32px; height: 32px; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; font-size: 16px; }
   .nav input, .filtros select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; height: 32px; }
   .rango { font-weight: 700; color: var(--black); }
+  .pers-et { font-size: 12px; color: var(--mute); font-weight: 600; }
+  .pers-par { display: inline-flex; align-items: center; gap: 6px; }
+  @media (max-width: 640px) { #segPeriodo button { padding: 7px 9px; } #persBox { flex-wrap: wrap; } }
   .filtros .der { margin-left: auto; color: var(--mute); font-size: 12px; }
 
   /* Pestañas */
@@ -235,12 +238,18 @@
 <section id="vDash" class="hidden">
   <div class="filtros">
     <div class="seg" id="segPeriodo">
-      <button data-p="dia">Día</button><button data-p="semana">Semana</button><button data-p="mes" class="on">Mes</button><button data-p="ano">Año</button>
+      <button data-p="dia" class="on">Día</button><button data-p="semana">Semana</button><button data-p="mes">Mes</button><button data-p="ano">Año</button><button data-p="pers">Personalizado</button>
     </div>
     <div class="nav">
       <button id="ant" aria-label="Anterior">‹</button>
-      <input id="fecha" type="date">
+      <input id="fecha" type="date" aria-label="Día">
+      <select id="selMes" class="hidden" aria-label="Mes"></select>
+      <select id="selAno" class="hidden" aria-label="Año"></select>
       <button id="sig" aria-label="Siguiente">›</button>
+    </div>
+    <div class="nav hidden" id="persBox">
+      <span class="pers-par"><label class="pers-et" for="persIni">Desde</label><input id="persIni" type="date"></span>
+      <span class="pers-par"><label class="pers-et" for="persFin">Hasta</label><input id="persFin" type="date"></span>
     </div>
     <span class="rango" id="rango"></span>
     <select id="local"></select>
@@ -394,7 +403,7 @@ const guardar = (k, v) => { try { v == null ? localStorage.removeItem(k) : local
 const leer = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 
 /* ═══════════════ Estado ═══════════════ */
-const E = { sesion: leer('acs_dash'), R: null, per: 'mes', fecha: null, local: 'TODOS', tab: 'resumen', conIva: true, conCerrados: true, charts: [] };
+const E = { sesion: leer('acs_dash'), R: null, per: 'dia', fecha: null, pIni: null, pFin: null, local: 'TODOS', tab: 'resumen', conIva: true, conCerrados: true, charts: [] };
 const $ = id => document.getElementById(id);
 
 /* ═══════════════ Ingreso ═══════════════ */
@@ -491,7 +500,8 @@ async function mostrarDatos(R) {
   prepararIndices(R);
   E.R = R;
   if (R.urlApp) { $('volverApp').href = EN_API ? './' : R.urlApp; $('volverApp').classList.remove('hidden'); }
-  if (!E.fecha) E.fecha = R.ultimaVenta || R.hoy;
+  if (!E.fecha) E.fecha = R.hoy; // por defecto: el día en curso
+  if (!E.pIni) { E.pIni = R.hoy.slice(0, 8) + '01'; E.pFin = R.hoy; }
   $('badgeDemo').classList.toggle('hidden', !R.demo);
   $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'}${R.ultimaVenta === R.hoy ? ' a las ' + horaCarga(R) : ''} · actualizado ${R.hora}`;
   pintarFranja();
@@ -609,19 +619,28 @@ const totalSiCubre = (ini, fin, local = E.local) => (ini >= inicioDe(local) ? to
 const totalCmp = (c, local = E.local) => (c.ok ? total(c.ini, c.fin, local) : VACIO());
 
 /* ═══════════════ Períodos ═══════════════ */
+/* Tipo efectivo del período: el personalizado se comporta como semana (≤ 7 días), mes (≤ 62 días) o año */
+function PER() {
+  if (E.per !== 'pers') return E.per;
+  const n = entre(E.pIni, E.pFin) + 1;
+  return n <= 7 ? 'semana' : n <= 62 ? 'mes' : 'ano';
+}
 function rango(per, f) {
+  if (per === 'pers') return { ini: E.pIni, fin: E.pFin };
   if (per === 'dia') return { ini: f, fin: f };
   if (per === 'semana') { const i = sumar(f, -dsem(f)); return { ini: i, fin: sumar(i, 6) }; }
   if (per === 'mes') return { ini: f.slice(0, 7) + '-01', fin: finMes(f) };
   return { ini: f.slice(0, 4) + '-01-01', fin: f.slice(0, 4) + '-12-31' };
 }
 function mover(per, f, n) {
+  if (per === 'pers') { const d = (entre(E.pIni, E.pFin) + 1) * n; E.pIni = sumar(E.pIni, d); E.pFin = sumar(E.pFin, d); return f; }
   if (per === 'dia') return sumar(f, n);
   if (per === 'semana') return sumar(f, 7 * n);
   if (per === 'mes') return sumarMeses(f, n);
   return sumarMeses(f, 12 * n);
 }
 function etiquetaRango(per, r) {
+  if (per === 'pers') return `${fCorta(r.ini)} ${r.ini.slice(0, 4)} – ${fCorta(r.fin)} ${r.fin.slice(0, 4)}`;
   if (per === 'dia') return `${DIAS[dsem(r.ini)]} ${fCorta(r.ini)} ${r.ini.slice(0, 4)}`;
   if (per === 'semana') return `Semana ${fCorta(r.ini)} – ${fCorta(r.fin)}`;
   if (per === 'mes') return `${MESES[+r.ini.slice(5, 7) - 1].replace(/^./, c => c.toUpperCase())} ${r.ini.slice(0, 4)}`;
@@ -629,7 +648,11 @@ function etiquetaRango(per, r) {
 }
 /* Período comparable recortado a la misma cantidad de días transcurridos */
 function comparable(r, corte, tipo, local = E.local) {
-  const per = E.per;
+  if (E.per === 'pers') { // personalizado: el mismo largo justo antes, o las mismas fechas del año anterior
+    const n = entre(r.ini, r.fin), i0 = tipo === 'anterior' ? sumar(r.ini, -(n + 1)) : sumarMeses(r.ini, -12);
+    return { ini: i0, fin: min(sumar(i0, n), sumar(i0, entre(r.ini, corte))), ok: i0 >= inicioDe(local) };
+  }
+  const per = PER();
   let ini;
   if (tipo === 'anterior') ini = per === 'dia' || per === 'semana' ? sumar(r.ini, -7) : sumarMeses(r.ini, per === 'mes' ? -1 : -12);
   else ini = per === 'dia' || per === 'semana' ? sumar(r.ini, -364) : sumarMeses(r.ini, -12);
@@ -663,8 +686,30 @@ function alinearTarjetas() {
 }
 let tAlinear = null;
 window.addEventListener('resize', () => { clearTimeout(tAlinear); tAlinear = setTimeout(alinearTarjetas, 120); });
+const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const NOMBRE_MES = m => MESES_LARGO[+m.slice(5, 7) - 1] + ' ' + m.slice(0, 4);
+function controlesPeriodo() {
+  const p = E.per, hoy = (E.R && E.R.hoy) || E.fecha, ini = min(inicioDe('TODOS'), hoy);
+  $('fecha').classList.toggle('hidden', !(p === 'dia' || p === 'semana'));
+  $('selMes').classList.toggle('hidden', p !== 'mes');
+  $('selAno').classList.toggle('hidden', p !== 'ano');
+  ['ant', 'sig'].forEach(id => $(id).classList.toggle('hidden', p === 'pers'));
+  $('persBox').classList.toggle('hidden', p !== 'pers');
+  if (p === 'mes') { // lista de meses desde el primer dato hasta el mes en curso (el más reciente arriba)
+    const ms = []; for (let m = ini.slice(0, 7); m <= hoy.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.unshift(m);
+    if (!ms.includes(E.fecha.slice(0, 7))) ms.unshift(E.fecha.slice(0, 7));
+    $('selMes').innerHTML = ms.map(m => `<option value="${m}"${m === E.fecha.slice(0, 7) ? ' selected' : ''}>${NOMBRE_MES(m)}</option>`).join('');
+  }
+  if (p === 'ano') {
+    const as = []; for (let a = +hoy.slice(0, 4); a >= +ini.slice(0, 4); a--) as.push(String(a));
+    if (!as.includes(E.fecha.slice(0, 4))) as.push(E.fecha.slice(0, 4));
+    $('selAno').innerHTML = as.map(a => `<option${a === E.fecha.slice(0, 4) ? ' selected' : ''}>${a}</option>`).join('');
+  }
+  if (p === 'pers') { $('persIni').value = E.pIni; $('persFin').value = E.pFin; }
+}
 function pintar() {
   E.charts.forEach(c => c.destroy()); E.charts = [];
+  controlesPeriodo();
   const r = rango(E.per, E.fecha);
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
@@ -702,6 +747,15 @@ document.querySelectorAll('#segIva button').forEach(b => b.onclick = () => {
 $('ant').onclick = () => { E.fecha = mover(E.per, E.fecha, -1); pintar(); };
 $('sig').onclick = () => { E.fecha = mover(E.per, E.fecha, 1); pintar(); };
 $('fecha').onchange = e => { if (e.target.value) { E.fecha = e.target.value; pintar(); } };
+$('selMes').onchange = e => { const m = e.target.value, hoy = E.R.hoy; E.fecha = m === hoy.slice(0, 7) ? hoy : m + '-01'; pintar(); };
+$('selAno').onchange = e => { const a = e.target.value, hoy = E.R.hoy; E.fecha = a === hoy.slice(0, 4) ? hoy : a + '-01-01'; pintar(); };
+const fechaPers = () => {
+  let a = $('persIni').value, b = $('persFin').value;
+  if (!a || !b) return;
+  if (a > b) [a, b] = [b, a]; // si se eligen al revés, se ordenan solas
+  E.pIni = a; E.pFin = b; pintar();
+};
+$('persIni').onchange = fechaPers; $('persFin').onchange = fechaPers;
 $('local').onchange = e => { E.local = e.target.value; pintar(); };
 $('conCerrados').onchange = e => { E.conCerrados = e.target.checked; prepararIndices(E.R); pintar(); };
 
@@ -711,8 +765,8 @@ function incluirLocal(l, R = E.R) { return E.conCerrados || !((R && R.cerrados) 
 const colorLocal = l => COLORES[Math.max(0, E.R.locales.indexOf(l)) % COLORES.length];
 /* Pagos y vendedores llegan por día (aaaa-mm-dd); productos y margen, por mes (aaaa-mm). Una fila pertenece al período si su día cae dentro o, si es mensual, si su mes lo toca */
 const enPeriodo = (k, r) => (String(k).length > 7 ? k >= r.ini && k <= r.fin : meses(r).includes(k));
-const etiquetaPer = r => (E.per === 'dia' || E.per === 'semana' ? etiquetaRango(E.per, r) : etiquetaMeses(r));
-const etiquetaMensual = r => etiquetaMeses(r) + (E.per === 'dia' || E.per === 'semana' ? ' (mes completo: este detalle es mensual)' : '');
+const etiquetaPer = r => (PER() === 'dia' || PER() === 'semana' ? etiquetaRango(E.per, r) : etiquetaMeses(r));
+const etiquetaMensual = r => etiquetaMeses(r) + (PER() === 'dia' || PER() === 'semana' ? ' (mes completo: este detalle es mensual)' : '');
 const meses = r => { const m = []; for (let x = r.ini.slice(0, 7); x <= r.fin.slice(0, 7); x = sumarMeses(x + '-01', 1).slice(0, 7)) m.push(x); return m; };
 const etiquetaMeses = r => { const m = meses(r); return m.length === 1 ? fMes(m[0]) : `${fMes(m[0])} – ${fMes(m[m.length - 1])}`; };
 function kpi(et, val, det, barra) {
@@ -731,6 +785,14 @@ function grafico(id, cfg) {
         if (tot) t += ` (${pct(c.raw / tot, 0)})`;
       }
       return t;
+    },
+    footer: items => { // total de las barras apiladas: así no hay que sumar mentalmente cada local
+      if (!cfg.pctApilado || !items.length) return '';
+      const c = items[0], barras = c.chart.data.datasets.filter(d => (d.type || c.chart.config.type) === 'bar');
+      if (barras.length < 2) return '';
+      const tot = barras.reduce((s, d) => s + (+d.data[c.dataIndex] || 0), 0);
+      const meta = c.chart.data.datasets.find(d => d.label === 'Presupuesto'), m = meta ? +meta.data[c.dataIndex] || 0 : 0;
+      return `Total: ${cfg.fmt ? cfg.fmt(tot) : clp(tot)}` + (m ? ` (${pct(tot / m, 0)} de la meta)` : '');
     } } } },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#6B6F78', maxRotation: 0, autoSkip: true } },
@@ -772,20 +834,34 @@ function grafico(id, cfg) {
   } });
   E.charts.push(new Chart($(id), { type: cfg.tipo || 'bar', data: cfg.data, options: base, plugins }));
 }
+function cerrarTarjetasGraficos(salvo) {
+  E.charts.forEach(ch => {
+    if (ch.canvas === salvo || !ch.tooltip || !ch.getActiveElements().length) return;
+    ch.setActiveElements([]); ch.tooltip.setActiveElements([], { x: 0, y: 0 }); ch.update('none');
+  });
+}
+let tTarjeta = null;
+document.addEventListener('touchstart', e => {
+  const lienzo = e.target.closest && e.target.closest('canvas');
+  cerrarTarjetasGraficos(lienzo);
+  clearTimeout(tTarjeta);
+  if (lienzo) tTarjeta = setTimeout(() => cerrarTarjetasGraficos(null), 4000);
+}, { passive: true });
+window.addEventListener('scroll', () => cerrarTarjetasGraficos(null), { passive: true });
 const leyenda = items => `<div class="leyenda">${items.map(([t, c, linea]) => `<span class="${linea ? 'linea' : ''}" style="--c:${c}">${esc(t)}</span>`).join('')}</div>`;
 
 /* Subdivisión del período para los gráficos de evolución */
 function tramos(r) {
-  if (E.per === 'ano') return meses(r).map(m => ({ et: MESES[+m.slice(5, 7) - 1], ini: m + '-01', fin: finMes(m + '-01') }));
-  const ini = E.per === 'dia' ? sumar(r.ini, -13) : r.ini, fin = E.per === 'dia' ? r.fin : r.fin;
-  const t = []; for (let f = ini; f <= fin; f = sumar(f, 1)) t.push({ et: E.per === 'semana' ? `${DIAS[dsem(f)]} ${+f.slice(8)}` : String(+f.slice(8)), ini: f, fin: f });
+  if (PER() === 'ano') return meses(r).map(m => ({ et: MESES[+m.slice(5, 7) - 1], ini: m + '-01', fin: finMes(m + '-01') }));
+  const ini = PER() === 'dia' ? sumar(r.ini, -13) : r.ini, fin = PER() === 'dia' ? r.fin : r.fin;
+  const t = []; for (let f = ini; f <= fin; f = sumar(f, 1)) t.push({ et: PER() === 'semana' ? `${DIAS[dsem(f)]} ${+f.slice(8)}` : String(+f.slice(8)), ini: f, fin: f });
   return t;
 }
 
 /* ═══════════════ Pestaña Resumen ═══════════════ */
 function tabResumen(r) {
   const R = E.R, corte = min(r.fin, R.ultimaVenta || r.fin), enCurso = corte < r.fin;
-  const diaHoy = E.per === 'dia' && r.ini === R.hoy, aLas = diaHoy ? ` (acumulado a las ${horaCarga(R)})` : '';
+  const diaHoy = PER() === 'dia' && r.ini === R.hoy, aLas = diaHoy ? ` (acumulado a las ${horaCarga(R)})` : '';
   const a = total(r.ini, corte);
   const pptoTotal = total(r.ini, r.fin).p;
   const ant = comparable(r, corte, 'anterior'), aa = comparable(r, corte, 'anio');
@@ -799,11 +875,11 @@ function tabResumen(r) {
   const metaCompleta = a.p > 0 && !parcialPpto && (corte >= r.fin || resto.p > 0);
   const ritmoDia = a.v / diasEl, tope = a.v + 2 * ritmoDia * (diasTot - diasEl);
   const proy = !enCurso ? a.v : Math.min(tope, metaCompleta ? a.v + resto.p * (a.vp / a.p) : ritmoDia * diasTot);
-  const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[E.per];
+  const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior', pers: 'vs período anterior' }[E.per === 'pers' ? 'pers' : PER()];
 
   const mg = margenRango(r), conv = conversion(r.ini, corte);
   let html = '<div class="grid kpis fila" style="--n:7">';
-  html += kpi(diaHoy ? `Venta del día${aLas}` : `Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
+  html += kpi(diaHoy ? `Venta del día${aLas}` : `Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (PER() !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
   html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl, 0) : '—',
     a.p ? `${parcialPpto ? `Solo los días con presupuesto (desde ${fCorta(R.inicioPpto)} ${R.inicioPpto.slice(0, 4)}) · ` : ''}Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
   if (diaHoy) html += kpi('Falta para la meta del día', a.p ? mm(Math.max(0, a.p - a.v)) : '—',
@@ -829,9 +905,9 @@ function tabResumen(r) {
   html += '</div>';
 
   html += `<div class="grid dos">
-    <div class="card"><h3>Evolución de ventas vs presupuesto</h3><div class="sub">${E.per === 'dia' ? 'Últimos 14 días' : E.per === 'ano' ? 'Por mes' : 'Por día'}</div>
+    <div class="card"><h3>Evolución de ventas vs presupuesto</h3><div class="sub">${PER() === 'dia' ? 'Últimos 14 días' : PER() === 'ano' ? 'Por mes' : 'Por día'}</div>
       ${leyenda(localesVisibles().map(l => [l, colorLocal(l)]).concat([['Presupuesto', 'var(--meta)', 1]]))}<div class="lienzo"><canvas id="gEvo"></canvas></div></div>
-    <div class="card"><h3>Acumulado vs meta</h3><div class="sub">${E.per === 'dia' ? 'Mes en curso' : 'Dentro del período'}</div>
+    <div class="card"><h3>Acumulado vs meta</h3><div class="sub">${PER() === 'dia' ? 'Mes en curso' : 'Dentro del período'}</div>
       ${leyenda([['Venta acumulada', COLORES[0], 1], ['Meta acumulada', 'var(--meta)', 1], ['Año anterior', '#C9CCD3', 1]])}<div class="lienzo"><canvas id="gAcu"></canvas></div></div>
   </div>`;
 
@@ -851,9 +927,9 @@ function tabResumen(r) {
     },
   });
   // Acumulado
-  const rA = E.per === 'dia' ? rango('mes', E.fecha) : r;
-  const tA = E.per === 'ano' ? tramos(rA) : (() => { const x = []; for (let f = rA.ini; f <= rA.fin; f = sumar(f, 1)) x.push({ et: String(+f.slice(8)), ini: f, fin: f }); return x; })();
-  let sv = 0, sp = 0, sa = 0; const off = E.per === 'semana' ? -364 : null;
+  const rA = PER() === 'dia' ? rango('mes', E.fecha) : r;
+  const tA = PER() === 'ano' ? tramos(rA) : (() => { const x = []; for (let f = rA.ini; f <= rA.fin; f = sumar(f, 1)) x.push({ et: String(+f.slice(8)), ini: f, fin: f }); return x; })();
+  let sv = 0, sp = 0, sa = 0; const off = PER() === 'semana' ? -364 : null;
   const ac = tA.map(x => {
     const tt = total(x.ini, x.fin);
     const iniAA = off ? sumar(x.ini, off) : sumarMeses(x.ini, -12), finAA = off ? sumar(x.fin, off) : sumarMeses(x.fin, -12);
@@ -920,14 +996,14 @@ function alertas(r, corte) {
    Día → 14 días (tendencia) o 12 semanas (promedio) · Semana → 12 semanas · Mes → 12 meses hasta el mes elegido · Año → los 12 meses del año */
 function tramosVentas(r, tipo) {
   const t = [];
-  if (E.per === 'dia' && tipo === 'tend') {
+  if (PER() === 'dia' && tipo === 'tend') {
     for (let i = 13; i >= 0; i--) { const f = sumar(r.ini, -i); t.push({ et: `${DIAS[dsem(f)]} ${+f.slice(8)}`, ini: f, fin: f, aIni: sumar(f, -364), aFin: sumar(f, -364) }); }
-  } else if (E.per === 'dia' || E.per === 'semana') {
+  } else if (PER() === 'dia' || PER() === 'semana') {
     const lun = sumar(r.ini, -dsem(r.ini));
     for (let i = 11; i >= 0; i--) { const a = sumar(lun, -7 * i); t.push({ et: fCorta(a), ini: a, fin: sumar(a, 6), aIni: sumar(a, -364), aFin: sumar(a, -358) }); }
   } else {
     for (let i = 0; i < 12; i++) {
-      const m = E.per === 'mes' ? sumarMeses(r.ini.slice(0, 7) + '-01', -(11 - i)) : `${r.ini.slice(0, 4)}-${String(i + 1).padStart(2, '0')}-01`;
+      const m = PER() === 'mes' ? sumarMeses(r.ini.slice(0, 7) + '-01', -(11 - i)) : `${r.ini.slice(0, 4)}-${String(i + 1).padStart(2, '0')}-01`;
       const a = sumarMeses(m, -12);
       t.push({ et: `${MESES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, ini: m, fin: finMes(m), aIni: a, aFin: finMes(a) });
     }
@@ -937,7 +1013,7 @@ function tramosVentas(r, tipo) {
 function promDiario(ini, fin) { let v = 0, d = 0; for (let f = ini; f <= fin; f = sumar(f, 1)) { const x = total(f, f).v; if (x > 0) { v += x; d++; } } return d ? v / d : null; }
 
 function tabVentas(r) {
-  const R = E.R, fin = min(r.fin, R.ultimaVenta || r.fin), per = E.per;
+  const R = E.R, fin = min(r.fin, R.ultimaVenta || r.fin), per = PER();
   const lugar = E.local === 'TODOS' ? 'todos los locales' : esc(E.local);
   // Tendencia: ventana corta según el período, contra el mismo tramo del año anterior y el presupuesto
   const tT = tramosVentas(r, 'tend');
@@ -1250,10 +1326,10 @@ function tabClientes(r) {
   const corte = min(r.fin, R.hoy), a = clientes(r.ini, corte);
   const ant = comparable(r, corte, 'anterior'), aa = comparable(r, corte, 'anio');
   const cAnt = clientes(ant.ini, ant.fin), cAA = clientes(aa.ini, aa.fin);
-  const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior' }[E.per];
+  const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior', pers: 'vs período anterior' }[E.per === 'pers' ? 'pers' : PER()];
 
   let html = '<div class="grid kpis fila" style="--n:4">';
-  html += kpi('Entradas de clientes', ent(a.entradas), delta(a.entradas, cAnt.entradas, etAnt) + (E.per !== 'ano' ? ' ' + delta(a.entradas, cAA.entradas, 'vs año anterior') : ''));
+  html += kpi('Entradas de clientes', ent(a.entradas), delta(a.entradas, cAnt.entradas, etAnt) + (PER() !== 'ano' ? ' ' + delta(a.entradas, cAA.entradas, 'vs año anterior') : ''));
   html += kpi('Promedio diario de entradas', a.dias ? ent(a.entradas / a.dias) : '—', `${a.cierres} cierre(s) en ${a.dias} día(s)`);
   html += kpi('Conversión', a.entradas ? pct(a.compras / a.entradas, 0) : '—', `${ent(a.compras)} compras declaradas de ${ent(a.entradas)} entradas`);
   html += kpi('Compras declaradas vs boletas Bicom', a.boletas ? pct(a.compras / a.boletas, 0) : '—',
@@ -1266,7 +1342,7 @@ function tabClientes(r) {
   const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
   html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
     <div class="sub">Por mes · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día; boletas según Bicom en los días con cierre</div>
-    ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2], 1]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
+    ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
   html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
     <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
     <th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th></tr></thead><tbody>
@@ -1288,7 +1364,7 @@ function tabClientes(r) {
       datasets: [
         { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
         { label: 'Compras declaradas', data: filasMes.map(x => x.compras), backgroundColor: COLORES[1], borderRadius: 3, order: 2 },
-        { type: 'line', label: 'Boletas Bicom', data: filasMes.map(x => (x.conBicom ? x.boletas : null)), borderColor: COLORES[2], backgroundColor: COLORES[2], borderWidth: 2, pointRadius: 3, order: 1 },
+        { label: 'Boletas Bicom', data: filasMes.map(x => (x.conBicom ? x.boletas : null)), backgroundColor: COLORES[2], borderRadius: 3, order: 2 },
       ],
     },
   });

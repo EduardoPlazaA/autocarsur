@@ -449,7 +449,7 @@
       <div class="field"><label for="ventasDia">Ventas del día</label><div class="money"><input id="ventasDia" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="row2 field">
         <div><label for="visitas">Visitas al local</label><input id="visitas" inputmode="numeric" autocomplete="off" placeholder="0"></div>
-        <div><label for="sinCompra">Visitas sin compra</label><input id="sinCompra" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+        <div><label for="conCompra">Visitas con compra</label><input id="conCompra" inputmode="numeric" autocomplete="off" placeholder="0"></div>
       </div>
       <div class="kpis">
         <div class="kpi"><small>Cumplimiento meta</small><b id="kMeta">—</b><div class="bar"><i id="barMeta"></i></div></div>
@@ -954,7 +954,7 @@
   /* ── Cierre ── */
   let presupuesto = 0;
   function abrirCierre() {
-    ['retiroEfectivo', 'saldoCaja', 'ventasDia', 'visitas', 'sinCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
+    ['retiroEfectivo', 'saldoCaja', 'ventasDia', 'visitas', 'conCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
     $('cierreLocal').textContent = S.local; $('cierreAlerta').classList.add('hidden');
     presupuesto = 0; S.idEnvio = nuevoId(); calcular();
     $('btnCierre').disabled = false; salirCorreccion();
@@ -985,7 +985,7 @@
     S.corrige = true; S.idEnvio = nuevoId();
     const m = n => (n ? fmtCLP.format(n) : '0');
     $('retiroEfectivo').value = m(c.retiro); $('saldoCaja').value = m(c.saldo); $('ventasDia').value = m(c.ventas);
-    $('visitas').value = String(c.visitas); $('sinCompra').value = String(c.sinCompra); $('obs').value = c.obs || ''; $('motivo').value = '';
+    $('visitas').value = String(c.visitas); $('conCompra').value = String(Math.max(0, c.visitas - c.sinCompra)); $('obs').value = c.obs || ''; $('motivo').value = '';
     $('fMotivo').classList.remove('hidden'); $('btnCorregir').classList.add('hidden'); $('cierreAlerta').classList.add('hidden');
     $('btnCierre').textContent = 'Guardar corrección'; $('cierreLocal').textContent = S.local + ' · corrigiendo el cierre de hoy';
     calcular(); ver('v-cierre');
@@ -999,16 +999,16 @@
     const d = e.target.value.replace(/\D/g, '').slice(0, 10);
     e.target.value = d ? fmtCLP.format(Number(d)) : ''; e.target.classList.remove('invalid'); calcular();
   }));
-  ['visitas', 'sinCompra'].forEach(id => $(id).addEventListener('input', e => {
+  ['visitas', 'conCompra'].forEach(id => $(id).addEventListener('input', e => {
     e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5); e.target.classList.remove('invalid'); calcular();
   }));
   const num = id => $(id).value.replace(/\D/g, '');
   function calcular() {
-    const v = Number(num('ventasDia')), vis = Number(num('visitas')), sc = Number(num('sinCompra'));
+    const v = Number(num('ventasDia')), vis = Number(num('visitas')), cc = Number(num('conCompra'));
     const pm = presupuesto ? Math.round(v / presupuesto * 100) : null;
     $('kMeta').textContent = pm === null ? '—' : pm + '%';
     $('barMeta').style.width = Math.min(pm || 0, 100) + '%'; $('barMeta').classList.toggle('ok', pm >= 100);
-    const pc = vis ? Math.round((vis - Math.min(sc, vis)) / vis * 100) : null;
+    const pc = vis ? Math.round(Math.min(cc, vis) / vis * 100) : null; // conversión = visitas con compra ÷ visitas
     $('kConv').textContent = pc === null ? '—' : pc + '%';
     $('barConv').style.width = (pc || 0) + '%'; $('barConv').classList.toggle('ok', pc >= 70);
   }
@@ -1019,10 +1019,10 @@
     if (S.ocupado) return;
     $('cierreAlerta').classList.add('hidden');
     const falta = [];
-    [['retiroEfectivo', 'retiro de efectivo'], ['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['sinCompra', 'visitas sin compra']]
+    [['retiroEfectivo', 'retiro de efectivo'], ['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['conCompra', 'visitas con compra']]
       .forEach(([id, n]) => { if (num(id) === '') { $(id).classList.add('invalid'); falta.push(n); } });
     if (falta.length) { alerta('Completa: ' + falta.join(', ') + '.'); return; }
-    if (Number(num('sinCompra')) > Number(num('visitas'))) { $('sinCompra').classList.add('invalid'); alerta('Las visitas sin compra no pueden superar el total de visitas.'); return; }
+    if (Number(num('conCompra')) > Number(num('visitas'))) { $('conCompra').classList.add('invalid'); alerta('Las visitas con compra no pueden superar el total de visitas.'); return; }
 
     const ret = Number(num('retiroEfectivo'));
     if (S.corrige) {
@@ -1041,7 +1041,7 @@
     cerrarModal();
     ubicar().then(p => api(S.corrige ? 'corregirCierre' : 'registrarCierre', S.token, {
       motivo: S.corrige ? $('motivo').value.trim() : undefined, local: S.local, retiroEfectivo: num('retiroEfectivo'), saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
-      visitasSinCompra: num('sinCompra'), observaciones: $('obs').value, lat: p.lat, lng: p.lng, precision: p.precision, idEnvio: S.idEnvio,
+      visitasConCompra: num('conCompra'), observaciones: $('obs').value, lat: p.lat, lng: p.lng, precision: p.precision, idEnvio: S.idEnvio,
     })).then(r => {
       S.ocupado = false; b.textContent = S.corrige ? 'Guardar corrección' : 'Registrar cierre'; b.disabled = false;
       if (r.ok) { const fueCorreccion = S.corrige; salirCorreccion(); pintarEstado(r.estado); modal('ok', fueCorreccion ? '¡Cierre corregido!' : '¡Cierre registrado!', r.mensaje, r.resumen || '', [{ t: 'Volver al menú', cls: 'dark', fn: () => ver('v-menu') }]); }
