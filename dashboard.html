@@ -1349,7 +1349,13 @@ function tabCompras(r) {
   }
   // Por local (con la distribución de cada factura), por tipo y por proveedor
   const locs = E.local === 'TODOS' ? E.R.locales : [E.local];
-  const porLocal = locs.map(l => [l, sum(cs, c => c[2] * parteLocal(c, l))]).filter(x => x[1] > 0);
+  // Lo que no está repartido entre los locales activos: histórico del Excel (total sin local) o compra mixta que Felipe aún no reparte
+  const SIN_DIST = 'Por distribuir';
+  const restoDe = c => { const k = Object.keys(c[4] || {}); return !k.length ? SIN_DIST : (c[4][HIST] ? HIST : 'Otros'); };
+  const montoResto = (c, et) => (restoDe(c) === et ? c[2] * Math.max(0, 1 - E.R.locales.reduce((t, l) => t + ((c[4] || {})[l] || 0), 0) / 100) : 0);
+  const restos = E.local === 'TODOS' ? [HIST, SIN_DIST, 'Otros'].filter(et => todas.some(c => montoResto(c, et) > 0)) : [];
+  const colorResto = et => (et === HIST ? '#A3A8B3' : et === SIN_DIST ? '#E0A43A' : '#C9CCD3');
+  const porLocal = locs.map(l => [l, sum(cs, c => c[2] * parteLocal(c, l))]).concat(restos.map(et => [et, sum(cs, c => montoResto(c, et))])).filter(x => x[1] > 0);
   const totL = sum(porLocal, x => x[1]);
   const agr = i => { const o = {}; cs.forEach(c => { const k = c[i] || '—'; o[k] = o[k] || [k, 0, 0]; o[k][1] += monto(c); o[k][2]++; }); return Object.values(o).sort((a, b) => b[1] - a[1]); };
   const porTipo = agr(3), porProv = agr(1), totC = sum(cs, monto);
@@ -1358,7 +1364,7 @@ function tabCompras(r) {
   for (let m = m0; m <= r.fin; m = sumarMeses(m, 1)) ms.push(m);
   const tabla = (filas, cab, tot) => filas.length ? `<div class="tabla"><table><thead><tr>${cab.map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody>${tot || ''}</table></div>` : '<p class="vacio">Sin compras en el período</p>';
   html += `<div class="card"><h3>Compras por mes</h3><div class="sub">Monto de las facturas (con IVA) por fecha de factura · ${lugar} · las compras mixtas se reparten según su %</div>
-      ${leyenda(locs.map(l => [l, colorLocal(l)]))}<div class="lienzo"><canvas id="gCompras"></canvas></div></div>
+      ${leyenda(locs.map(l => [l, colorLocal(l)]).concat(restos.map(et => [et, colorResto(et)])))}<div class="lienzo"><canvas id="gCompras"></canvas></div></div>
     <div class="grid dos">
       <div class="card"><h3>Por local</h3><div class="sub">${etiquetaPer(r)} · suma de cada factura según su distribución</div>
         ${tabla(porLocal.map(x => `<tr><td>${esc(x[0])}</td><td class="r num">${clp(x[1])}</td><td class="r num">${pct(x[1] / totL, 0)}</td></tr>`), ['Local', 'Monto', '%'], `<tfoot><tr><td>Total</td><td class="r num">${clp(totL)}</td><td></td></tr></tfoot>`)}</div>
@@ -1380,7 +1386,7 @@ function tabCompras(r) {
     const d = entre(hoy, c[6]);
     return d < 0 ? `<span class="chip down">Vencida hace ${-d} día(s)</span>` : `<span class="chip">${d === 0 ? 'Vence hoy' : 'Faltan ' + d + ' día(s)'}</span>`;
   };
-  const locTxt = c => Object.entries(c[4] || {}).map(([l, p]) => (p === 100 ? l : `${l} ${String(p).replace('.', ',')}%`)).join(' · ');
+  const locTxt = c => !Object.keys(c[4] || {}).length ? 'Mixta · por distribuir' : Object.entries(c[4] || {}).map(([l, p]) => (p === 100 ? l : `${l} ${String(p).replace('.', ',')}%`)).join(' · ');
   html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
       <div><h3>Todas las compras</h3><div class="sub">Todas las fechas · ${lugar} · fecha máxima de pago = fecha de la factura + plazo del proveedor${E.local === 'TODOS' ? '' : ' · montos según el % del local'}</div></div>
       <div class="seg" id="segCompras">${[['todas', 'Todas'], ['pagar', 'Por pagar'], ['pagadas', 'Pagadas']].map(([k, t]) => `<button data-cf="${k}"${filtro === k ? ' class="on"' : ''}>${t}</button>`).join('')}</div></div>
@@ -1395,7 +1401,8 @@ function tabCompras(r) {
     apilado: true, pctApilado: true,
     data: {
       labels: ms.map(m => `${MESES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`),
-      datasets: locs.map(l => ({ label: l, data: ms.map(m => sum(comprasRango(m, finMes(m), l), c => c[2] * parteLocal(c, l))), backgroundColor: colorLocal(l), borderRadius: 3, stack: 'v' })),
+      datasets: locs.map(l => ({ label: l, data: ms.map(m => sum(comprasRango(m, finMes(m), l), c => c[2] * parteLocal(c, l))), backgroundColor: colorLocal(l), borderRadius: 3, stack: 'v' }))
+        .concat(restos.map(et => ({ label: et, data: ms.map(m => sum(comprasRango(m, finMes(m)), c => montoResto(c, et))), backgroundColor: colorResto(et), borderRadius: 3, stack: 'v' }))),
     },
   });
 }

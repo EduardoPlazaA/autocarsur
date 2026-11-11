@@ -1353,9 +1353,9 @@
     const r = p && p.resumen;
     $('franjaProv').classList.toggle('hidden', !r);
     if (!p) return;
-    const n = r ? r.nVencidas : 0;
+    const n = r ? r.nVencidas + (r.nPorDistribuir || 0) : 0;
     $('badgeProv').textContent = n; $('badgeProv').classList.toggle('hidden', !n);
-    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') : 'Registrar factura de compra';
+    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') + (r.nPorDistribuir ? ` · ${r.nPorDistribuir} por distribuir` : '') : 'Registrar factura de compra';
     if (!r) return;
     $('fVencido').querySelector('b').textContent = pesos(r.vencido);
     $('fVencido').querySelector('em').textContent = r.nVencidas ? `${r.nVencidas} factura(s) sin pagar` : 'Nada vencido';
@@ -1382,7 +1382,7 @@
   function pintarProv() {
     const d = PV.datos, c = $('pvContenido');
     if (!d) return;
-    const n = d.resumen.nVencidas;
+    const n = d.resumen.nVencidas + (d.paga ? d.resumen.nPorDistribuir || 0 : 0);
     document.querySelector('[data-pv="pagar"]').innerHTML = 'Por pagar' + (n ? ` <span class="cuenta">${n}</span>` : '');
     PV.tocado = false; PV.tipo = ''; PV.loc = d.locales.length === 1 ? d.locales[0] : '';
     c.innerHTML = PV.tab === 'nueva' ? vistaNuevaCompra(d) : PV.tab === 'pagar' ? vistaPorPagar(d) : vistaRecientes(d);
@@ -1405,7 +1405,8 @@
       <div class="field hidden" id="pvPagCotBox"><label for="pvPagCot">Pagado con la cotización</label><div class="money"><input id="pvPagCot" inputmode="numeric" autocomplete="off" placeholder="0"></div>
         <p class="sub" id="pvSaldo" style="margin:6px 0 0"></p></div>
       <div class="field"><label>Tipo de compra</label><div class="chips" id="pvTipo">${d.tipos.map(t => `<button type="button" data-tipo="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
-      <div class="field"><label>Local</label><div class="chips" id="pvLocal">${d.locales.map(l => `<button type="button" data-loc="${esc(l)}"${PV.loc === l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}${d.locales.length > 1 ? '<button type="button" data-loc="__mixta">Mixta (%)</button>' : ''}</div>
+      <div class="field"><label>Local</label><div class="chips" id="pvLocal">${d.locales.map(l => `<button type="button" data-loc="${esc(l)}"${PV.loc === l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}${d.locales.length > 1 ? `<button type="button" data-loc="__mixta">${d.paga ? 'Mixta (%)' : 'Mixta (Felipe reparte)'}</button>` : ''}</div>
+        ${d.paga ? '' : '<p class="sub hidden" id="pvMixtaAviso" style="margin:8px 0 0">Felipe hará la distribución por local.</p>'}
         <div id="pvMixta" class="hidden">${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-pct="${esc(l)}" placeholder="0" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
           <p class="sub" id="pvSuma" style="margin:8px 0 0"></p></div></div>
       <button class="primary dark" id="pvGuardar" type="button">Registrar compra</button>`;
@@ -1418,7 +1419,8 @@
     $('pvTipo').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { PV.tipo = b.dataset.tipo; $('pvTipo').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
     $('pvLocal').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
       PV.loc = b.dataset.loc; $('pvLocal').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-      $('pvMixta').classList.toggle('hidden', PV.loc !== '__mixta');
+      $('pvMixta').classList.toggle('hidden', PV.loc !== '__mixta' || !d.paga);
+      if ($('pvMixtaAviso')) $('pvMixtaAviso').classList.toggle('hidden', PV.loc !== '__mixta');
     }));
     const pcts = [...document.querySelectorAll('[data-pct]')];
     pcts.forEach(inp => inp.addEventListener('input', () => {
@@ -1445,19 +1447,20 @@
   }
   function confirmarCompra(d) {
     const p = d.proveedores.find(x => x[0] === $('pvProv').value);
-    const dist = PV.loc === '__mixta' ? pctsMixta() : PV.loc ? { [PV.loc]: 100 } : {};
+    const mixtaFelipe = PV.loc === '__mixta' && !d.paga; // la reparte Felipe después
+    const dist = mixtaFelipe ? {} : PV.loc === '__mixta' ? pctsMixta() : PV.loc ? { [PV.loc]: 100 } : {};
     const sumaD = Object.values(dist).reduce((s, x) => s + x, 0);
     const monto = valor($('pvMonto')), pagado = valor($('pvPagCot'));
     const falta = !$('pvFecha').value ? 'Ingresa la fecha de la factura.' : !p ? 'Elige el proveedor.'
       : p[1] === 0 && !$('pvCot').value.trim() ? 'Ingresa el N° de cotización con que se pagó.'
       : !$('pvFact').value.trim() ? 'Ingresa el N° de factura.' : !monto ? 'Ingresa el monto de la factura.'
       : p[1] === 0 && !$('pvPagCot').value ? 'Ingresa cuánto se pagó con la cotización.'
-      : !PV.tipo ? 'Elige el tipo de compra.' : !sumaD ? 'Elige el local de la compra.' : Math.abs(sumaD - 100) > 0.05 ? 'La distribución por local debe sumar 100 %.' : '';
+      : !PV.tipo ? 'Elige el tipo de compra.' : mixtaFelipe ? '' : !sumaD ? 'Elige el local de la compra.' : Math.abs(sumaD - 100) > 0.05 ? 'La distribución por local debe sumar 100 %.' : '';
     if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
     const id = nuevoId();
     const datos = { fecha: $('pvFecha').value, proveedor: p[0], cotizacion: $('pvCot').value.trim(), factura: $('pvFact').value.trim(), monto,
-      pagadoCotizacion: p[1] === 0 ? pagado : '', tipo: PV.tipo, dist, idEnvio: id };
-    modal('ask', `¿Registrar factura ${datos.factura} de ${p[0]}?`, `${pesos(monto)} · ${PV.tipo} · ${distTxt(dist)}`,
+      pagadoCotizacion: p[1] === 0 ? pagado : '', tipo: PV.tipo, dist, mixta: mixtaFelipe, idEnvio: id };
+    modal('ask', `¿Registrar factura ${datos.factura} de ${p[0]}?`, `${pesos(monto)} · ${PV.tipo} · ${mixtaFelipe ? 'Mixta: Felipe la reparte' : distTxt(dist)}`,
       p[1] === 0 ? 'Pago al contado (pagado con la cotización).' : `Vence el ${fVence(sumarDia(datos.fecha, p[1]))}.`, [
       { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarCompraProveedor', S.token, datos).then(r => {
         if (r.datos) provActualizado(r.datos);
@@ -1475,10 +1478,43 @@
     const monto = c.estado === 'PAGADA' ? c.monto : c.porPagar;
     return `<${conCheck ? 'label' : 'div'} class="mov"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}</small></span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}</small></span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
+  function bloqueDistribuir(d) {
+    if (!d.paga || !(d.porDistribuir || []).length) return '';
+    return `<div class="grupo">Por distribuir entre locales · ${d.porDistribuir.length}</div>
+      <p class="sub" style="margin:0 0 6px">Compras mixtas registradas por el equipo: indica el % de cada local.</p>` + d.porDistribuir.map(c => `
+      <div class="mov" style="grid-template-columns:1fr auto;align-items:start" data-dist="${esc(c.id)}">
+        <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · registró ${esc(c.por)}</small>
+          ${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-dpct="${esc(l)}" placeholder="0" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
+          <button type="button" class="secondary" data-dguardar="${esc(c.id)}" style="margin-top:8px">Guardar distribución</button></span>
+        <span class="monto">${pesos(c.monto)}</span>
+      </div>`).join('');
+  }
+  function activarDistribuir() {
+    document.querySelectorAll('[data-dist]').forEach(caja => {
+      const ins = [...caja.querySelectorAll('[data-dpct]')];
+      ins.forEach(inp => inp.addEventListener('input', () => {
+        PV.tocado = true; inp.value = inp.value.replace(/[^\d.,]/g, '');
+        if (ins.length === 2) { const x = Number(inp.value.replace(',', '.')), otro = ins.find(o => o !== inp); if (x >= 0 && x <= 100) otro.value = inp.value === '' ? '' : String(Math.round((100 - x) * 10) / 10).replace('.', ','); }
+      }));
+      caja.querySelector('[data-dguardar]').addEventListener('click', () => {
+        const dist = {}; ins.forEach(i => { const n = Number(i.value.replace(',', '.')); if (n > 0) dist[i.dataset.dpct] = n; });
+        const t = Object.values(dist).reduce((a, b) => a + b, 0);
+        if (Math.abs(t - 100) > 0.05) return modal('err', 'Revisa los porcentajes', `Suman ${String(Math.round(t * 10) / 10).replace('.', ',')} %; deben sumar 100 %.`, '', [{ t: 'Entendido', cls: 'dark' }]);
+        api('distribuirCompraProveedor', S.token, { id: caja.dataset.dist, dist, idEnvio: nuevoId() }).then(r => {
+          if (r.datos) { provActualizado(r.datos); pintarProv(); }
+          if (!r.ok) return modal('err', 'No se pudo guardar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+          modal('ok', '¡Distribución guardada!', r.mensaje, '', [{ t: 'Continuar', cls: 'dark' }]);
+        }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+      });
+    });
+  }
   function vistaPorPagar(d) {
+    return bloqueDistribuir(d) + vistaPorPagarLista(d);
+  }
+  function vistaPorPagarLista(d) {
     const hoy = hoyTxt(), en7 = sumarDia(hoy, 7), l = d.porPagar;
     const saldos = Object.entries(d.saldos || {});
     const bloqueSaldos = saldos.length ? `<div class="grupo">Saldos a favor</div>${saldos.map(([p, m]) => `<div class="mov" style="grid-template-columns:1fr auto"><span class="det">${esc(p)}<small>Pagado de más con la cotización</small></span><span class="monto">${pesos(m)}</span></div>`).join('')}` : '';
@@ -1491,6 +1527,7 @@
       <button class="primary dark" id="btnPagar" type="button">Marcar como pagadas</button>` : '<p class="sub" style="margin-top:12px">Felipe marca el pago de cada factura.</p>') + bloqueSaldos;
   }
   function activarPorPagar() {
+    activarDistribuir();
     const checks = [...document.querySelectorAll('[data-pg]')];
     const tot = () => checks.filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
     checks.forEach(c => c.addEventListener('change', () => { PV.tocado = true; $('totPago').textContent = pesos(tot()); }));
