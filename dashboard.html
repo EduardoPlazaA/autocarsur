@@ -96,6 +96,11 @@
     .kpis.fila .kpi { padding: 14px; } .kpis.fila .kpi .val { font-size: 22px; } .kpis.fila .kpi .et { font-size: 11px; }
   }
   .dos { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); margin-bottom: 14px; }
+  /* Teléfono y tableta: tarjetas de a 2 por fila; si queda una sola al final, ocupa la fila completa (sin espacios vacíos) */
+  @media (max-width: 999px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpis > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
   .card { background: var(--paper); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.05); min-width: 0; }
   .card h3 { margin: 0 0 2px; font-size: 14px; color: var(--black); }
   .card .sub { color: var(--mute); font-size: 12px; margin-bottom: 12px; }
@@ -506,6 +511,10 @@ async function mostrarDatos(R) {
   $('actualizado').textContent = `Ventas hasta ${R.ultimaVenta ? fCorta(R.ultimaVenta) : '—'}${R.ultimaVenta === R.hoy ? ' a las ' + horaCarga(R) : ''} · actualizado ${R.hora}`;
   pintarFranja();
   pintarActualizacion(R);
+  if (R.soloResumen) {
+    document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('hidden', b.dataset.t !== 'resumen'); if (b.dataset.t === 'resumen') b.textContent = 'Resumen locales'; });
+    E.tab = 'resumen'; ['franjaEf', 'btnAct', 'salir', 'volverApp'].forEach(id => $(id).classList.add('hidden'));
+  }
   $('local').innerHTML = '<option value="TODOS">Todos los locales</option>' + R.locales.map(l => `<option${l === E.local ? ' selected' : ''}>${esc(l)}</option>`).join('');
   if (E.local !== 'TODOS' && !R.locales.includes(E.local)) E.local = 'TODOS';
   $('chkCerrados').classList.toggle('hidden', !(R.cerrados || []).length);
@@ -1018,7 +1027,7 @@ function alertas(r, corte) {
   });
   const cie = cierresRango(r.ini, corte);
   const difs = cie.filter(c => Math.abs(c.dif) > R.tolerancia);
-  if (difs.length) add('down', `${difs.length} cierre(s) con diferencia mayor a ${clp(R.tolerancia)} entre lo declarado y Bicom.`);
+  if (difs.length && !R.soloResumen) add('down', `${difs.length} cierre(s) con diferencia mayor a ${clp(R.tolerancia)} entre lo declarado y Bicom.`);
   const sin = diasSinCierre(r.ini, min(corte, sumar(R.hoy, -1)));
   if (sin.length) add('warn', `${sin.length} día(s) con ventas y sin cierre registrado.`);
   const fuera = marcasRango(r.ini, r.fin).filter(m => m.ubic === 'FUERA DE RANGO');
@@ -1262,34 +1271,64 @@ function jornadas(ini, fin) {
 const minutos = h => +h.slice(0, 2) * 60 + +h.slice(3, 5);
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 function tabEquipo(r) {
-  const R = E.R;
-  const hoy = jornadas(R.hoy, R.hoy).filter(j => !j.salida);
-  const js = jornadas(r.ini, min(r.fin, R.hoy));
+  const R = E.R, fin = min(r.fin, R.hoy), quien = E.persona || 'TODOS', tol = R.tolAtraso || 5;
+  const esDe = id => quien === 'TODOS' || String(id) === quien;
+  const hoy = jornadas(R.hoy, R.hoy).filter(j => !j.salida && esDe(j.id));
+  const js = jornadas(r.ini, fin).filter(j => esDe(j.id));
+  const todosAtr = R.atrasos || [];
+  const atr = todosAtr.filter(a => a[0] >= r.ini && a[0] <= fin && esDe(a[1])).sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
+  const atrHoy = todosAtr.filter(a => a[0] === R.hoy && esDe(a[1]));
+  const nuevo = nombre => ({ nombre, dias: new Set(), min: 0, cerradas: 0, ent: 0, sal: 0, abiertas: 0, fuera: 0, atrDias: 0, atrMin: 0 });
   const per = {};
   js.forEach(j => {
-    const p = per[j.id] || (per[j.id] = { nombre: j.nombre, dias: new Set(), min: 0, cerradas: 0, ent: 0, sal: 0, abiertas: 0, fuera: 0 });
+    const p = per[j.id] || (per[j.id] = nuevo(j.nombre));
     p.dias.add(j.f); p.ent += minutos(j.entrada);
     if (j.salida) { p.min += minutos(j.salida) - minutos(j.entrada); p.cerradas++; p.sal += minutos(j.salida); } else if (j.f < R.hoy) p.abiertas++;
   });
-  const fuera = marcasRango(r.ini, r.fin).filter(m => m.ubic === 'FUERA DE RANGO');
+  atr.forEach(a => { const p = per[a[1]] || (per[a[1]] = nuevo(a[2])); p.atrDias++; p.atrMin += a[6]; });
+  const fuera = marcasRango(r.ini, r.fin).filter(m => m.ubic === 'FUERA DE RANGO' && esDe(m.id));
   fuera.forEach(m => { if (per[m.id]) per[m.id].fuera++; });
-  const filas = Object.values(per).sort((a, b) => b.min - a.min);
+  const filas = Object.values(per).sort((a, b) => b.atrMin - a.atrMin || b.min - a.min);
+  const totAtr = atr.reduce((s, a) => s + a[6], 0), personasAtr = new Set(atr.map(a => a[1])).size;
+  const jornadasN = js.length;
+  // Lista de personas para el filtro: el equipo activo más quien tenga atrasos registrados
+  const gente = {}; (R.equipo || []).forEach(t => { gente[t.id] = t.nombre; }); todosAtr.forEach(a => { if (!gente[a[1]]) gente[a[1]] = a[2]; });
+  const opciones = Object.entries(gente).sort((a, b) => a[1].localeCompare(b[1], 'es'));
+  const hm = m => `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')} min`;
 
-  $('contenido').innerHTML = `
-  <div class="card" style="margin-bottom:14px"><h3>En turno ahora</h3><div class="sub">Con entrada marcada hoy y sin salida · ${R.hora}</div>
+  let html = `<div class="card" style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b>Trabajador</b>
+    <select id="selPersona" style="min-width:220px"><option value="TODOS">Todo el equipo</option>${opciones.map(([id, n]) => `<option value="${esc(id)}"${id === quien ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
+    <span class="sub" style="margin:0">Atraso = entrada ${tol} min o más después del inicio del turno</span></div>`;
+  html += '<div class="grid kpis fila" style="--n:4">';
+  html += kpi('Días con atraso', ent(atr.length), atr.length ? `${personasAtr} persona(s) · ${jornadasN ? pct(atr.length / jornadasN) + ' de las jornadas' : ''}` : '<span class="chip up">Sin atrasos en el período</span>');
+  html += kpi('Atraso acumulado', atr.length ? hm(totAtr) : '0 h 00 min', atr.length ? `Promedio ${Math.round(totAtr / atr.length)} min por atraso` : '—');
+  html += kpi('Entradas tardías hoy', ent(atrHoy.length), atrHoy.length ? atrHoy.map(a => `${esc(a[2])} ${a[5]}`).join(' · ') : '<span class="chip up">Todos a la hora</span>');
+  html += kpi('Puntualidad', jornadasN ? pct(1 - atr.length / jornadasN) : '—', jornadasN ? `${ent(jornadasN - atr.length)} de ${ent(jornadasN)} jornadas a la hora` : 'Sin jornadas en el período');
+  html += '</div>';
+  if (atrHoy.length) html += `<div class="card" style="margin-bottom:14px;border:1px solid var(--red)"><h3>⚠️ Entradas tardías hoy</h3>
+    <div class="tabla"><table><thead><tr><th>Persona</th><th>Local</th><th class="r">Turno</th><th class="r">Entrada</th><th class="r">Atraso</th></tr></thead><tbody>
+    ${atrHoy.map(a => `<tr><td>${esc(a[2])}</td><td>${esc(a[3])}</td><td class="r num">${esc(a[4])}</td><td class="r num">${esc(a[5])}</td><td class="r num"><span class="chip down">${a[6]} min</span></td></tr>`).join('')}</tbody></table></div></div>`;
+  html += `<div class="card" style="margin-bottom:14px"><h3>En turno ahora</h3><div class="sub">Con entrada marcada hoy y sin salida · ${R.hora}</div>
     ${hoy.length ? `<div class="turno">${hoy.map(j => `<span>${esc(j.nombre)}<small>${esc(j.l)} · desde ${j.entrada}</small></span>`).join('')}</div>` : '<p class="vacio">Nadie ha marcado entrada hoy</p>'}</div>
   <div class="card" style="margin-bottom:14px"><h3>Asistencia por persona</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · control interno (no es el registro oficial de asistencia)</div>
     ${filas.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th class="r">Días</th><th class="r">Horas</th><th class="r">Prom. diario</th><th class="r">Entrada prom.</th>
-      <th class="r">Salida prom.</th><th class="r">Sin salida</th><th class="r">Fuera del local</th></tr></thead><tbody>
+      <th class="r">Salida prom.</th><th class="r">Días con atraso</th><th class="r">Atraso acumulado</th><th class="r">Sin salida</th><th class="r">Fuera del local</th></tr></thead><tbody>
     ${filas.map(p => `<tr><td>${esc(p.nombre)}</td><td class="r num">${p.dias.size}</td><td class="r num">${hhmm(p.min)}</td>
-      <td class="r num">${p.cerradas ? hhmm(p.min / p.cerradas) : '—'}</td><td class="r num">${hhmm(p.ent / p.dias.size)}</td>
+      <td class="r num">${p.cerradas ? hhmm(p.min / p.cerradas) : '—'}</td><td class="r num">${p.dias.size ? hhmm(p.ent / p.dias.size) : '—'}</td>
       <td class="r num">${p.cerradas ? hhmm(p.sal / p.cerradas) : '—'}</td>
+      <td class="r num">${p.atrDias ? `<span class="chip down">${p.atrDias}</span>` : '0'}</td><td class="r num">${p.atrMin ? hm(p.atrMin) : '—'}</td>
       <td class="r num">${p.abiertas ? `<span class="chip warn">${p.abiertas}</span>` : '0'}</td>
       <td class="r num">${p.fuera ? `<span class="chip warn">${p.fuera}</span>` : '0'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin marcas en el período</p>'}</div>
+  <div class="card" style="margin-bottom:14px"><h3>Detalle de atrasos</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · del más reciente al más antiguo${atr.length > 60 ? ' · últimos 60' : ''}</div>
+    ${atr.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Persona</th><th>Local</th><th class="r">Turno</th><th class="r">Entrada</th><th class="r">Atraso</th></tr></thead><tbody>
+    ${atr.slice(0, 60).map(a => `<tr><td>${fCorta(a[0])}</td><td>${esc(a[2])}</td><td>${esc(a[3])}</td><td class="r num">${esc(a[4])}</td><td class="r num">${esc(a[5])}</td><td class="r num">${a[6]} min</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="vacio">Sin atrasos en el período 👌</p>'}</div>
   ${fuera.length ? `<div class="card"><h3>Marcas fuera del local</h3><div class="sub">Hechas a más distancia que el radio permitido</div><div class="tabla"><table>
     <thead><tr><th>Fecha</th><th>Persona</th><th>Local</th><th>Tipo</th><th class="r">Distancia</th></tr></thead><tbody>
     ${fuera.map(m => `<tr><td>${fCorta(m.f)} ${m.h}</td><td>${esc(m.nombre)}</td><td>${esc(m.l)}</td><td>${esc(m.tipo)}</td><td class="r num">${ent(m.dist)} m</td></tr>`).join('')}
     </tbody></table></div></div>` : ''}`;
+  $('contenido').innerHTML = html;
+  $('selPersona').onchange = e => { E.persona = e.target.value; pintar(); };
 }
 
 /* ═══════════════ Efectivo (datos siempre reales) ═══════════════ */

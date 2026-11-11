@@ -180,6 +180,17 @@
   .rs-barras { display: flex; align-items: flex-end; gap: 2px; height: 84px; margin-top: 14px; }
   .rs-barras i { flex: 1; background: #24425E; border-radius: 3px 3px 0 0; min-height: 2px; opacity: .9; }
   .rs-barras i.cero { background: var(--line); }
+  .rs-locales { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rs-local { background: var(--paper); border-radius: 12px; padding: 12px; display: grid; gap: 10px; align-content: start; }
+  .rs-local .nom { font-size: 14px; }
+  .rs-local small { display: block; color: var(--mute); font-size: 11px; font-weight: 700; }
+  .rs-local .kv b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .rs-local em { display: block; font-style: normal; font-size: 11px; color: var(--mute); }
+  .rs-local .barra-l { height: 6px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 4px 0 2px; }
+  .rs-local .barra-l i { display: block; height: 100%; background: var(--amber); } .rs-local .barra-l i.ok { background: var(--green); }
+  .rs-barras i { cursor: pointer; } .rs-barras i.sel { background: var(--red); opacity: 1; }
+  .rs-tip { margin-top: 8px; background: var(--black); color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rs-vista-locales iframe { width: 100%; height: calc(100vh - 170px); min-height: 520px; border: 0; border-radius: 12px; background: var(--bg); }
   .rs-ejes { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); margin-top: 4px; }
   .rs-meta { margin-top: 10px; } .rs-meta + .rs-meta { border-top: 1px solid var(--line); padding-top: 10px; }
   .rs-meta .top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; } .rs-meta .top b { font-variant-numeric: tabular-nums; }
@@ -187,7 +198,7 @@
   .rs-prod { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .rs-prod:last-child { border-bottom: 0; } .rs-prod span { min-width: 0; } .rs-prod b { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .chip.baja { background: var(--red-tint); color: var(--red-dark); }
-  .tile.ancho, .tile.t-dash { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; } /* franja ancha y compacta */
+  .tile.ancho, .tile.t-dash, .tile.t-efec { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; } /* franja ancha y compacta */
   /* Corregir marcas */
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px; padding: 8px 12px; font-weight: 600; font-size: 14px; color: var(--steel); }
@@ -509,9 +520,11 @@
     <button class="back" data-volver type="button">← Menú</button>
     <h2>Mi resumen</h2>
     <p class="sub">Tus ventas, la meta del local en tus días y tu operación</p>
+    <div class="segtab hidden" id="rsVista" role="tablist"><button type="button" data-rv="mio" class="on">Mi resumen</button><button type="button" data-rv="locales">Resumen locales</button></div>
     <div class="segtab" id="rsPer" role="tablist"><button type="button" data-rp="dia">Día</button><button type="button" data-rp="semana">Semana</button><button type="button" data-rp="mes" class="on">Mes</button><button type="button" data-rp="ano">Año</button></div>
     <div class="rs-nav"><button type="button" id="rsAnt" aria-label="Período anterior">‹</button><b id="rsEtiqueta"></b><button type="button" id="rsSig" aria-label="Período siguiente">›</button></div>
     <div id="rsCont"><div class="empty">Cargando…</div></div>
+    <div id="rsLocales" class="rs-vista-locales hidden"></div>
   </section>
 
   <!-- 8. Mi PIN -->
@@ -902,9 +915,14 @@
   }
   /* Si quedan botones impares, el último ocupa todo el ancho (así no queda un espacio vacío en la grilla) */
   function ajustarMenu() {
-    const vis = [...document.querySelectorAll('.menu .tile:not(.t-dash)')].filter(t => !t.classList.contains('hidden'));
+    const vis = [...document.querySelectorAll('.menu .tile')].filter(t => !t.classList.contains('hidden'));
     vis.forEach(t => t.classList.remove('ancho'));
-    if (vis.length % 2) vis[vis.length - 1].classList.add('ancho');
+    let col = 0, ultimo = null;
+    vis.forEach(t => {
+      if (t.classList.contains('t-dash') || t.classList.contains('t-efec')) { if (col === 1 && ultimo) ultimo.classList.add('ancho'); col = 0; return; } // botones que ya ocupan toda la fila
+      col = (col + 1) % 2; ultimo = t;
+    });
+    if (col === 1 && ultimo) ultimo.classList.add('ancho');
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refrescarEstado(); });
   setInterval(() => { if (document.visibilityState === 'visible' && S.estado && S.estado.operacion && !$('v-menu').classList.contains('hidden')) refrescarEstado(); }, 60000);
@@ -1132,8 +1150,14 @@
 
   /* Alarma (Felipe y Eduardo): cierres de hoy registrados a más de 100 m del local, resaltados en rojo al abrir la app. */
   function pintarAlarmas(op) {
-    const al = $('opAlarma'), lejos = op.cierresLejos || [];
-    al.classList.toggle('hidden', !lejos.length); al.innerHTML = '';
+    const al = $('opAlarma'), lejos = op.cierresLejos || [], tarde = op.atrasosHoy || [];
+    al.classList.toggle('hidden', !lejos.length && !tarde.length); al.innerHTML = '';
+    tarde.forEach(a => {
+      const b = document.createElement('b'), s = document.createElement('span');
+      b.textContent = '⏰ Entrada tardía: ' + a.quien + (a.local ? ' · ' + a.local : '');
+      s.textContent = 'Entró ' + a.entrada + ' · turno ' + a.turno + ' · ' + a.min + ' min tarde';
+      al.append(b, s);
+    });
     lejos.forEach(c => {
       const b = document.createElement('b'), s = document.createElement('span');
       b.textContent = '⚠ Cierre de ' + c.local + ' hecho a ' + c.metros + ' m del local';
@@ -1583,8 +1607,21 @@
     servidor('obtenerMiResumen', S.token).then(d => { RS.d = d; RS.demo = null; RS.hora = Date.now(); if (!$('v-res').classList.contains('hidden')) pintarResumen(); })
       .catch(() => {}).finally(() => { RS.pre = false; });
   }
+  /* "Resumen locales": la pestaña Resumen del dashboard (sin efectivo), dentro de Mi resumen */
+  function vistaRS(v) {
+    document.querySelectorAll('#rsVista [data-rv]').forEach(x => x.classList.toggle('on', x.dataset.rv === v));
+    const loc = v === 'locales';
+    ['rsPer', 'rsCont'].forEach(id => $(id).classList.toggle('hidden', loc));
+    document.querySelector('#v-res .rs-nav').classList.toggle('hidden', loc);
+    $('rsLocales').classList.toggle('hidden', !loc);
+    if (loc && !$('rsLocales').firstChild) $('rsLocales').innerHTML = '<iframe title="Resumen locales" src="dashboard.html?vista=locales"></iframe>';
+  }
+  document.querySelectorAll('#rsVista [data-rv]').forEach(b => b.addEventListener('click', () => vistaRS(b.dataset.rv)));
   function abrirResumen() {
     ver('v-res');
+    const conLocales = enApi && !!(S.estado && S.estado.resumenLocales);
+    $('rsVista').classList.toggle('hidden', !conLocales);
+    if (!conLocales) vistaRS('mio');
     RS.fecha = RS.fecha || hoyChile();
     pintarResumen();
     if (rsFresco()) return; // recién traído en segundo plano: abre al instante
@@ -1663,6 +1700,11 @@
     // Meta del local en sus días
     const porLocal = {};
     src.metas.filter(x => en(x[0], ini, fin)).forEach(([f, l, m, p]) => { const o = porLocal[l] || (porLocal[l] = { m: 0, dias: 0, pm: 0, mp: 0 }); o.m += m; o.dias++; if (p !== null) { o.pm += p * m; o.mp += m; } });
+    // Los locales activos siempre en tarjetas separadas; ventas propias por local según dónde trabajó cada día
+    const locsRS = (S.locales && S.locales.length ? S.locales : []).concat(Object.keys(porLocal).filter(l => !(S.locales || []).includes(l)));
+    const localDe = {}; d.dias.forEach(x => { if (x[1]) localDe[x[0]] = x[1]; });
+    const ventasLoc = {}; src.ventas.filter(x => en(x[0], ini, fin)).forEach(([f, m, b]) => { const l = localDe[f]; if (l) { const o = ventasLoc[l] || (ventasLoc[l] = [0, 0]); o[0] += m; o[1] += b; } });
+    const diasLoc = {}; d.dias.filter(x => en(x[0], ini, fin) && x[6] > 0).forEach(x => { diasLoc[x[1]] = (diasLoc[x[1]] || 0) + 1; });
     // Productos (de los meses del período)
     const prods = {};
     src.productos.filter(x => x[0] >= ini.slice(0, 7) && x[0] <= fin.slice(0, 7)).forEach(([, desc, q, m]) => { const o = prods[desc] || (prods[desc] = [0, 0]); o[0] += q; o[1] += m; });
@@ -1682,15 +1724,17 @@
         <div class="rs-fila">${cambio(v, vp, etAnt)}</div>
         <div class="rs-grid"><div><small>Clientes atendidos</small><b>${n.toLocaleString('es-CL')}</b><em>boletas emitidas</em></div>
           <div><small>Ticket promedio</small><b>${n ? pesos(v / n) : '—'}</b><em>venta por cliente</em></div></div>
-        <div class="rs-barras" aria-hidden="true">${vals.map(x => `<i class="${x ? '' : 'cero'}" style="height:${x ? Math.max(4, x / mx * 100) : 2}%"></i>`).join('')}</div>
+        <div class="rs-barras">${vals.map((x, k) => `<i class="${x ? '' : 'cero'}" data-k="${k}" title="Ver detalle" style="height:${x ? Math.max(4, x / mx * 100) : 2}%"></i>`).join('')}</div>
+        <div class="rs-tip hidden" id="rsTip" role="status"></div>
         <div class="rs-ejes"><span>${esc(tramos[0][2])}</span><span>${esc(tramos[Math.floor(tramos.length / 2)][2])}</span><span>${esc(tramos[tramos.length - 1][2])}</span></div>
       </div>
-      <div class="rs-bloque"><h3>Meta del local en tus días</h3>
-        ${Object.keys(porLocal).length ? Object.entries(porLocal).map(([l, o]) => { const p = o.mp ? o.pm / o.mp : null; return `<div class="rs-meta">
-          <div class="top"><span>${esc(l)} · ${o.dias} día(s)</span><b>${p === null ? '—' : Math.round(p * 100) + '%'}</b></div>
-          <div class="bar"><i class="${p >= 1 ? 'ok' : ''}" style="width:${p === null ? 0 : Math.min(100, p * 100)}%"></i></div>
-          <small>Meta del local esos días: ${plata(o.m)}${p === null ? ' · el cumplimiento aparece cuando estén las ventas de Bicom' : ' · cumplimiento del local'}</small></div>`; }).join('')
-        : '<div class="empty" style="padding:8px 0">Sin meta cargada para tus días en este período</div>'}
+      <div class="rs-bloque"><h3>Mis locales</h3>
+        <div class="rs-locales">${locsRS.map(l => { const o = porLocal[l], p = o && o.mp ? o.pm / o.mp : null, vl = ventasLoc[l] || [0, 0], dl = diasLoc[l] || 0;
+          return `<div class="rs-local"><b class="nom">${esc(l)}</b>
+            <div class="kv"><small>Mis ventas aquí</small><b>${plata(vl[0])}</b><em>${dl} día(s) trabajado(s)${vl[1] ? ' · ' + vl[1].toLocaleString('es-CL') + ' boletas' : ''}</em></div>
+            <div class="kv"><small>Meta del local en tus días</small><b>${p === null ? '—' : (p * 100).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'}</b>
+              <div class="barra-l"><i class="${p >= 1 ? 'ok' : ''}" style="width:${p === null ? 0 : Math.min(100, p * 100)}%"></i></div>
+              <em>${o ? 'Meta ' + plata(o.m) + (p === null ? ' · cumplimiento cuando estén las ventas de Bicom' : '') : (dl ? 'Sin meta cargada para tus días aquí' : 'Sin días tuyos en este local')}</em></div></div>`; }).join('')}</div>
       </div>
       <div class="rs-bloque"><h3>Mis productos más vendidos</h3>
         ${top.length ? top.map(([desc, [q, m]]) => `<div class="rs-prod"><span>${esc(desc)} <small style="color:var(--mute)">· ${q} u.</small></span><b>${plata(m)}</b></div>`).join('')
@@ -1706,6 +1750,13 @@
           <div><small>Marcas pendientes</small><b>${pend}</b><em>${pend ? 'avísale a Felipe' : 'Todo en orden ✓'}</em></div>
           <div><small>Cierres de caja</small><b>${cierres}</b><em>hechos por ti</em></div></div>`}
       </div>`;
+    const barras = c.querySelectorAll('.rs-barras i');
+    barras.forEach(b => b.addEventListener('click', () => {
+      const [a, z] = tramos[+b.dataset.k], [vv, nn] = a > d.hoy ? [0, 0] : suma(a, z), tip = $('rsTip');
+      barras.forEach(x => x.classList.toggle('sel', x === b));
+      tip.innerHTML = `<span>${esc(RS.per === 'ano' ? MES_LARGO[+a.slice(5, 7) - 1] + ' ' + a.slice(0, 4) : fDia(a))}</span><b>${plata(vv)}</b><span>${nn.toLocaleString('es-CL')} boleta(s)${nn ? ' · ticket ' + pesos(vv / nn) : ''}</span>`;
+      tip.classList.remove('hidden');
+    }));
   }
 
   /* ── Corregir marcas (solo administración): todo el mes llega en una consulta; moverse entre personas y días es instantáneo ── */
