@@ -302,11 +302,11 @@ function semanaISO(s) {
 const clp = n => '$' + Math.round(n || 0).toLocaleString('es-CL');
 const mm = n => {
   const a = Math.abs(n || 0);
-  if (a >= 1e6) return '$' + (n / 1e6).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' MM';
+  if (a >= 1e6) return '$' + (n / 1e6).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MM';
   if (a >= 1e3) return '$' + Math.round(n / 1e3).toLocaleString('es-CL') + ' mil';
   return clp(n);
 };
-const pct = (x, d = 1) => (isFinite(x) ? (Math.abs(x * 100) < 0.5 / 10 ** d ? 0 : x * 100).toLocaleString('es-CL', { maximumFractionDigits: d }) + '%' : '—'); // evita "-0%"
+const pct = (x, d = 1) => (isFinite(x) ? (Math.abs(x * 100) < 0.5 / 10 ** d ? 0 : x * 100).toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d }) + '%' : '—'); // evita "-0%"; siempre d decimales
 const ent = n => Math.round(n || 0).toLocaleString('es-CL');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function delta(a, b, etiqueta) {
@@ -806,7 +806,7 @@ function grafico(id, cfg) {
       if (barras.length < 2) return '';
       const tot = barras.reduce((s, d) => s + (+d.data[c.dataIndex] || 0), 0);
       const meta = c.chart.data.datasets.find(d => d.label === 'Presupuesto'), m = meta ? +meta.data[c.dataIndex] || 0 : 0;
-      return `Total: ${cfg.fmt ? cfg.fmt(tot) : clp(tot)}` + (m ? ` (${pct(tot / m, 0)} de la meta)` : '');
+      return `Total: ${cfg.fmt ? cfg.fmt(tot) : clp(tot)}` + (m ? ` (${pct(tot / m)} de la meta)` : '');
     } } } },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#6B6F78', maxRotation: 0, autoSkip: true } },
@@ -873,6 +873,15 @@ function tramos(r) {
 }
 
 /* ═══════════════ Pestaña Resumen ═══════════════ */
+/* Días sobre el presupuesto: días con meta en que la venta la alcanzó. Día → el mes en curso de ese día. */
+function diasMeta(r, corte) {
+  const ini = PER() === 'dia' ? r.ini.slice(0, 8) + '01' : r.ini, fin = PER() === 'dia' ? corte : corte;
+  const d = [];
+  for (let f = ini; f <= fin; f = sumar(f, 1)) { const t = total(f, f); if (t.p > 0) d.push({ f, v: t.vp, p: t.p, sobre: t.vp >= t.p }); }
+  let racha = 0; for (let i = d.length - 1; i >= 0 && d[i].sobre; i--) racha++;
+  let mejor = 0, cur = 0; d.forEach(x => { cur = x.sobre ? cur + 1 : 0; mejor = Math.max(mejor, cur); });
+  return { dias: d, n: d.length, sobre: d.filter(x => x.sobre).length, racha, mejor, ini, fin };
+}
 function tabResumen(r) {
   const R = E.R, corte = min(r.fin, R.ultimaVenta || r.fin), enCurso = corte < r.fin;
   const diaHoy = PER() === 'dia' && r.ini === R.hoy, aLas = diaHoy ? ` (acumulado a las ${horaCarga(R)})` : '';
@@ -891,20 +900,23 @@ function tabResumen(r) {
   const proy = !enCurso ? a.v : Math.min(tope, metaCompleta ? a.v + resto.p * (a.vp / a.p) : ritmoDia * diasTot);
   const etAnt = { dia: 'vs mismo día sem. anterior', semana: 'vs semana anterior', mes: 'vs mes anterior', ano: 'vs año anterior', pers: 'vs período anterior' }[E.per === 'pers' ? 'pers' : PER()];
 
-  const mg = margenRango(r), conv = conversion(r.ini, corte);
-  let html = '<div class="grid kpis fila" style="--n:7">';
+  const mg = margenRango(r), conv = conversion(r.ini, corte), dm = diasMeta(r, corte);
+  let html = '<div class="grid kpis fila" style="--n:8">';
   html += kpi(diaHoy ? `Venta del día${aLas}` : `Venta ${E.conIva ? 'con' : 'sin'} IVA` + (enCurso ? ' a la fecha' : ''), mm(a.v), delta(a.v, tAnt.v, etAnt) + (PER() !== 'ano' ? ' ' + delta(a.v, tAA.v, 'vs año anterior') : ''));
-  html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl, 0) : '—',
+  html += kpi('Cumplimiento presupuesto', a.p ? pct(cumpl) : '—',
     a.p ? `${parcialPpto ? `Solo los días con presupuesto (desde ${fCorta(R.inicioPpto)} ${R.inicioPpto.slice(0, 4)}) · ` : ''}Meta a la fecha ${mm(a.p)} · período ${mm(pptoTotal)}` : '<span class="chip warn">Sin presupuesto cargado</span>', a.p ? barraCumpl(cumpl) : '');
   if (diaHoy) html += kpi('Falta para la meta del día', a.p ? mm(Math.max(0, a.p - a.v)) : '—',
-    a.p ? (a.v >= a.p ? '<span class="chip up">Meta del día cumplida</span>' : `${pct(a.v / a.p, 0)} de la meta de ${mm(a.p)}`) : 'Sin presupuesto cargado');
+    a.p ? (a.v >= a.p ? '<span class="chip up">Meta del día cumplida</span>' : `${pct(a.v / a.p)} de la meta de ${mm(a.p)}`) : 'Sin presupuesto cargado');
   else html += kpi(enCurso ? 'Proyección de cierre' : 'Venta final del período', mm(proy),
-    enCurso ? (metaCompleta ? `${pct(proy / pptoTotal, 0)} de la meta del período` : 'Ritmo diario actual' + (a.p ? ' · el presupuesto no cubre todo el período' : '')) : (metaCompleta ? `${pct(a.v / pptoTotal, 0)} de la meta` : ''));
+    enCurso ? (metaCompleta ? `${pct(proy / pptoTotal)} de la meta del período` : 'Ritmo diario actual' + (a.p ? ' · el presupuesto no cubre todo el período' : '')) : (metaCompleta ? `${pct(a.v / pptoTotal)} de la meta` : ''));
   html += kpi('Ticket promedio', a.n ? clp(a.v / a.n) : '—', `${ent(a.n)} documentos · ${delta(a.n ? a.v / a.n : 0, tAA.n ? tAA.v / tAA.n : 0, 'vs año ant.')}`);
   html += kpi('Margen bruto', mg.venta ? pct(mg.margen / mg.venta) : '—', mg.venta ? `${mm(mg.margen)} · empresa · ${etiquetaMensual(r)}` : 'Sin datos de margen');
   html += kpi('IVA débito', mm(a.b - a.nt), a.b ? `${pct((a.b - a.nt) / a.b)} de la venta · neto ${mm(a.nt)} · bruto ${mm(a.b)}` : 'Sin ventas');
-  html += kpi('Conversión de visitas', conv.visitas ? pct(conv.compras / conv.visitas, 0) : '—',
+  html += kpi('Conversión de visitas', conv.visitas ? pct(conv.compras / conv.visitas) : '—',
     conv.visitas ? `${ent(conv.compras)} compras de ${ent(conv.visitas)} visitas` : 'Sin cierres con visitas');
+  html += kpi('Días sobre el presupuesto', dm.n ? `${dm.sobre} de ${dm.n}` : '—',
+    dm.n ? `${pct(dm.sobre / dm.n)} de los días con meta${PER() === 'dia' ? ' · en el mes' : ''} · racha actual ${dm.racha} · mejor ${dm.mejor}` : '<span class="chip warn">Sin presupuesto cargado</span>',
+    dm.n ? barraCumpl(dm.sobre / dm.n) : '');
   html += '</div>';
 
   // Acumulados de la semana, el mes y el año, contra el mismo período del año anterior (la semana: misma semana, 364 días antes)
@@ -913,9 +925,9 @@ function tabResumen(r) {
   const mtd = total(ref.slice(0, 7) + '-01', ref), mtdAA = totalSiCubre(sumarMeses(ref.slice(0, 7) + '-01', -12), sumarMeses(ref, -12));
   const ytd = total(ref.slice(0, 4) + '-01-01', ref), ytdAA = totalSiCubre(sumarMeses(ref.slice(0, 4) + '-01-01', -12), sumarMeses(ref, -12));
   html += '<div class="grid kpis fila" style="--n:3">';
-  html += kpi(`Acumulado semana al ${fCorta(ref)}`, mm(wtd.v), (wtd.p ? `<span class="chip ${wtd.vp >= wtd.p ? 'up' : 'down'}">${pct(wtd.vp / wtd.p, 0)} meta</span> ` : '') + delta(wtd.v, wtdAA.v, 'vs misma semana año ant.'), wtd.p ? barraCumpl(wtd.vp / wtd.p) : '');
-  html += kpi(`Acumulado mes al ${fCorta(ref)}`, mm(mtd.v), (mtd.p ? `<span class="chip ${mtd.vp >= mtd.p ? 'up' : 'down'}">${pct(mtd.vp / mtd.p, 0)} meta</span> ` : '') + delta(mtd.v, mtdAA.v, 'vs año ant.'), mtd.p ? barraCumpl(mtd.vp / mtd.p) : '');
-  html += kpi(`Acumulado año al ${fCorta(ref)}`, mm(ytd.v), (ytd.p ? `<span class="chip ${ytd.vp >= ytd.p ? 'up' : 'down'}">${pct(ytd.vp / ytd.p, 0)} meta</span> ` : '') + delta(ytd.v, ytdAA.v, 'vs año ant.'), ytd.p ? barraCumpl(ytd.vp / ytd.p) : '');
+  html += kpi(`Acumulado semana al ${fCorta(ref)}`, mm(wtd.v), (wtd.p ? `<span class="chip ${wtd.vp >= wtd.p ? 'up' : 'down'}">${pct(wtd.vp / wtd.p)} meta</span> ` : '') + delta(wtd.v, wtdAA.v, 'vs misma semana año ant.'), wtd.p ? barraCumpl(wtd.vp / wtd.p) : '');
+  html += kpi(`Acumulado mes al ${fCorta(ref)}`, mm(mtd.v), (mtd.p ? `<span class="chip ${mtd.vp >= mtd.p ? 'up' : 'down'}">${pct(mtd.vp / mtd.p)} meta</span> ` : '') + delta(mtd.v, mtdAA.v, 'vs año ant.'), mtd.p ? barraCumpl(mtd.vp / mtd.p) : '');
+  html += kpi(`Acumulado año al ${fCorta(ref)}`, mm(ytd.v), (ytd.p ? `<span class="chip ${ytd.vp >= ytd.p ? 'up' : 'down'}">${pct(ytd.vp / ytd.p)} meta</span> ` : '') + delta(ytd.v, ytdAA.v, 'vs año ant.'), ytd.p ? barraCumpl(ytd.vp / ytd.p) : '');
   html += '</div>';
 
   html += `<div class="grid dos">
@@ -925,10 +937,24 @@ function tabResumen(r) {
       ${leyenda([['Venta acumulada', COLORES[0], 1], ['Meta acumulada', 'var(--meta)', 1], ['Año anterior', '#C9CCD3', 1]])}<div class="lienzo"><canvas id="gAcu"></canvas></div></div>
   </div>`;
 
+  const porMesMeta = dm.n && entre(dm.ini, dm.fin) > 62;
+  html += `<div class="card" style="margin-bottom:14px"><h3>Días sobre el presupuesto</h3><div class="sub">${porMesMeta ? 'Por mes: días en que la venta alcanzó la meta del día' : 'Cumplimiento de cada día: verde = sobre la meta, rojo = bajo la meta'}${PER() === 'dia' ? ' · mes en curso' : ''} · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)}</div>
+    ${dm.n ? `${leyenda(porMesMeta ? [['Días sobre la meta', 'var(--green)'], ['Días bajo la meta', '#C9CCD3']] : [['Sobre la meta', 'var(--green)'], ['Bajo la meta', 'var(--red)'], ['100 %', 'var(--meta)', 1]])}<div class="lienzo"><canvas id="gMeta"></canvas></div>` : '<p class="vacio">Sin presupuesto cargado en el período</p>'}</div>`;
   html += `<div class="grid dos"><div class="card"><h3>Por local</h3><div class="sub">${esc(etiquetaRango(E.per, r))}${enCurso ? ' · a la fecha' : ''}${diaHoy ? ' · acumulado a las ' + horaCarga(R) : ''}</div><div class="tabla">${tablaLocales(r, corte)}</div></div>
     <div class="card"><h3>Alertas</h3><div class="sub">Lo que requiere atención en el período</div>${alertas(r, corte)}</div></div>`;
   $('contenido').innerHTML = html;
 
+  // Días sobre el presupuesto
+  if (dm.n && porMesMeta) {
+    const ms = [...new Set(dm.dias.map(x => x.f.slice(0, 7)))];
+    grafico('gMeta', { apilado: true, fmt: ent, fmtEje: ent, data: { labels: ms.map(m => `${MESES[+m.slice(5) - 1]} ${m.slice(2, 4)}`), datasets: [
+      { label: 'Días sobre la meta', data: ms.map(m => dm.dias.filter(x => x.sobre && x.f.startsWith(m)).length), backgroundColor: '#2E8B4E', borderRadius: 3, stack: 'd' },
+      { label: 'Días bajo la meta', data: ms.map(m => dm.dias.filter(x => !x.sobre && x.f.startsWith(m)).length), backgroundColor: '#C9CCD3', borderRadius: 3, stack: 'd' }] } });
+  } else if (dm.n) {
+    grafico('gMeta', { fmt: v => pct(v / 100), fmtEje: v => v + '%', data: { labels: dm.dias.map(x => `${DIAS[dsem(x.f)]} ${+x.f.slice(8)}`), datasets: [
+      { label: 'Cumplimiento del día', data: dm.dias.map(x => Math.round(x.v / x.p * 1000) / 10), backgroundColor: dm.dias.map(x => (x.sobre ? '#2E8B4E' : '#C8312B')), borderRadius: 3, order: 2 },
+      { type: 'line', label: 'Meta (100 %)', data: dm.dias.map(() => 100), borderColor: '#8A8F98', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, order: 1 }] } });
+  }
   // Evolución
   const t = tramos(r);
   grafico('gEvo', {
@@ -988,7 +1014,7 @@ function alertas(r, corte) {
   localesVisibles().filter(l => l !== HIST).forEach(l => {
     const a = total(r.ini, corte, l);
     if (!a.p) add('warn', `${l}: no hay presupuesto cargado para este período.`);
-    else if (a.vp / a.p < 0.9) add('down', `${l}: va al ${pct(a.vp / a.p, 0)} de la meta (faltan ${mm(a.p - a.vp)}).`);
+    else if (a.vp / a.p < 0.9) add('down', `${l}: va al ${pct(a.vp / a.p)} de la meta (faltan ${mm(a.p - a.vp)}).`);
   });
   const cie = cierresRango(r.ini, corte);
   const difs = cie.filter(c => Math.abs(c.dif) > R.tolerancia);
@@ -1202,7 +1228,7 @@ function tabCaja(r) {
   html += kpi('Cierres registrados', ent(cie.length), sin.length ? `<span class="chip warn">${sin.length} día(s) sin cierre</span>` : '<span class="chip up">Completo</span>');
   html += kpi('Diferencias de caja', ent(difs.length), `Sobre ${clp(R.tolerancia)} entre lo declarado y Bicom`);
   html += kpi('Declarado vs Bicom', bic ? pct(decl / bic - 1) : '—', `Declarado ${mm(decl)} · Bicom ${mm(bic)}`);
-  html += kpi('Visitas', ent(conv.visitas), conv.visitas ? `Conversión ${pct(conv.compras / conv.visitas, 0)} · ${ent(conv.visitas - conv.compras)} sin compra` : 'Sin datos');
+  html += kpi('Visitas', ent(conv.visitas), conv.visitas ? `Conversión ${pct(conv.compras / conv.visitas)} · ${ent(conv.visitas - conv.compras)} sin compra` : 'Sin datos');
   html += '</div>';
   html += `<div class="card" style="margin-bottom:14px"><h3>Cierres de día</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · la diferencia compara lo declarado en el cierre con la venta de Bicom</div>
     ${cie.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Local</th><th>Responsable</th><th class="r">Declarado</th><th class="r">Bicom</th><th class="r">Diferencia</th>
@@ -1437,23 +1463,29 @@ function tabClientes(r) {
   let html = '<div class="grid kpis fila" style="--n:4">';
   html += kpi('Entradas de clientes', ent(a.entradas), delta(a.entradas, cAnt.entradas, etAnt) + (PER() !== 'ano' ? ' ' + delta(a.entradas, cAA.entradas, 'vs año anterior') : ''));
   html += kpi('Promedio diario de entradas', a.dias ? ent(a.entradas / a.dias) : '—', `${a.cierres} cierre(s) en ${a.dias} día(s)`);
-  html += kpi('Conversión', a.entradas ? pct(a.compras / a.entradas, 0) : '—', `${ent(a.compras)} compras declaradas de ${ent(a.entradas)} entradas`);
-  html += kpi('Compras declaradas vs boletas Bicom', a.boletas ? pct(a.compras / a.boletas, 0) : '—',
+  html += kpi('Conversión', a.entradas ? pct(a.compras / a.entradas) : '—', `${ent(a.compras)} compras declaradas de ${ent(a.entradas)} entradas`);
+  html += kpi('Compras declaradas vs boletas Bicom', a.boletas ? pct(a.compras / a.boletas) : '—',
     a.boletas ? `${ent(a.compras)} declaradas · ${ent(a.boletas)} boletas en Bicom los mismos días` : 'Sin boletas de Bicom para esos días');
   html += '</div>';
 
   // Por mes, desde el primer cierre (máximo 24 meses): crece a medida que se acumulan los cierres
-  const desdeCli = E.local === 'TODOS' && R.finHistorico && r.ini <= R.finHistorico ? r.ini.slice(0, 7) : (R.primerCierre || r.ini).slice(0, 7);
+  // Histórico: desde el primer día con datos de Bicom (o el registro histórico si el período lo toca); boletas = todas las de Bicom del mes
+  const primerBicom = Object.keys(R.diario).filter(f => Object.keys(R.diario[f]).some(l => l !== HIST)).sort()[0] || (R.primerCierre || r.ini);
+  const desdeCli = E.local === 'TODOS' && R.finHistorico && r.ini <= R.finHistorico ? r.ini.slice(0, 7) : min(primerBicom, R.primerCierre || primerBicom).slice(0, 7);
   const ms = []; for (let m = desdeCli; m <= corte.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.push(m);
-  const filasMes = ms.slice(-24).map(m => Object.assign({ m }, clientes(m + '-01', min(finMes(m + '-01'), corte))));
+  const filasMes = ms.slice(-48).map(m => {
+    const fin = min(finMes(m + '-01'), corte), c = clientes(m + '-01', fin);
+    const bolMes = m + '-01' >= primerBicom.slice(0, 7) + '-01' ? total(m + '-01', fin).n : c.boletas; // antes de Bicom: las del registro histórico
+    return Object.assign({ m, bolMes }, c);
+  });
   const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
   html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
-    <div class="sub">Por mes · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día; boletas según Bicom en los días con cierre${a.hist || histEn(r) ? ' · hasta oct-2025: entradas y boletas del registro histórico (Excel), sin separar por local' : ''}</div>
+    <div class="sub">Por mes, desde que hay datos de Bicom · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · entradas y compras según el cierre de día (desde ${fCorta(R.primerCierre || corte)} ${(R.primerCierre || corte).slice(0, 4)}); boletas: todas las de Bicom del mes${a.hist || histEn(r) ? ' · hasta oct-2025: entradas y boletas del registro histórico (Excel), sin separar por local' : ''}</div>
     ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
   html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
     <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
     <th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th></tr></thead><tbody>
-    ${filasMes.slice().reverse().map((x, i, l) => {
+    ${filasMes.filter(x => x.dias).reverse().map((x, i, l) => {
       const pm = l[i + 1], pa = previo(x.m);
       const vs = (v, b) => (b ? `<span class="chip ${v >= b ? 'up' : 'down'}">${v >= b ? '▲' : '▼'} ${pct(Math.abs(v / b - 1), 0)}</span>` : '—');
       return `<tr><td>${esc(fMes(x.m))}${x.m === corte.slice(0, 7) ? ' <small style="color:var(--mute)">(en curso)</small>' : ''}</td><td class="r num"><b>${ent(x.entradas)}</b></td>
@@ -1469,9 +1501,9 @@ function tabClientes(r) {
     data: {
       labels: filasMes.map(x => `${MESES[+x.m.slice(5) - 1]} ${x.m.slice(2, 4)}`),
       datasets: [
-        { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
-        { label: 'Compras declaradas', data: filasMes.map(x => x.compras), backgroundColor: COLORES[1], borderRadius: 3, order: 2 },
-        { label: 'Boletas Bicom', data: filasMes.map(x => (x.conBicom ? x.boletas : null)), backgroundColor: COLORES[2], borderRadius: 3, order: 2 },
+        { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas || null), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
+        { label: 'Compras declaradas', data: filasMes.map(x => x.compras || null), backgroundColor: COLORES[1], borderRadius: 3, order: 2 },
+        { label: 'Boletas Bicom', data: filasMes.map(x => x.bolMes || null), backgroundColor: COLORES[2], borderRadius: 3, order: 2 },
       ],
     },
   });
