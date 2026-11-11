@@ -263,7 +263,7 @@
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="clientes">Clientes</button><button data-t="remu">Remuneraciones</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="compras">Compras</button><button data-t="clientes">Clientes</button><button data-t="remu">Remuneraciones</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -727,7 +727,7 @@ function pintar() {
   E.rango = PER() === 'dia' ? { ini: sumar(r.ini, -13), fin: r.fin } : r; // el gráfico diario mira 14 días hacia atrás
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, clientes: tabClientes, remu: tabRemu })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, compras: tabCompras, clientes: tabClientes, remu: tabRemu })[E.tab](r);
   etiquetarTablas();
   alinearTarjetas();
 }
@@ -1016,8 +1016,11 @@ function tramosVentas(r, tipo) {
     const lun = sumar(r.ini, -dsem(r.ini));
     for (let i = 11; i >= 0; i--) { const a = sumar(lun, -7 * i); t.push({ et: fCorta(a), ini: a, fin: sumar(a, 6), aIni: sumar(a, -364), aFin: sumar(a, -358) }); }
   } else {
-    for (let i = 0; i < 12; i++) {
-      const m = PER() === 'mes' ? sumarMeses(r.ini.slice(0, 7) + '-01', -(11 - i)) : `${r.ini.slice(0, 4)}-${String(i + 1).padStart(2, '0')}-01`;
+    // Personalizado largo: todos los meses del rango (p. ej. 3 años = 36 meses); Año: los 12 del año; Mes: 12 hacia atrás
+    const largo = E.per === 'pers' && PER() === 'ano';
+    const meses = largo ? (() => { const o = []; for (let m = r.ini.slice(0, 7) + '-01'; m <= r.fin; m = sumarMeses(m, 1)) o.push(m); return o; })()
+      : Array.from({ length: 12 }, (_, i) => PER() === 'mes' ? sumarMeses(r.ini.slice(0, 7) + '-01', -(11 - i)) : `${r.ini.slice(0, 4)}-${String(i + 1).padStart(2, '0')}-01`);
+    for (const m of meses) {
       const a = sumarMeses(m, -12);
       t.push({ et: `${MESES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, ini: m, fin: finMes(m), aIni: a, aFin: finMes(a) });
     }
@@ -1031,12 +1034,12 @@ function tabVentas(r) {
   const lugar = E.local === 'TODOS' ? 'todos los locales' : esc(E.local);
   // Tendencia: ventana corta según el período, contra el mismo tramo del año anterior y el presupuesto
   const tT = tramosVentas(r, 'tend');
-  const tituloTend = { dia: 'Tendencia últimos 14 días', semana: 'Tendencia últimas 12 semanas', mes: 'Tendencia últimos 12 meses', ano: `Tendencia por mes · ${r.ini.slice(0, 4)}` }[per];
+  const tituloTend = { dia: 'Tendencia últimos 14 días', semana: 'Tendencia últimas 12 semanas', mes: 'Tendencia últimos 12 meses', ano: E.per === 'pers' ? `Tendencia por mes · ${etiquetaRango('pers', r)}` : `Tendencia por mes · ${r.ini.slice(0, 4)}` }[per];
   // Promedio de venta diaria (venta ÷ días con venta) por tramo
   const tP = tramosVentas(r, 'prom'), vProm = tP.map(x => promDiario(x.ini, x.fin)), vv = vProm.filter(x => x != null);
   const iMax = vProm.indexOf(Math.max(...vv)), iMin = vProm.indexOf(Math.min(...vv));
   const tituloProm = `Promedio de venta diaria por ${per === 'mes' || per === 'ano' ? 'mes' : 'semana'}`;
-  const ventanaProm = per === 'dia' || per === 'semana' ? 'últimas 12 semanas' : per === 'mes' ? 'últimos 12 meses' : `meses de ${r.ini.slice(0, 4)}`;
+  const ventanaProm = per === 'dia' || per === 'semana' ? 'últimas 12 semanas' : per === 'mes' ? 'últimos 12 meses' : E.per === 'pers' ? `meses de ${etiquetaRango('pers', r)}` : `meses de ${r.ini.slice(0, 4)}`;
   // Día de la semana: Día = 90 días, Semana = 12 semanas, Mes y Año = el período elegido
   const iniDow = per === 'dia' ? sumar(fin, -89) : per === 'semana' ? sumar(fin, -83) : r.ini, porDia = Array.from({ length: 7 }, () => ({ v: 0, c: 0 }));
   for (let f = iniDow; f <= fin; f = sumar(f, 1)) { const t = total(f, f); if (t.v > 0) { porDia[dsem(f)].v += t.v; porDia[dsem(f)].c++; } }
@@ -1320,6 +1323,80 @@ function tabEfectivo() {
       v.innerHTML = `<img alt="Comprobante de depósito" src="${res.imagen}"><button class="btn-sec">Cerrar ✕</button>`;
       v.onclick = () => v.remove(); document.body.appendChild(v);
     } catch (e) { alert('No se pudo cargar el comprobante.'); }
+  });
+}
+
+/* ═══════════════ Compras a proveedores (Proveedores.gs): el monto de cada factura se reparte entre locales según su % ═══════════════ */
+// fila: [fecha factura, proveedor, monto, tipo, {local: %}, estado, vencimiento, por pagar, saldo a favor]
+const parteLocal = (c, local = E.local) => (local === 'TODOS' ? 1 : ((c[4] || {})[local] || 0) / 100);
+function comprasRango(ini, fin, local = E.local) { return (E.R.compras || []).filter(c => c[0] >= ini && c[0] <= fin && parteLocal(c, local) > 0); }
+function tabCompras(r) {
+  const todas = E.R.compras || [], hoy = E.R.hoy, en7 = sumar(hoy, 7), lugar = E.local === 'TODOS' ? 'todos los locales' : esc(E.local);
+  const cs = comprasRango(r.ini, r.fin), monto = c => c[2] * parteLocal(c), sum = (l, f) => l.reduce((s, c) => s + f(c), 0);
+  const pend = todas.filter(c => c[5] === 'POR PAGAR' && parteLocal(c) > 0).sort((a, b) => (a[6] < b[6] ? -1 : 1));
+  const pp = c => c[7] * parteLocal(c), venc = pend.filter(c => c[6] < hoy), pronto = pend.filter(c => c[6] >= hoy && c[6] <= en7);
+  const saldoFavor = sum(todas.filter(c => c[8] > 0 && parteLocal(c) > 0), c => c[8] * parteLocal(c));
+  const anterior = comparable(r, r.fin, 'anterior'), cA = sum(comprasRango(anterior.ini, anterior.fin), monto);
+  let html = '<div class="grid kpis">';
+  html += kpi('Compras del período', clp(sum(cs, monto)), `${ent(cs.length)} factura(s)${cA ? ' · ' + delta(sum(cs, monto), cA, 'vs período ant.') : ''}`);
+  html += kpi('Por pagar', clp(sum(pend, pp)), pend.length ? `${pend.length} factura(s) · todas las fechas` : 'Nada pendiente');
+  html += kpi('Vencido', clp(sum(venc, pp)), venc.length ? `<span class="chip down">${venc.length} factura(s) vencida(s)</span>` : '<span class="chip up">Nada vencido</span>');
+  html += kpi('Vence en 7 días', clp(sum(pronto, pp)), saldoFavor ? `Saldo a favor con proveedores: ${clp(saldoFavor)}` : `${pronto.length} factura(s)`);
+  html += '</div>';
+  if (!todas.length) {
+    $('contenido').innerHTML = html + '<div class="card"><h3>Compras a proveedores</h3><p class="vacio">Aún no hay compras registradas. Se ingresan en la app, botón "Proveedores".</p></div>';
+    return;
+  }
+  // Por local (con la distribución de cada factura), por tipo y por proveedor
+  const locs = E.local === 'TODOS' ? E.R.locales : [E.local];
+  const porLocal = locs.map(l => [l, sum(cs, c => c[2] * parteLocal(c, l))]).filter(x => x[1] > 0);
+  const totL = sum(porLocal, x => x[1]);
+  const agr = i => { const o = {}; cs.forEach(c => { const k = c[i] || '—'; o[k] = o[k] || [k, 0, 0]; o[k][1] += monto(c); o[k][2]++; }); return Object.values(o).sort((a, b) => b[1] - a[1]); };
+  const porTipo = agr(3), porProv = agr(1), totC = sum(cs, monto);
+  // Gráfico: compras por mes (12 meses hasta el fin del período; personalizado largo: todos sus meses), apiladas por local
+  const ms = []; const m0 = E.per === 'pers' && PER() === 'ano' ? r.ini.slice(0, 7) + '-01' : sumarMeses(r.fin.slice(0, 7) + '-01', -11);
+  for (let m = m0; m <= r.fin; m = sumarMeses(m, 1)) ms.push(m);
+  const tabla = (filas, cab, tot) => filas.length ? `<div class="tabla"><table><thead><tr>${cab.map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody>${tot || ''}</table></div>` : '<p class="vacio">Sin compras en el período</p>';
+  html += `<div class="card"><h3>Compras por mes</h3><div class="sub">Monto de las facturas (con IVA) por fecha de factura · ${lugar} · las compras mixtas se reparten según su %</div>
+      ${leyenda(locs.map(l => [l, colorLocal(l)]))}<div class="lienzo"><canvas id="gCompras"></canvas></div></div>
+    <div class="grid dos">
+      <div class="card"><h3>Por local</h3><div class="sub">${etiquetaPer(r)} · suma de cada factura según su distribución</div>
+        ${tabla(porLocal.map(x => `<tr><td>${esc(x[0])}</td><td class="r num">${clp(x[1])}</td><td class="r num">${pct(x[1] / totL, 0)}</td></tr>`), ['Local', 'Monto', '%'], `<tfoot><tr><td>Total</td><td class="r num">${clp(totL)}</td><td></td></tr></tfoot>`)}</div>
+      <div class="card"><h3>Por tipo de compra</h3><div class="sub">${etiquetaPer(r)} · Débito, Crédito o Inversión</div>
+        ${tabla(porTipo.map(x => `<tr><td>${esc(x[0])}</td><td class="r num">${ent(x[2])}</td><td class="r num">${clp(x[1])}</td><td class="r num">${pct(x[1] / totC, 0)}</td></tr>`), ['Tipo', 'Facturas', 'Monto', '%'])}</div>
+    </div>
+    <div class="grid dos">
+      <div class="card"><h3>Por proveedor</h3><div class="sub">${etiquetaPer(r)} · ${lugar}</div>
+        ${tabla(porProv.map(x => `<tr><td>${esc(x[0])}</td><td class="r num">${ent(x[2])}</td><td class="r num">${clp(x[1])}</td><td class="r num">${pct(x[1] / totC, 0)}</td></tr>`), ['Proveedor', 'Facturas', 'Monto', '%'])}</div>
+      <div class="card"><h3>Por pagar</h3><div class="sub">Todas las facturas pendientes, por fecha de vencimiento · ${lugar}</div>
+        ${pend.length ? tabla(pend.map(c => `<tr><td>${fCorta(c[6])}${c[6] < hoy ? ' <span class="chip down">vencida</span>' : ''}</td><td>${esc(c[1])}</td><td class="r num">${clp(pp(c))}</td></tr>`), ['Vence', 'Proveedor', 'Por pagar'], `<tfoot><tr><td colspan="2">Total</td><td class="r num">${clp(sum(pend, pp))}</td></tr></tfoot>`).replace('<th class="r">Proveedor</th>', '<th>Proveedor</th>') : '<p class="vacio">Nada por pagar 👌</p>'}</div>
+    </div>`;
+  // Todas las compras (todas las fechas): primero las por pagar por fecha máxima de pago, después las pagadas (la más reciente arriba)
+  const filtro = E.compFiltro || 'todas';
+  const todasL = todas.filter(c => parteLocal(c) > 0 && (filtro === 'todas' || (filtro === 'pagar') === (c[5] === 'POR PAGAR')))
+    .sort((a, b) => (a[5] === b[5] ? (a[5] === 'POR PAGAR' ? (a[6] < b[6] ? -1 : 1) : (a[0] < b[0] ? 1 : -1)) : a[5] === 'POR PAGAR' ? -1 : 1));
+  const estado = c => {
+    if (c[5] !== 'POR PAGAR') return `<span class="chip up">Pagada${c[10] ? ' el ' + fCorta(c[10]) : ''}</span>`;
+    const d = entre(hoy, c[6]);
+    return d < 0 ? `<span class="chip down">Vencida hace ${-d} día(s)</span>` : `<span class="chip">${d === 0 ? 'Vence hoy' : 'Faltan ' + d + ' día(s)'}</span>`;
+  };
+  const locTxt = c => Object.entries(c[4] || {}).map(([l, p]) => (p === 100 ? l : `${l} ${String(p).replace('.', ',')}%`)).join(' · ');
+  html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div><h3>Todas las compras</h3><div class="sub">Todas las fechas · ${lugar} · fecha máxima de pago = fecha de la factura + plazo del proveedor${E.local === 'TODOS' ? '' : ' · montos según el % del local'}</div></div>
+      <div class="seg" id="segCompras">${[['todas', 'Todas'], ['pagar', 'Por pagar'], ['pagadas', 'Pagadas']].map(([k, t]) => `<button data-cf="${k}"${filtro === k ? ' class="on"' : ''}>${t}</button>`).join('')}</div></div>
+    ${todasL.length ? `<div class="tabla"><table><thead><tr><th>Fecha factura</th><th>Proveedor</th><th>N° factura</th><th>Tipo</th><th>Local</th><th class="r">Monto</th><th class="r">Por pagar</th><th>Fecha máx. de pago</th><th>Estado</th></tr></thead><tbody>
+      ${todasL.map(c => `<tr><td>${fCorta(c[0])}</td><td>${esc(c[1])}</td><td>${esc(c[9] || '')}</td><td>${esc(c[3])}</td><td>${esc(locTxt(c))}</td>
+        <td class="r num">${clp(monto(c))}</td><td class="r num">${c[5] === 'POR PAGAR' ? clp(pp(c)) : '—'}</td><td><b>${fCorta(c[6])}</b> ${c[6].slice(0, 4)}</td><td>${estado(c)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td colspan="5">Total (${todasL.length} factura${todasL.length === 1 ? '' : 's'})</td><td class="r num">${clp(sum(todasL, monto))}</td><td class="r num">${clp(sum(todasL.filter(c => c[5] === 'POR PAGAR'), pp))}</td><td colspan="2"></td></tr></tfoot></table></div>`
+      : `<p class="vacio">${filtro === 'pagar' ? 'Nada por pagar 👌' : 'Sin compras'}</p>`}</div>`;
+  $('contenido').innerHTML = html;
+  document.querySelectorAll('#segCompras button').forEach(b => b.onclick = () => { E.compFiltro = b.dataset.cf; pintar(); });
+  grafico('gCompras', {
+    apilado: true, pctApilado: true,
+    data: {
+      labels: ms.map(m => `${MESES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`),
+      datasets: locs.map(l => ({ label: l, data: ms.map(m => sum(comprasRango(m, finMes(m), l), c => c[2] * parteLocal(c, l))), backgroundColor: colorLocal(l), borderRadius: 3, stack: 'v' })),
+    },
   });
 }
 
