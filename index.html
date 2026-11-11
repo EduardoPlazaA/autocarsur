@@ -1383,6 +1383,10 @@
     const d = PV.datos, c = $('pvContenido');
     if (!d) return;
     const n = d.resumen.nVencidas + (d.paga ? d.resumen.nPorDistribuir || 0 : 0);
+    // Leidy y Leandro: no ven lo pendiente ni lo vencido, solo las facturas pagadas
+    document.querySelector('[data-pv="pagar"]').classList.toggle('hidden', !d.paga);
+    document.querySelector('[data-pv="recientes"]').textContent = d.paga ? 'Recientes' : 'Pagadas';
+    if (!d.paga && PV.tab === 'pagar') { PV.tab = 'nueva'; marcarTabProv(); }
     document.querySelector('[data-pv="pagar"]').innerHTML = 'Por pagar' + (n ? ` <span class="cuenta">${n}</span>` : '');
     PV.tocado = false; PV.tipo = ''; PV.loc = d.locales.length === 1 ? d.locales[0] : '';
     c.innerHTML = PV.tab === 'nueva' ? vistaNuevaCompra(d) : PV.tab === 'pagar' ? vistaPorPagar(d) : vistaRecientes(d);
@@ -1547,8 +1551,8 @@
     });
   }
   function vistaRecientes(d) {
-    if (!d.recientes.length) return '<div class="empty">Aún no hay compras registradas</div>';
-    return '<p class="sub" style="margin:0 0 4px">Últimos 60 días</p>' + d.recientes.map(c => filaCompra(c, false).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
+    if (!d.recientes.length) return `<div class="empty">${d.paga ? 'Aún no hay compras registradas' : 'Aún no hay facturas pagadas en los últimos 60 días'}</div>`;
+    return `<p class="sub" style="margin:0 0 4px">${d.paga ? 'Últimos 60 días' : 'Facturas pagadas · últimos 60 días'}</p>` + d.recientes.map(c => filaCompra(c, false).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
   }
 
   /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
