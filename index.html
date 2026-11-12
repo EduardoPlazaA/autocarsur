@@ -291,6 +291,9 @@
   .est.venc { background: var(--red); color: #fff; }
   .pv-dup { color: var(--red); font-size: 13px; font-weight: 700; margin: -4px 0 14px; }
   .pv-comp { margin-top: 6px; border: 0; background: var(--bg); color: var(--black); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  .pv-anular { margin-top: 6px; margin-left: 4px; border: 0; background: var(--red-tint); color: var(--red); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  .est.anul { background: var(--line); color: var(--steel); } .mov.anulada .monto { text-decoration: line-through; color: var(--mute); }
+  #pvMotivo { width: 100%; min-height: 70px; margin-top: 10px; font: inherit; font-weight: 400; padding: 10px; border: 1.5px solid var(--line); border-radius: 10px; resize: vertical; }
   .pv-filtro { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; } .pv-filtro select { flex: 1; }
   #pvObs { width: 100%; min-height: 64px; resize: vertical; font: inherit; } .est.ok { background: var(--green-tint); color: var(--green); }
   .franja small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
@@ -1405,6 +1408,8 @@
   document.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => { PV.tab = b.dataset.pv; marcarTabProv(); if (PV.datos) pintarProv(); }));
   /* Ver el comprobante de pago: la pestaña se abre en el mismo toque (si se abre después de esperar al servidor, el navegador la bloquea) */
   $('pvContenido').addEventListener('click', e => {
+    const an = e.target.closest('[data-anular]');
+    if (an) { e.preventDefault(); return anularCompra(an.dataset.anular); }
     const b = e.target.closest('[data-comp]');
     if (!b) return;
     e.preventDefault();
@@ -1529,13 +1534,13 @@
     ]);
   }
 
-  function filaCompra(c, conCheck, neutro) {
-    const hoy = hoyTxt(), dd = entreDias(hoy, c.venc);
-    const est = c.estado === 'PAGADA' ? `<span class="est ok">Pagada</span>` : neutro ? `<span class="est">Por pagar · vence ${fCorta(c.venc)}</span>` : dd < 0 ? `<span class="est venc">Vencida hace ${-dd} día(s)</span>` : `<span class="est">${dd === 0 ? 'Vence hoy' : `Vence en ${dd} día(s)`}</span>`;
-    const monto = c.estado === 'PAGADA' ? c.monto : c.porPagar;
-    return `<${conCheck ? 'label' : 'div'} class="mov"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
+  function filaCompra(c, conCheck, neutro, anular) {
+    const hoy = hoyTxt(), dd = entreDias(hoy, c.venc), anulada = c.estado === 'ANULADA';
+    const est = anulada ? `<span class="est anul">Anulada</span>` : c.estado === 'PAGADA' ? `<span class="est ok">Pagada</span>` : neutro ? `<span class="est">Por pagar · vence ${fCorta(c.venc)}</span>` : dd < 0 ? `<span class="est venc">Vencida hace ${-dd} día(s)</span>` : `<span class="est">${dd === 0 ? 'Vence hoy' : `Vence en ${dd} día(s)`}</span>`;
+    const monto = c.estado === 'PAGADA' || anulada ? c.monto : c.porPagar;
+    return `<${conCheck ? 'label' : 'div'} class="mov${anulada ? ' anulada' : ''}"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}</span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}</span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
   function bloqueDistribuir(d) {
@@ -1574,12 +1579,12 @@
   function vistaPorPagarLista(d) {
     const hoy = hoyTxt(), en7 = sumarDia(hoy, 7), l = d.porPagar;
     if (!d.paga) return `<p class="sub" style="margin:0 0 4px">Facturas que tú registraste y aún no se pagan. Felipe marca el pago.</p>`
-      + (l.length ? l.map(c => filaCompra(c, false, true)).join('') : '<div class="empty">No tienes facturas por pagar registradas por ti</div>');
+      + (l.length ? l.map(c => filaCompra(c, false, true, true)).join('') : '<div class="empty">No tienes facturas por pagar registradas por ti</div>');
     const saldos = Object.entries(d.saldos || {});
     const bloqueSaldos = saldos.length ? `<div class="grupo">Saldos a favor</div>${saldos.map(([p, m]) => `<div class="mov" style="grid-template-columns:1fr auto"><span class="det">${esc(p)}<small>Pagado de más con la cotización</small></span><span class="monto">${pesos(m)}</span></div>`).join('')}` : '';
     if (!l.length) return '<div class="empty">No hay facturas por pagar 👌</div>' + bloqueSaldos;
     const grupos = [['Vencidas', l.filter(c => c.venc < hoy)], ['Vencen en los próximos 7 días', l.filter(c => c.venc >= hoy && c.venc <= en7)], ['Más adelante', l.filter(c => c.venc > en7)]];
-    return grupos.filter(g => g[1].length).map(([t, cs]) => `<div class="grupo">${t} · ${pesos(cs.reduce((s, c) => s + c.porPagar, 0))}</div>` + cs.map(c => filaCompra(c, d.paga)).join('')).join('')
+    return grupos.filter(g => g[1].length).map(([t, cs]) => `<div class="grupo">${t} · ${pesos(cs.reduce((s, c) => s + c.porPagar, 0))}</div>` + cs.map(c => filaCompra(c, d.paga, false, d.paga)).join('')).join('')
       + (d.paga ? `
       <div class="field" style="margin-top:14px"><label for="pvFechaPago">Fecha de pago</label><input type="date" id="pvFechaPago" value="${hoy}" max="${hoy}"></div>
       <div class="field"><label>Comprobante de pago <span class="opt">(opcional · foto o PDF)</span></label>
@@ -1608,6 +1613,24 @@
         { t: 'Revisar', sec: true },
       ]);
     });
+  }
+  function anularCompra(cid) {
+    const d = PV.datos, c = [...(d.porPagar || []), ...(d.recientes || [])].find(x => x.id === cid);
+    if (!c) return;
+    modal('ask', `¿Anular la factura ${c.fact || ''} de ${c.prov}?`, `${pesos(c.monto)} · ${fCorta(c.fecha)}${c.estado === 'PAGADA' ? ' · ya estaba pagada' : ''}`, '', [
+      { t: 'Sí, anular', cls: 'dark', fn: () => {
+        const motivo = ($('pvMotivo') ? $('pvMotivo').value : '').trim();
+        if (motivo.length < 3) return modal('err', 'Falta el motivo', 'Escribe por qué se anula la factura.', '', [{ t: 'Entendido', cls: 'dark', fn: () => anularCompra(cid) }]);
+        api('anularCompraProveedor', S.token, { id: cid, motivo, idEnvio: nuevoId() }).then(r => {
+          if (r.datos) { provActualizado(r.datos); pintarProv(); }
+          if (!r.ok) return modal('err', 'No se pudo anular', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+          modal('ok', 'Factura anulada', r.mensaje, 'Queda registrada como anulada con tu nombre y el motivo.', [{ t: 'Continuar', cls: 'dark' }]);
+        }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo anular', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+      } },
+      { t: 'No, volver', sec: true },
+    ]);
+    $('mExtra').innerHTML = '<label for="pvMotivo">Motivo de la anulación</label><textarea id="pvMotivo" maxlength="200" placeholder="Ej.: factura ingresada dos veces / proveedor la anuló"></textarea>';
+    setTimeout(() => { if ($('pvMotivo')) $('pvMotivo').focus(); }, 50);
   }
   /* Comprobante de pago: la foto se achica (como en Efectivo); el PDF va tal cual (hasta 4 MB) */
   function cargarComprobanteProv(arch) {
@@ -1643,7 +1666,7 @@
     return `<p class="sub" style="margin:0 0 8px">${d.paga ? 'Últimos 60 días' : 'Facturas pagadas · últimos 60 días'}</p>
       <div class="pv-filtro"><label for="pvFiltro" class="sub" style="margin:0">Proveedor</label><select id="pvFiltro"><option value="">Todos (${d.recientes.length})</option>${provs.map(p => `<option value="${esc(p)}"${p === PV.filtro ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
       ${PV.filtro ? `<p class="sub" style="margin:0 0 4px">${l.length} factura(s) · ${pesos(total)}</p>` : ''}`
-      + l.map(c => filaCompra(c, false).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
+      + l.map(c => filaCompra(c, false, false, d.paga).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
   }
   function activarRecientes() {
     const sel = $('pvFiltro');
