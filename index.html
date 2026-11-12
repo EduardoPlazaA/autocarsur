@@ -288,7 +288,11 @@
   .pv-info { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin: -4px 0 14px; font-size: 14px; color: var(--steel); }
   .pv-info.contado { background: var(--amber-tint); color: var(--amber); }
   .est { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--mute); margin-left: 4px; }
-  .est.venc { background: var(--red); color: #fff; } .est.ok { background: var(--green-tint); color: var(--green); }
+  .est.venc { background: var(--red); color: #fff; }
+  .pv-dup { color: var(--red); font-size: 13px; font-weight: 700; margin: -4px 0 14px; }
+  .pv-comp { margin-top: 6px; border: 0; background: var(--bg); color: var(--black); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  .pv-filtro { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; } .pv-filtro select { flex: 1; }
+  #pvObs { width: 100%; min-height: 64px; resize: vertical; font: inherit; } .est.ok { background: var(--green-tint); color: var(--green); }
   .franja small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
   .franja b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--black); }
   .franja em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
@@ -1367,7 +1371,7 @@
   }
 
   /* ── Proveedores: factura de compra (fecha, proveedor, cotización, factura, monto, tipo, locales), vencimiento automático y pago ── */
-  const PV = { datos: null, tab: 'nueva', tocado: false, tipo: '', loc: '' };
+  const PV = { datos: null, tab: 'nueva', tocado: false, tipo: '', loc: '', filtro: '', comp: null };
   const hoyTxt = () => (S.estado && S.estado.hoy && S.estado.hoy.fecha) || new Date().toLocaleDateString('sv-SE');
   const fVence = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
   const entreDias = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);
@@ -1399,6 +1403,24 @@
   }
   function marcarTabProv() { document.querySelectorAll('[data-pv]').forEach(x => x.classList.toggle('on', x.dataset.pv === PV.tab)); }
   document.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => { PV.tab = b.dataset.pv; marcarTabProv(); if (PV.datos) pintarProv(); }));
+  /* Ver el comprobante de pago: la pestaña se abre en el mismo toque (si se abre después de esperar al servidor, el navegador la bloquea) */
+  $('pvContenido').addEventListener('click', e => {
+    const b = e.target.closest('[data-comp]');
+    if (!b) return;
+    e.preventDefault();
+    let w = null;
+    try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif;padding:24px;color:#6B6F78">Abriendo comprobante…</p>'); } catch (x) { w = null; }
+    const fallo = t => { if (w) w.close(); modal('err', 'No se pudo abrir', t, '', [{ t: 'Entendido', cls: 'dark' }]); };
+    api('verComprobanteProveedor', S.token, b.dataset.comp).then(r => {
+      if (!r.ok) return fallo(r.error);
+      const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.tipo || 'application/pdf' }));
+      if (w && !w.closed) w.location.href = url;
+      else { const a = document.createElement('a'); a.href = url; a.download = r.nombre || 'comprobante'; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60000);
+    }).catch(x => { if (w) w.close(); if (!sesionError(x)) fallo('Sin conexión. Intenta de nuevo.'); });
+  });
   function provActualizado(d) {
     PV.datos = d;
     if (S.estado && S.estado.proveedores) { if (d.paga) S.estado.proveedores.resumen = d.resumen; pintarProvMenu(S.estado.proveedores); }
@@ -1407,14 +1429,15 @@
     const d = PV.datos, c = $('pvContenido');
     if (!d) return;
     const n = d.resumen.nVencidas + (d.paga ? d.resumen.nPorDistribuir || 0 : 0);
-    // Leidy y Leandro: no ven lo pendiente ni lo vencido, solo las facturas pagadas
-    document.querySelector('[data-pv="pagar"]').classList.toggle('hidden', !d.paga);
+    // Leandro: no ve lo pendiente ni lo vencido, solo las facturas pagadas. Leidy: además las por pagar que ella registró (sin contador)
+    const conPagar = d.paga || d.propias;
+    document.querySelector('[data-pv="pagar"]').classList.toggle('hidden', !conPagar);
     document.querySelector('[data-pv="recientes"]').textContent = d.paga ? 'Recientes' : 'Pagadas';
-    if (!d.paga && PV.tab === 'pagar') { PV.tab = 'nueva'; marcarTabProv(); }
+    if (!conPagar && PV.tab === 'pagar') { PV.tab = 'nueva'; marcarTabProv(); }
     document.querySelector('[data-pv="pagar"]').innerHTML = 'Por pagar' + (n ? ` <span class="cuenta">${n}</span>` : '');
     PV.tocado = false; PV.tipo = ''; PV.loc = d.locales.length === 1 ? d.locales[0] : '';
     c.innerHTML = PV.tab === 'nueva' ? vistaNuevaCompra(d) : PV.tab === 'pagar' ? vistaPorPagar(d) : vistaRecientes(d);
-    if (PV.tab === 'nueva') activarNuevaCompra(d); else if (PV.tab === 'pagar') activarPorPagar();
+    if (PV.tab === 'nueva') activarNuevaCompra(d); else if (PV.tab === 'pagar') activarPorPagar(); else activarRecientes();
   }
 
   function vistaNuevaCompra(d) {
@@ -1429,21 +1452,22 @@
         <div class="field"><label for="pvCot">N° cotización <span class="opt" id="pvCotOpt">(opcional)</span></label><input id="pvCot" autocomplete="off"></div>
         <div class="field"><label for="pvFact">N° factura</label><input id="pvFact" inputmode="numeric" autocomplete="off"></div>
       </div>
+      <p class="pv-dup hidden" id="pvDup" role="alert"></p>
       <div class="field"><label for="pvMonto">Monto de la factura <span class="opt">(total con IVA)</span></label><div class="money"><input id="pvMonto" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
-      <div class="field hidden" id="pvPagCotBox"><label for="pvPagCot">Pagado con la cotización</label><div class="money"><input id="pvPagCot" inputmode="numeric" autocomplete="off" placeholder="0"></div>
-        <p class="sub" id="pvSaldo" style="margin:6px 0 0"></p></div>
       <div class="field"><label>Tipo de compra</label><div class="chips" id="pvTipo">${d.tipos.map(t => `<button type="button" data-tipo="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
       <div class="field"><label>Local</label><div class="chips" id="pvLocal">${d.locales.map(l => `<button type="button" data-loc="${esc(l)}"${PV.loc === l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}${d.locales.length > 1 ? `<button type="button" data-loc="__mixta">${d.paga ? 'Mixta (%)' : 'Mixta (Felipe reparte)'}</button>` : ''}</div>
         ${d.paga ? '' : '<p class="sub hidden" id="pvMixtaAviso" style="margin:8px 0 0">Felipe hará la distribución por local.</p>'}
         <div id="pvMixta" class="hidden">${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-pct="${esc(l)}" placeholder="0" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
           <p class="sub" id="pvSuma" style="margin:8px 0 0"></p></div></div>
+      <div class="field"><label for="pvObs">Observación <span class="opt">(opcional)</span></label><textarea id="pvObs" maxlength="200" placeholder="Ej.: repuestos para el pedido de la semana"></textarea></div>
       <button class="primary dark" id="pvGuardar" type="button">Registrar compra</button>`;
   }
   function activarNuevaCompra(d) {
     const c = $('pvContenido');
     c.addEventListener('input', () => { PV.tocado = true; }, { once: true });
-    ['pvMonto', 'pvPagCot'].forEach(id => $(id).addEventListener('input', e => { const v = valor(e.target); e.target.value = v ? fmtCLP.format(v) : ''; infoProv(d); }));
-    ['pvFecha', 'pvProv'].forEach(id => $(id).addEventListener('change', () => infoProv(d)));
+    $('pvMonto').addEventListener('input', e => { const v = valor(e.target); e.target.value = v ? fmtCLP.format(v) : ''; });
+    ['pvFecha', 'pvProv'].forEach(id => $(id).addEventListener('change', () => { infoProv(d); revisarDup(d); }));
+    $('pvFact').addEventListener('input', () => revisarDup(d));
     $('pvTipo').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { PV.tipo = b.dataset.tipo; $('pvTipo').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
     $('pvLocal').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
       PV.loc = b.dataset.loc; $('pvLocal').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -1463,33 +1487,38 @@
   function infoProv(d) {
     const p = d.proveedores.find(x => x[0] === $('pvProv').value), info = $('pvPlazo'), fecha = $('pvFecha').value;
     info.classList.toggle('hidden', !p);
-    $('pvPagCotBox').classList.toggle('hidden', !p || p[1] !== 0);
-    $('pvCotOpt').textContent = p && p[1] === 0 ? '' : '(opcional)';
     if (!p) return;
     info.classList.toggle('contado', p[1] === 0);
-    if (p[1] === 0) {
-      info.textContent = 'Pago al contado (0 días): se pagó con la cotización. Anota cuánto se pagó; la diferencia con la factura queda como saldo.';
-      const m = valor($('pvMonto')), pc = valor($('pvPagCot')), dif = m - pc;
-      $('pvSaldo').textContent = !m || !$('pvPagCot').value ? '' : dif > 0 ? `Saldo en contra: faltan ${pesos(dif)} por pagar.` : dif < 0 ? `Saldo a favor con ${p[0]}: ${pesos(-dif)}.` : 'Cuadra: la factura queda pagada.';
-    } else info.textContent = fecha ? `Plazo ${p[1]} días · vence el ${fVence(sumarDia(fecha, p[1]))}` : `Plazo ${p[1]} días`;
+    info.textContent = p[1] === 0 ? `Pago al contado (0 días)${fecha ? ' · vence el ' + fVence(fecha) : ''}` : fecha ? `Plazo ${p[1]} días · vence el ${fVence(sumarDia(fecha, p[1]))}` : `Plazo ${p[1]} días`;
+  }
+  /* Factura ya registrada: mismo proveedor y mismo N° (sin ceros a la izquierda ni guiones), igual que el servidor */
+  const normFact = x => String(x).replace(/\D/g, '').replace(/^0+/, '') || String(x).trim().toUpperCase();
+  function facturaRepetida(d) {
+    const p = $('pvProv').value, n = $('pvFact').value.trim();
+    return !!(p && n && (d.facturas || []).includes(p + '|' + normFact(n)));
+  }
+  function revisarDup(d) {
+    const rep = facturaRepetida(d), m = $('pvDup');
+    m.textContent = rep ? `La factura ${$('pvFact').value.trim()} de ${$('pvProv').value} ya está registrada. No se puede ingresar dos veces.` : '';
+    m.classList.toggle('hidden', !rep);
+    $('pvGuardar').disabled = rep;
   }
   function confirmarCompra(d) {
     const p = d.proveedores.find(x => x[0] === $('pvProv').value);
     const mixtaFelipe = PV.loc === '__mixta' && !d.paga; // la reparte Felipe después
     const dist = mixtaFelipe ? {} : PV.loc === '__mixta' ? pctsMixta() : PV.loc ? { [PV.loc]: 100 } : {};
     const sumaD = Object.values(dist).reduce((s, x) => s + x, 0);
-    const monto = valor($('pvMonto')), pagado = valor($('pvPagCot'));
+    const monto = valor($('pvMonto'));
     const falta = !$('pvFecha').value ? 'Ingresa la fecha de la factura.' : !p ? 'Elige el proveedor.'
-      : p[1] === 0 && !$('pvCot').value.trim() ? 'Ingresa el N° de cotización con que se pagó.'
-      : !$('pvFact').value.trim() ? 'Ingresa el N° de factura.' : !monto ? 'Ingresa el monto de la factura.'
-      : p[1] === 0 && !$('pvPagCot').value ? 'Ingresa cuánto se pagó con la cotización.'
+      : !$('pvFact').value.trim() ? 'Ingresa el N° de factura.' : facturaRepetida(d) ? `La factura ${$('pvFact').value.trim()} de ${p[0]} ya está registrada.`
+      : !monto ? 'Ingresa el monto de la factura.'
       : !PV.tipo ? 'Elige el tipo de compra.' : mixtaFelipe ? '' : !sumaD ? 'Elige el local de la compra.' : Math.abs(sumaD - 100) > 0.05 ? 'La distribución por local debe sumar 100 %.' : '';
     if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
     const id = nuevoId();
     const datos = { fecha: $('pvFecha').value, proveedor: p[0], cotizacion: $('pvCot').value.trim(), factura: $('pvFact').value.trim(), monto,
-      pagadoCotizacion: p[1] === 0 ? pagado : '', tipo: PV.tipo, dist, mixta: mixtaFelipe, idEnvio: id };
+      tipo: PV.tipo, dist, mixta: mixtaFelipe, obs: $('pvObs').value.trim(), idEnvio: id };
     modal('ask', `¿Registrar factura ${datos.factura} de ${p[0]}?`, `${pesos(monto)} · ${PV.tipo} · ${mixtaFelipe ? 'Mixta: Felipe la reparte' : distTxt(dist)}`,
-      p[1] === 0 ? 'Pago al contado (pagado con la cotización).' : `Vence el ${fVence(sumarDia(datos.fecha, p[1]))}.`, [
+      (p[1] === 0 ? `Pago al contado: vence el ${fVence(datos.fecha)}.` : `Vence el ${fVence(sumarDia(datos.fecha, p[1]))}.`) + (datos.obs ? ' Obs.: ' + datos.obs : ''), [
       { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarCompraProveedor', S.token, datos).then(r => {
         if (r.datos) provActualizado(r.datos);
         if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
@@ -1500,13 +1529,13 @@
     ]);
   }
 
-  function filaCompra(c, conCheck) {
+  function filaCompra(c, conCheck, neutro) {
     const hoy = hoyTxt(), dd = entreDias(hoy, c.venc);
-    const est = c.estado === 'PAGADA' ? `<span class="est ok">Pagada</span>` : dd < 0 ? `<span class="est venc">Vencida hace ${-dd} día(s)</span>` : `<span class="est">${dd === 0 ? 'Vence hoy' : `Vence en ${dd} día(s)`}</span>`;
+    const est = c.estado === 'PAGADA' ? `<span class="est ok">Pagada</span>` : neutro ? `<span class="est">Por pagar · vence ${fCorta(c.venc)}</span>` : dd < 0 ? `<span class="est venc">Vencida hace ${-dd} día(s)</span>` : `<span class="est">${dd === 0 ? 'Vence hoy' : `Vence en ${dd} día(s)`}</span>`;
     const monto = c.estado === 'PAGADA' ? c.monto : c.porPagar;
     return `<${conCheck ? 'label' : 'div'} class="mov"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}</small></span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}</span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
   function bloqueDistribuir(d) {
@@ -1544,6 +1573,8 @@
   }
   function vistaPorPagarLista(d) {
     const hoy = hoyTxt(), en7 = sumarDia(hoy, 7), l = d.porPagar;
+    if (!d.paga) return `<p class="sub" style="margin:0 0 4px">Facturas que tú registraste y aún no se pagan. Felipe marca el pago.</p>`
+      + (l.length ? l.map(c => filaCompra(c, false, true)).join('') : '<div class="empty">No tienes facturas por pagar registradas por ti</div>');
     const saldos = Object.entries(d.saldos || {});
     const bloqueSaldos = saldos.length ? `<div class="grupo">Saldos a favor</div>${saldos.map(([p, m]) => `<div class="mov" style="grid-template-columns:1fr auto"><span class="det">${esc(p)}<small>Pagado de más con la cotización</small></span><span class="monto">${pesos(m)}</span></div>`).join('')}` : '';
     if (!l.length) return '<div class="empty">No hay facturas por pagar 👌</div>' + bloqueSaldos;
@@ -1551,6 +1582,8 @@
     return grupos.filter(g => g[1].length).map(([t, cs]) => `<div class="grupo">${t} · ${pesos(cs.reduce((s, c) => s + c.porPagar, 0))}</div>` + cs.map(c => filaCompra(c, d.paga)).join('')).join('')
       + (d.paga ? `
       <div class="field" style="margin-top:14px"><label for="pvFechaPago">Fecha de pago</label><input type="date" id="pvFechaPago" value="${hoy}" max="${hoy}"></div>
+      <div class="field"><label>Comprobante de pago <span class="opt">(opcional · foto o PDF)</span></label>
+        <label class="foto" id="pvCompBox"><input type="file" id="pvCompArch" accept="image/*,application/pdf" hidden><span>📎 Adjuntar foto o PDF</span></label></div>
       <div class="totalbar"><span>Total marcado</span><b id="totPago">$0</b></div>
       <button class="primary dark" id="btnPagar" type="button">Marcar como pagadas</button>` : '<p class="sub" style="margin-top:12px">Felipe marca el pago de cada factura.</p>') + bloqueSaldos;
   }
@@ -1560,12 +1593,14 @@
     const tot = () => checks.filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
     checks.forEach(c => c.addEventListener('change', () => { PV.tocado = true; $('totPago').textContent = pesos(tot()); }));
     if (!$('btnPagar')) return;
+    PV.comp = null;
+    $('pvCompArch').addEventListener('change', e => cargarComprobanteProv(e.target.files[0]));
     $('btnPagar').addEventListener('click', () => {
       const ids = checks.filter(c => c.checked).map(c => c.dataset.pg);
       if (!ids.length) return modal('err', 'Nada marcado', 'Marca las facturas que pagaste.', '', [{ t: 'Entendido', cls: 'dark' }]);
       const fecha = $('pvFechaPago').value, id = nuevoId();
       modal('ask', `¿Marcar ${ids.length === 1 ? '1 factura' : ids.length + ' facturas'} como pagadas?`, `${pesos(tot())} · pagado el ${fVence(fecha)}`, '', [
-        { t: 'Sí, pagadas', cls: 'dark', fn: () => api('marcarPagoProveedor', S.token, { ids, fecha, idEnvio: id }).then(r => {
+        { t: 'Sí, pagadas', cls: 'dark', fn: () => api('marcarPagoProveedor', S.token, { ids, fecha, comprobante: PV.comp || undefined, idEnvio: id }).then(r => {
           if (r.datos) { provActualizado(r.datos); pintarProv(); }
           if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
           modal('ok', '¡Pago registrado!', r.mensaje, '', [{ t: 'Continuar', cls: 'dark' }]);
@@ -1574,9 +1609,45 @@
       ]);
     });
   }
+  /* Comprobante de pago: la foto se achica (como en Efectivo); el PDF va tal cual (hasta 4 MB) */
+  function cargarComprobanteProv(arch) {
+    if (!arch) return;
+    const box = $('pvCompBox'), err = t => modal('err', 'No se pudo leer el comprobante', t, '', [{ t: 'Entendido', cls: 'dark' }]);
+    PV.tocado = true;
+    if (arch.type === 'application/pdf') {
+      if (arch.size > 4 * 1024 * 1024) return err('El PDF pesa más de 4 MB. Intenta con otro archivo.');
+      const fr = new FileReader();
+      fr.onload = () => { PV.comp = { base64: String(fr.result).split(',')[1], tipo: 'application/pdf' }; box.classList.add('ok'); box.querySelector('span').textContent = '📄 ' + arch.name + ' · toca para cambiarlo'; };
+      fr.onerror = () => err('Intenta con otro archivo.');
+      return fr.readAsDataURL(arch);
+    }
+    const img = new Image(), url = URL.createObjectURL(arch);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.75);
+      PV.comp = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
+      box.classList.add('ok'); box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Comprobante"><br>Toca para cambiarlo`;
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => err('Usa una foto (JPG o PNG) o un PDF.');
+    img.src = url;
+  }
   function vistaRecientes(d) {
     if (!d.recientes.length) return `<div class="empty">${d.paga ? 'Aún no hay compras registradas' : 'Aún no hay facturas pagadas en los últimos 60 días'}</div>`;
-    return `<p class="sub" style="margin:0 0 4px">${d.paga ? 'Últimos 60 días' : 'Facturas pagadas · últimos 60 días'}</p>` + d.recientes.map(c => filaCompra(c, false).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
+    const provs = [...new Set(d.recientes.map(c => c.prov))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (PV.filtro && !provs.includes(PV.filtro)) PV.filtro = '';
+    const l = PV.filtro ? d.recientes.filter(c => c.prov === PV.filtro) : d.recientes;
+    const total = l.reduce((s, c) => s + c.monto, 0);
+    return `<p class="sub" style="margin:0 0 8px">${d.paga ? 'Últimos 60 días' : 'Facturas pagadas · últimos 60 días'}</p>
+      <div class="pv-filtro"><label for="pvFiltro" class="sub" style="margin:0">Proveedor</label><select id="pvFiltro"><option value="">Todos (${d.recientes.length})</option>${provs.map(p => `<option value="${esc(p)}"${p === PV.filtro ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
+      ${PV.filtro ? `<p class="sub" style="margin:0 0 4px">${l.length} factura(s) · ${pesos(total)}</p>` : ''}`
+      + l.map(c => filaCompra(c, false).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
+  }
+  function activarRecientes() {
+    const sel = $('pvFiltro');
+    if (sel) sel.addEventListener('change', () => { PV.filtro = sel.value; pintarProv(); });
   }
 
   /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
