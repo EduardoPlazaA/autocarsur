@@ -1442,10 +1442,10 @@ function tabCompras(r) {
       <div class="card"><h3>Por pagar</h3><div class="sub">Todas las facturas pendientes, por fecha de vencimiento · ${lugar}</div>
         ${pend.length ? tabla(pend.map(c => `<tr><td>${fCorta(c[6])}${c[6] < hoy ? ' <span class="chip down">vencida</span>' : ''}</td><td>${esc(c[1])}</td><td class="r num">${clp(pp(c))}</td></tr>`), ['Vence', 'Proveedor', 'Por pagar'], `<tfoot><tr><td colspan="2">Total</td><td class="r num">${clp(sum(pend, pp))}</td></tr></tfoot>`).replace('<th class="r">Proveedor</th>', '<th>Proveedor</th>') : '<p class="vacio">Nada por pagar 👌</p>'}</div>
     </div>`;
-  // Todas las compras (todas las fechas): primero las por pagar por fecha máxima de pago, después las pagadas (la más reciente arriba)
+  // Todas las compras (todas las fechas), por fecha de factura: la más reciente arriba (pagadas y por pagar juntas)
   const filtro = E.compFiltro || 'todas';
   const todasL = todas.filter(c => parteLocal(c) > 0 && (filtro === 'todas' || (filtro === 'pagar') === (c[5] === 'POR PAGAR')))
-    .sort((a, b) => (a[5] === b[5] ? (a[5] === 'POR PAGAR' ? (a[6] < b[6] ? -1 : 1) : (a[0] < b[0] ? 1 : -1)) : a[5] === 'POR PAGAR' ? -1 : 1));
+    .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
   const estado = c => {
     if (c[5] !== 'POR PAGAR') return `<span class="chip up">Pagada${c[10] ? ' el ' + fCorta(c[10]) : ''}</span>`;
     const d = entre(hoy, c[6]);
@@ -1453,7 +1453,7 @@ function tabCompras(r) {
   };
   const locTxt = c => !Object.keys(c[4] || {}).length ? 'Mixta · por distribuir' : Object.entries(c[4] || {}).map(([l, p]) => (p === 100 ? l : `${l} ${String(p).replace('.', ',')}%`)).join(' · ');
   html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-      <div><h3>Todas las compras</h3><div class="sub">Todas las fechas · ${lugar} · fecha máxima de pago = fecha de la factura + plazo del proveedor${E.local === 'TODOS' ? '' : ' · montos según el % del local'}</div></div>
+      <div><h3>Todas las compras</h3><div class="sub">Todas las fechas, la factura más reciente arriba · ${lugar} · fecha máxima de pago = fecha de la factura + plazo del proveedor${E.local === 'TODOS' ? '' : ' · montos según el % del local'}</div></div>
       <div class="seg" id="segCompras">${[['todas', 'Todas'], ['pagar', 'Por pagar'], ['pagadas', 'Pagadas']].map(([k, t]) => `<button data-cf="${k}"${filtro === k ? ' class="on"' : ''}>${t}</button>`).join('')}</div></div>
     ${todasL.length ? `<div class="tabla"><table><thead><tr><th>Fecha factura</th><th>Proveedor</th><th>N° factura</th><th>Tipo</th><th>Local</th><th class="r">Monto</th><th class="r">Por pagar</th><th>Fecha máx. de pago</th><th>Estado</th></tr></thead><tbody>
       ${todasL.map(c => `<tr><td>${fCorta(c[0])}</td><td>${esc(c[1])}</td><td>${esc(c[9] || '')}</td><td>${esc(c[3])}</td><td>${esc(locTxt(c))}</td>
