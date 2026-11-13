@@ -162,6 +162,21 @@
   .mes-k.ok b { color: var(--green); }
   .mes-nota { font-size: 12px; color: var(--mute); margin: 10px 0 0; }
   .t-corr { background: var(--steel); }
+  .t-turnos { background: #3D4F3A; }
+  .tu-dia { border-top: 1px solid var(--line); padding: 12px 0; }
+  .tu-fecha { font-weight: 800; font-size: 14px; text-transform: capitalize; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .tu-dia.hoy .tu-fecha { color: var(--red); }
+  .tu-det { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tu-det b { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .tu-det small, .tu-nota { color: var(--mute); font-size: 13px; } .tu-det .libre { color: var(--mute); }
+  .tu-p { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; background: var(--bg); border: 1.5px solid transparent; border-radius: 10px; padding: 8px 12px; margin: 4px 0; color: var(--black); }
+  .tu-p b { font-variant-numeric: tabular-nums; } .tu-p small { grid-column: 1 / -1; color: var(--mute); font-size: 12px; }
+  .tu-p.cambio, .tu-libre.cambio { border-color: var(--amber); background: var(--amber-tint); }
+  .tu-p.sel, .tu-libre.sel { border-color: var(--black); }
+  .tu-libres { font-size: 13px; color: var(--mute); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tu-libre { border: 1.5px dashed var(--line); background: none; border-radius: 999px; padding: 4px 10px; font-size: 13px; color: var(--steel); }
+  .tu-editor { margin-top: 8px; padding: 12px; border: 1.5px solid var(--black); border-radius: 12px; display: grid; gap: 10px; }
+  .tu-editor .field { margin: 0; } .tu-editor .secondary, .tu-editor .primary { margin-top: 0; }
+  .tu-editor .chips button { font-size: 13px; padding: 6px 10px; }
   .t-res { background: #24425E; } /* mismo azul que el botón Dashboard */
   /* Mi resumen */
   .rs-nav { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
@@ -444,6 +459,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <span>Mi resumen<small>Ventas, meta y horas</small></span>
       </button>
+      <button class="tile t-turnos hidden" id="tileTurnos" data-accion="TURNOS" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+        <span>Turnos<small id="subTurnos">Mis turnos de la semana</small></span>
+      </button>
       <button class="tile t-efec hidden" id="tileEfec" data-accion="EFECTIVO" type="button">
         <span class="badge hidden" id="badgeEfec">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
@@ -532,6 +551,15 @@
     <div class="rs-nav"><button type="button" id="rsAnt" aria-label="Período anterior">‹</button><b id="rsEtiqueta"></b><button type="button" id="rsSig" aria-label="Período siguiente">›</button></div>
     <div id="rsCont"><div class="empty">Cargando…</div></div>
     <div id="rsLocales" class="rs-vista-locales hidden"></div>
+  </section>
+
+  <!-- Turnos (semana proyectada del ciclo; Felipe/Eduardo cambian un día) -->
+  <section id="v-turnos" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Turnos</h2>
+    <p class="sub" id="tuSub">Tus turnos de la semana</p>
+    <div class="rs-nav"><button type="button" id="tuAnt" aria-label="Semana anterior">‹</button><b id="tuEtiqueta"></b><button type="button" id="tuSig" aria-label="Semana siguiente">›</button></div>
+    <div id="tuCont"><div class="empty">Cargando…</div></div>
   </section>
 
   <!-- 8. Mi PIN -->
@@ -701,7 +729,7 @@
 
   /* Vistas */
   function ver(id) {
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -903,6 +931,8 @@
     $('badgeDocs').textContent = e.docsPendientes; $('badgeDocs').classList.toggle('hidden', !e.docsPendientes);
     pintarEfectivoMenu(e.efectivo);
     pintarProvMenu(e.proveedores);
+    $('tileTurnos').classList.toggle('hidden', !e.turnos);
+    $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Ver y cambiar los del equipo' : 'Mis turnos de la semana';
     pintarOperacion(e.operacion);
     const av = $('avisoCierre'), cp = e.cierrePendiente;
     av.textContent = cp ? `El cierre de ayer (${fCorta(cp.fecha)}) de ${cp.local} quedó pendiente. Avisa a Felipe.` : ''; av.classList.toggle('hidden', !cp);
@@ -952,6 +982,7 @@
     else if (a === 'CIERRE') abrirCierre();
     else if (a === 'EFECTIVO') abrirEfectivo();
     else if (a === 'PROVEEDORES') abrirProv();
+    else if (a === 'TURNOS') abrirTurnos();
     else if (a === 'CORREGIR') abrirCorr();
     else if (a === 'RESUMEN') abrirResumen();
     else abrirDocs();
@@ -1672,6 +1703,78 @@
     const sel = $('pvFiltro');
     if (sel) sel.addEventListener('change', () => { PV.filtro = sel.value; pintarProv(); });
   }
+
+  /* ── Turnos: semana proyectada del ciclo de 14 días. Felipe/Eduardo tocan un turno (o a alguien libre) y lo cambian solo ese día ── */
+  const TU = { datos: null, abierto: null };
+  function abrirTurnos() { ver('v-turnos'); TU.abierto = null; if (TU.datos) pintarTurnos(); cargarTurnos(''); }
+  function cargarTurnos(desde) {
+    if (!TU.datos || desde) $('tuCont').innerHTML = '<div class="empty">Cargando…</div>';
+    servidor('obtenerTurnos', S.token, desde).then(r => { TU.datos = r; TU.abierto = null; pintarTurnos(); })
+      .catch(e => { if (!sesionError(e)) $('tuCont').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
+  }
+  $('tuAnt').addEventListener('click', () => TU.datos && cargarTurnos(sumarDia(TU.datos.desde, -7)));
+  $('tuSig').addEventListener('click', () => TU.datos && cargarTurnos(sumarDia(TU.datos.desde, 7)));
+  const fSem = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+  function pintarTurnos() {
+    const d = TU.datos, ed = d.edita;
+    $('tuSub').textContent = ed ? 'Toca un turno o a alguien libre para cambiar solo ese día' : 'Tus turnos de la semana';
+    $('tuEtiqueta').textContent = `${fSem(d.desde)} al ${fSem(sumarDia(d.desde, 6))}`;
+    $('tuCont').innerHTML = d.dias.map(dia => {
+      const hoy = dia.f === d.hoy, cab = `<div class="tu-fecha">${esc(fDia(dia.f))}${hoy ? ' · hoy' : ''}${dia.feriado ? ` <span class="est venc">Feriado: ${esc(dia.feriado)}</span>` : ''}</div>`;
+      if (!ed) {
+        const t = dia.turnos[0], p = t || dia.libres[0] || {};
+        return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}<div class="tu-det">${t ? `<b>${t.e} a ${t.s}</b><small>${esc(t.l)}</small>` : '<b class="libre">Libre</b>'}
+          ${p.cambio ? '<span class="est">Cambiado</span>' : ''}</div>${p.cambio && p.motivo ? `<div class="tu-nota">${esc(p.motivo)}</div>` : ''}</div>`;
+      }
+      const sel = id => TU.abierto && TU.abierto.f === dia.f && TU.abierto.id === id ? ' sel' : '';
+      return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}
+        ${dia.turnos.length ? dia.turnos.map(t => `<button type="button" class="tu-p${t.cambio ? ' cambio' : ''}${sel(t.id)}" data-tu="${dia.f}|${esc(t.id)}"><span>${esc(t.nombre)}</span><b>${t.e} a ${t.s}</b><small>${esc(t.l)}${t.cambio ? ' · cambiado' : ''}</small></button>`).join('') : '<p class="tu-nota">Nadie con turno</p>'}
+        ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" data-tu="${dia.f}|${esc(p.id)}">${esc(p.nombre)}</button>`).join('')}</div>` : ''}
+        ${TU.abierto && TU.abierto.f === dia.f ? editorTurno(dia) : ''}</div>`;
+    }).join('');
+  }
+  function editorTurno(dia) {
+    const d = TU.datos, a = TU.abierto, t = dia.turnos.find(x => x.id === a.id), p = t || dia.libres.find(x => x.id === a.id);
+    if (!p) return '';
+    return `<div class="tu-editor" id="tuEditor">
+      <b>${esc(p.nombre)} · ${esc(fDia(dia.f))}</b>
+      ${p.cambio ? `<p class="tu-nota" style="margin:0">Ya cambiado${p.motivo ? ' (' + esc(p.motivo) + ')' : ''}. Turno normal: ${p.ciclo ? `${p.ciclo[0]} a ${p.ciclo[1]} · ${esc(p.ciclo[2])}` : 'libre'}</p>` : ''}
+      <div class="chips" aria-label="Horarios frecuentes">${d.horarios.map(([he, hs]) => `<button type="button" data-h="${he}|${hs}"${he === a.e && hs === a.s ? ' class="on"' : ''}>${he} a ${hs}</button>`).join('')}</div>
+      <div class="row2"><div class="field"><label for="tuE">Entrada</label><input type="time" id="tuE" value="${a.e}"></div><div class="field"><label for="tuS">Salida</label><input type="time" id="tuS" value="${a.s}"></div></div>
+      <div class="chips" aria-label="Local">${d.locales.map(l => `<button type="button" data-l="${esc(l)}"${l === a.l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}</div>
+      <div class="field"><label for="tuMotivo">Motivo <span class="opt">(opcional)</span></label><input id="tuMotivo" maxlength="200" autocomplete="off" placeholder="Ej.: cambio con Leo, médico, vacaciones"></div>
+      <button type="button" class="primary dark" data-tuacc="CAMBIO">${t ? 'Guardar este horario' : 'Darle este turno'}</button>
+      ${t || p.cambio ? `<div class="${t && p.cambio ? 'row2' : ''}">${t ? '<button type="button" class="secondary" data-tuacc="LIBRE">Libre ese día</button>' : ''}${p.cambio ? '<button type="button" class="secondary" data-tuacc="NORMAL">Volver al normal</button>' : ''}</div>` : ''}
+      <button type="button" class="secondary" data-tuacc="CERRAR">Cancelar</button></div>`;
+  }
+  $('tuCont').addEventListener('click', e => {
+    const b = e.target.closest('[data-tu],[data-h],[data-l],[data-tuacc]');
+    if (!b || !TU.datos) return;
+    const a = TU.abierto;
+    if (b.dataset.tu) {
+      const [f, id] = b.dataset.tu.split('|'), dia = TU.datos.dias.find(x => x.f === f), t = dia.turnos.find(x => x.id === id);
+      const p = t || dia.libres.find(x => x.id === id), base = t ? [t.e, t.s, t.l] : (p && p.ciclo) || [...(TU.datos.horarios[0] || ['09:00', '19:30']), TU.datos.locales[0]];
+      TU.abierto = a && a.f === f && a.id === id ? null : { f, id, e: base[0], s: base[1], l: base[2] };
+      pintarTurnos();
+      if (TU.abierto && $('tuEditor') && $('tuEditor').scrollIntoView) $('tuEditor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    if (!a) return;
+    if (b.dataset.h) { [a.e, a.s] = b.dataset.h.split('|'); $('tuE').value = a.e; $('tuS').value = a.s; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return; }
+    if (b.dataset.l) { a.l = b.dataset.l; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return; }
+    const acc = b.dataset.tuacc;
+    if (acc === 'CERRAR') { TU.abierto = null; return pintarTurnos(); }
+    const datos = { id: a.id, fecha: a.f, tipo: acc, entrada: $('tuE').value, salida: $('tuS').value, local: a.l, motivo: $('tuMotivo').value.trim(), idEnvio: nuevoId() };
+    b.disabled = true;
+    api('cambiarTurno', S.token, datos).then(r => {
+      b.disabled = false;
+      if (!r.ok) return modal('err', 'No se pudo guardar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+      if (r.datos) TU.datos = r.datos;
+      TU.abierto = null; pintarTurnos();
+      modal('ok', 'Turno guardado', r.mensaje, 'Cuenta para horas extra, atrasos y marcas pendientes.', [{ t: 'Listo', cls: 'dark' }]);
+    }).catch(x => { b.disabled = false; if (!sesionError(x)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+  });
+  $('tuCont').addEventListener('change', e => { if (!TU.abierto) return; if (e.target.id === 'tuE') TU.abierto.e = e.target.value; if (e.target.id === 'tuS') TU.abierto.s = e.target.value; });
 
   /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
   const hm = min => { const h = Math.floor(min / 60), m = min % 60; return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`; };
