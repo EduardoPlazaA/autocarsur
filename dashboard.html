@@ -586,7 +586,7 @@ const histEn = r => !!(r && E.R && E.R.finHistorico && r.ini <= E.R.finHistorico
 function expandirFilas(R) {
   sumarHistorico(R);
   if (R.cierres.length && Array.isArray(R.cierres[0])) {
-    R.cierres = R.cierres.map(c => ({ f: c[0], h: c[1], l: c[2], resp: c[3], saldo: c[4], ventas: c[5], ppto: c[6], visitas: c[7], sinCompra: c[8], obs: c[9], ubic: c[10], corr: c[11] || '' }));
+    R.cierres = R.cierres.map(c => ({ f: c[0], h: c[1], l: c[2], resp: c[3], saldo: c[4], ventas: c[5], ppto: c[6], visitas: c[7], sinCompra: c[8], obs: c[9], ubic: c[10], corr: c[11] || '', ret: c[13] || 0, gastos: c[14] == null ? null : c[14], detGastos: c[15] || '', fotoG: !!c[16] }));
   }
   if (R.marcajes.length && Array.isArray(R.marcajes[0])) {
     const n = R.nombres || {};
@@ -1027,6 +1027,8 @@ function alertas(r, corte) {
   });
   const cie = cierresRango(r.ini, corte);
   const difs = cie.filter(c => Math.abs(c.dif) > R.tolerancia);
+  const desc = R.soloResumen ? [] : cuadresCaja(r.ini, corte).filter(c => Math.abs(c.difCaja) > R.tolerancia);
+  if (desc.length) add('down', `${desc.length} cierre(s) con efectivo que no cuadra (saldo anterior + efectivo Bicom − gastos − retiro ≠ saldo en caja). Ver Caja.`);
   if (difs.length && !R.soloResumen) add('down', `${difs.length} cierre(s) con diferencia mayor a ${clp(R.tolerancia)} entre lo declarado y Bicom.`);
   const sin = diasSinCierre(r.ini, min(corte, sumar(R.hoy, -1)));
   if (sin.length) add('warn', `${sin.length} día(s) con ventas y sin cierre registrado.`);
@@ -1226,6 +1228,54 @@ function diasSinCierre(ini, fin) {
   });
   return out;
 }
+/* Cuadre de efectivo de cada cierre: saldo del cierre anterior del local + efectivo cobrado según Bicom (días desde ese cierre)
+   − gastos en efectivo − retiro = saldo que debería quedar. Solo cierres con la casilla de gastos (desde V57). */
+function efectivoBicom() {
+  const R = E.R; if (R._efB) return R._efB;
+  const o = {}; (R.pagos || []).forEach(p => { if (String(p[0]).length === 10 && /EFECTIVO/i.test(p[2])) { const k = p[0] + '|' + p[1]; o[k] = (o[k] || 0) + p[3]; } });
+  return (R._efB = o);
+}
+function cuadresCaja(ini, fin, local = E.local) {
+  const R = E.R, efB = efectivoBicom(), porLocal = {}, out = [];
+  R.cierres.forEach(c => (porLocal[c.l] = porLocal[c.l] || []).push(c));
+  Object.keys(porLocal).forEach(l => {
+    if (local !== 'TODOS' && l !== local) return;
+    const cs = porLocal[l].slice().sort((a, b) => (a.f < b.f ? -1 : a.f > b.f ? 1 : 0));
+    cs.forEach((c, i) => {
+      if (!i || c.f < ini || c.f > fin || c.gastos == null) return;
+      const ant = cs[i - 1]; let ef = 0;
+      for (let f = sumar(ant.f, 1); f <= c.f; f = sumar(f, 1)) ef += efB[f + '|' + l] || 0;
+      const esperado = Math.round(ant.saldo + ef - c.gastos - c.ret);
+      out.push(Object.assign({}, c, { fAnt: ant.f, saldoAnt: ant.saldo, efB: Math.round(ef), esperado, difCaja: c.saldo - esperado }));
+    });
+  });
+  return out.sort((a, b) => (a.f < b.f ? 1 : a.f > b.f ? -1 : a.l < b.l ? -1 : 1));
+}
+function tablaCuadre(r) {
+  const R = E.R, cq = cuadresCaja(r.ini, min(r.fin, R.hoy)), malos = cq.filter(c => Math.abs(c.difCaja) > R.tolerancia);
+  const gastos = cq.reduce((s, c) => s + c.gastos, 0);
+  return `<div class="card" style="margin-bottom:14px"><h3>Cuadre de efectivo</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · saldo del cierre anterior + efectivo cobrado según Bicom − gastos en efectivo − retiro = lo que debería quedar en caja${cq.length ? ` · ${malos.length ? `<span class="chip down">${malos.length} con diferencia sobre ${clp(R.tolerancia)}</span>` : '<span class="chip up">Todo cuadra</span>'} · gastos ${clp(gastos)}` : ''}</div>
+    ${cq.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Local</th><th class="r">Saldo anterior</th><th class="r">+ Efectivo Bicom</th><th class="r">− Gastos</th><th class="r">− Retiro</th>
+      <th class="r">= Debería quedar</th><th class="r">Saldo declarado</th><th class="r">Diferencia</th><th>Detalle de gastos</th></tr></thead><tbody>
+    ${cq.map(c => `<tr><td>${DIAS[dsem(c.f)]} ${fCorta(c.f)}</td><td>${esc(c.l)}</td><td class="r num">${clp(c.saldoAnt)} <small style="color:var(--mute)">${fCorta(c.fAnt)}</small></td>
+      <td class="r num">${clp(c.efB)}</td><td class="r num">${c.gastos ? clp(c.gastos) : '—'}</td><td class="r num">${c.ret ? clp(c.ret) : '—'}</td><td class="r num">${clp(c.esperado)}</td>
+      <td class="r num"><b>${clp(c.saldo)}</b></td>
+      <td class="r num"><span class="chip ${Math.abs(c.difCaja) > R.tolerancia ? 'down' : c.difCaja ? 'neu' : 'up'}">${c.difCaja ? (c.difCaja > 0 ? 'Sobra ' : 'Falta ') + clp(Math.abs(c.difCaja)) : 'Cuadra'}</span></td>
+      <td class="obs">${esc(c.detGastos)}${c.fotoG ? ` <button class="btn-sec" style="color:var(--black);border-color:var(--line)" data-fotog="${esc(c.f + '|' + c.l)}">Ver boleta</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="vacio">El cuadre aparece desde que el cierre pide los gastos en efectivo (necesita el cierre anterior del mismo local).</p>'}</div>`;
+}
+function activarFotosGasto() {
+  document.querySelectorAll('[data-fotog]').forEach(b => b.onclick = async () => {
+    const [f, l] = b.dataset.fotog.split('|');
+    try {
+      const res = await llamar('verFotoGastoCierre', E.sesion.token, f, l);
+      if (!res.ok) return alert(res.error);
+      const v = document.createElement('div'); v.className = 'visor';
+      v.innerHTML = `<img alt="Boleta de gastos" src="${res.imagen}"><button class="btn-sec">Cerrar ✕</button>`;
+      v.onclick = () => v.remove(); document.body.appendChild(v);
+    } catch (e) { alert('No se pudo cargar la foto.'); }
+  });
+}
 function tabCaja(r) {
   const R = E.R, fin = min(r.fin, R.hoy);
   const cie = cierresRango(r.ini, fin).sort((a, b) => (a.f < b.f ? 1 : -1));
@@ -1239,6 +1289,7 @@ function tabCaja(r) {
   html += kpi('Declarado vs Bicom', bic ? pct(decl / bic - 1) : '—', `Declarado ${mm(decl)} · Bicom ${mm(bic)}`);
   html += kpi('Visitas', ent(conv.visitas), conv.visitas ? `Conversión ${pct(conv.compras / conv.visitas)} · ${ent(conv.visitas - conv.compras)} sin compra` : 'Sin datos');
   html += '</div>';
+  html += tablaCuadre(r);
   html += `<div class="card" style="margin-bottom:14px"><h3>Cierres de día</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · la diferencia compara lo declarado en el cierre con la venta de Bicom</div>
     ${cie.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Local</th><th>Responsable</th><th class="r">Declarado</th><th class="r">Bicom</th><th class="r">Diferencia</th>
       <th class="r">Saldo caja</th><th class="r">Meta</th><th class="r">Visitas</th><th class="r">Conv.</th><th>Ubicación</th><th>Observaciones</th></tr></thead><tbody>
@@ -1252,6 +1303,7 @@ function tabCaja(r) {
   if (sin.length) html += `<div class="card"><h3>Días con ventas y sin cierre</h3><div class="sub">Desde que se usa la app</div>
     <div class="turno">${sin.map(([f, l]) => `<span style="background:var(--amber-tint);color:var(--amber)">${DIAS[dsem(f)]} ${fCorta(f)}<small>${esc(l)}</small></span>`).join('')}</div></div>`;
   $('contenido').innerHTML = html;
+  activarFotosGasto();
 }
 
 /* ═══════════════ Pestaña Equipo ═══════════════ */

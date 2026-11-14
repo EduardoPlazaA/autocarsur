@@ -499,7 +499,12 @@
       </div>
       <div class="field"><label>Presupuesto del día</label><div class="ro" id="cPpto">—</div></div>
       <div class="field"><label for="retiroEfectivo">Retiro de efectivo <span class="opt">(0 si no hubo)</span></label><div class="money"><input id="retiroEfectivo" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
-      <div class="field"><label for="saldoCaja">Saldo en caja <span class="opt">(después del retiro)</span></label><div class="money"><input id="saldoCaja" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+      <div class="field"><label for="gastosEfectivo">Gastos en efectivo <span class="opt">(pagados con la caja · 0 si no hubo)</span></label><div class="money"><input id="gastosEfectivo" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+      <div id="gastosDet" class="hidden">
+        <div class="field"><label for="detalleGastos">¿En qué se gastó?</label><textarea id="detalleGastos" maxlength="300" placeholder="Ej.: bencina $5.000 · útiles de aseo $3.000"></textarea></div>
+        <div class="field"><label>Foto de la boleta del gasto <span class="opt">(opcional)</span></label><label class="foto" id="fotoCierreBox"><input type="file" id="fotoCierre" accept="image/*" capture="environment" hidden><span>📷 Tomar o elegir foto</span></label></div>
+      </div>
+      <div class="field"><label for="saldoCaja">Saldo en caja <span class="opt">(después del retiro y los gastos)</span></label><div class="money"><input id="saldoCaja" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="field"><label for="ventasDia">Ventas del día</label><div class="money"><input id="ventasDia" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="row2 field">
         <div><label for="visitas">Visitas al local</label><input id="visitas" inputmode="numeric" autocomplete="off" placeholder="0"></div>
@@ -1042,7 +1047,8 @@
   /* ── Cierre ── */
   let presupuesto = 0;
   function abrirCierre() {
-    ['retiroEfectivo', 'saldoCaja', 'ventasDia', 'visitas', 'conCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
+    ['retiroEfectivo', 'gastosEfectivo', 'detalleGastos', 'saldoCaja', 'ventasDia', 'visitas', 'conCompra', 'obs'].forEach(id => { $(id).value = ''; $(id).classList.remove('invalid'); });
+    fotoCierreLimpia(); verGastos();
     $('cierreLocal').textContent = S.local; $('cierreAlerta').classList.add('hidden');
     presupuesto = 0; S.idEnvio = nuevoId(); calcular();
     $('btnCierre').disabled = false; salirCorreccion();
@@ -1073,6 +1079,7 @@
     S.corrige = true; S.idEnvio = nuevoId();
     const m = n => (n ? fmtCLP.format(n) : '0');
     $('retiroEfectivo').value = m(c.retiro); $('saldoCaja').value = m(c.saldo); $('ventasDia').value = m(c.ventas);
+    $('gastosEfectivo').value = m(c.gastos); $('detalleGastos').value = c.detalleGastos || ''; fotoCierreLimpia(c.fotoGastos); verGastos();
     $('visitas').value = String(c.visitas); $('conCompra').value = String(Math.max(0, c.visitas - c.sinCompra)); $('obs').value = c.obs || ''; $('motivo').value = '';
     $('fMotivo').classList.remove('hidden'); $('btnCorregir').classList.add('hidden'); $('cierreAlerta').classList.add('hidden');
     $('btnCierre').textContent = 'Guardar corrección'; $('cierreLocal').textContent = S.local + ' · corrigiendo el cierre de hoy';
@@ -1083,7 +1090,15 @@
     $('btnCierre').textContent = 'Registrar cierre';
   }
   $('btnCorregir').addEventListener('click', () => { if (S.cierreHoy) entrarCorreccion(S.cierreHoy); });
-  ['retiroEfectivo', 'saldoCaja', 'ventasDia'].forEach(id => $(id).addEventListener('input', e => {
+  /* Gastos en efectivo: con monto, se piden el detalle y la foto de la boleta */
+  function verGastos() { $('gastosDet').classList.toggle('hidden', !Number(num('gastosEfectivo'))); }
+  function fotoCierreLimpia(yaTiene) {
+    EF.fotoCierre = null; const box = $('fotoCierreBox'); box.classList.toggle('ok', !!yaTiene);
+    box.querySelector('span').textContent = yaTiene ? '📷 Ya tiene foto · toca para cambiarla' : '📷 Tomar o elegir foto'; $('fotoCierre').value = '';
+  }
+  $('fotoCierre').addEventListener('change', e => cargarFoto(e.target.files[0], 'fotoCierreBox', 'fotoCierre'));
+  $('gastosEfectivo').addEventListener('input', () => verGastos());
+  ['retiroEfectivo', 'gastosEfectivo', 'saldoCaja', 'ventasDia'].forEach(id => $(id).addEventListener('input', e => {
     const d = e.target.value.replace(/\D/g, '').slice(0, 10);
     e.target.value = d ? fmtCLP.format(Number(d)) : ''; e.target.classList.remove('invalid'); calcular();
   }));
@@ -1107,20 +1122,23 @@
     if (S.ocupado) return;
     $('cierreAlerta').classList.add('hidden');
     const falta = [];
-    [['retiroEfectivo', 'retiro de efectivo'], ['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['conCompra', 'visitas con compra']]
+    [['retiroEfectivo', 'retiro de efectivo'], ['gastosEfectivo', 'gastos en efectivo'], ['saldoCaja', 'saldo en caja'], ['ventasDia', 'ventas del día'], ['visitas', 'visitas'], ['conCompra', 'visitas con compra']]
       .forEach(([id, n]) => { if (num(id) === '') { $(id).classList.add('invalid'); falta.push(n); } });
     if (falta.length) { alerta('Completa: ' + falta.join(', ') + '.'); return; }
     if (Number(num('conCompra')) > Number(num('visitas'))) { $('conCompra').classList.add('invalid'); alerta('Las visitas con compra no pueden superar el total de visitas.'); return; }
+    const gas = Number(num('gastosEfectivo'));
+    if (gas && $('detalleGastos').value.trim().length < 3) { $('detalleGastos').classList.add('invalid'); alerta('Escribe en qué se gastó el efectivo.'); return; }
 
     const ret = Number(num('retiroEfectivo'));
+    const txtGas = gas ? ` · Gastos $${fmtCLP.format(gas)}` : '';
     if (S.corrige) {
       if ($('motivo').value.trim().length < 5) { $('motivo').classList.add('invalid'); alerta('Escribe el motivo de la corrección.'); return; }
-      modal('ask', '¿Guardar la corrección?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : ''), 'Queda guardado el valor anterior, tu nombre y el motivo. Felipe verá que el cierre fue corregido.', [
+      modal('ask', '¿Guardar la corrección?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : '') + txtGas, 'Queda guardado el valor anterior, tu nombre y el motivo. Felipe verá que el cierre fue corregido.', [
         { t: 'Sí, guardar corrección', cls: 'dark', fn: enviarCierre }, { t: 'Revisar', sec: true }]);
       return;
     }
     gps().catch(() => {}); // la ubicación se busca mientras la persona revisa los montos
-    modal('ask', '¿Registrar cierre?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : ''), 'Revisa los montos: el cierre no se puede editar.', [
+    modal('ask', '¿Registrar cierre?', `${S.local} · Ventas $${fmtCLP.format(Number(num('ventasDia')))}` + (ret ? ` · Retiro $${fmtCLP.format(ret)}` : '') + txtGas, 'Revisa los montos: el cierre no se puede editar.', [
       { t: 'Sí, registrar cierre', cls: 'dark', fn: enviarCierre }, { t: 'Revisar', sec: true },
     ]);
   });
@@ -1128,7 +1146,7 @@
     S.ocupado = true; const b = $('btnCierre'); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Enviando…';
     cerrarModal();
     ubicar().then(p => api(S.corrige ? 'corregirCierre' : 'registrarCierre', S.token, {
-      motivo: S.corrige ? $('motivo').value.trim() : undefined, local: S.local, retiroEfectivo: num('retiroEfectivo'), saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
+      motivo: S.corrige ? $('motivo').value.trim() : undefined, local: S.local, retiroEfectivo: num('retiroEfectivo'), gastosEfectivo: num('gastosEfectivo'), detalleGastos: $('detalleGastos').value, fotoGastos: Number(num('gastosEfectivo')) ? EF.fotoCierre || undefined : undefined, saldoCaja: num('saldoCaja'), ventasDia: num('ventasDia'), visitas: num('visitas'),
       visitasConCompra: num('conCompra'), observaciones: $('obs').value, lat: p.lat, lng: p.lng, precision: p.precision, idEnvio: S.idEnvio,
     })).then(r => {
       S.ocupado = false; b.textContent = S.corrige ? 'Guardar corrección' : 'Registrar cierre'; b.disabled = false;
