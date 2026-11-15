@@ -163,6 +163,11 @@
   .mes-nota { font-size: 12px; color: var(--mute); margin: 10px 0 0; }
   .t-corr { background: var(--steel); }
   .t-turnos { background: #3D4F3A; }
+  .tu-resumen { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .tu-resumen h3 { margin: 0 0 6px; font-size: 14px; }
+  .tu-resumen .fila { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 14px; align-items: baseline; }
+  .tu-resumen .fila:first-of-type { border-top: 0; } .tu-resumen .fila b { font-variant-numeric: tabular-nums; } .tu-resumen .fila small { color: var(--mute); }
+  .tu-resumen .total { font-weight: 800; }
   .tu-dia { border-top: 1px solid var(--line); padding: 12px 0; }
   .tu-fecha { font-weight: 800; font-size: 14px; text-transform: capitalize; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
   .tu-dia.hoy .tu-fecha { color: var(--red); }
@@ -634,6 +639,23 @@
 
   /* App en el teléfono (iPhone y Android): el service worker (sw.js) abre la pantalla al instante desde lo guardado y trae
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
+  /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
+     (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
+  const VERSION_APP = 'V58';
+  let recargarEnMenu = false;
+  if (enApi) {
+    let ultimaRevision = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - ultimaRevision < 60000) return;
+      ultimaRevision = Date.now();
+      fetch('index.html?v=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
+        const m = t.match(/const VERSION_APP = '([^']+)'/);
+        if (!m || m[1] === VERSION_APP) return;
+        if (!$('v-menu').classList.contains('hidden') || !$('v-pin').classList.contains('hidden') || !$('v-nombres').classList.contains('hidden')) location.reload();
+        else recargarEnMenu = true; // está en un formulario: se recarga al volver al menú
+      }).catch(() => {});
+    });
+  }
   if (enApi && 'serviceWorker' in navigator) {
     const tAbrir = Date.now();
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -734,6 +756,7 @@
 
   /* Vistas */
   function ver(id) {
+    if (recargarEnMenu && id === 'v-menu') { location.reload(); return; }
     ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
@@ -1737,7 +1760,7 @@
     const d = TU.datos, ed = d.edita;
     $('tuSub').textContent = ed ? 'Toca un turno o a alguien libre para cambiar solo ese día' : 'Tus turnos de la semana';
     $('tuEtiqueta').textContent = `${fSem(d.desde)} al ${fSem(sumarDia(d.desde, 6))}`;
-    $('tuCont').innerHTML = d.dias.map(dia => {
+    $('tuCont').innerHTML = resumenHorasTurnos(d) + d.dias.map(dia => {
       const hoy = dia.f === d.hoy, cab = `<div class="tu-fecha">${esc(fDia(dia.f))}${hoy ? ' · hoy' : ''}${dia.feriado ? ` <span class="est venc">Feriado: ${esc(dia.feriado)}</span>` : ''}</div>`;
       if (!ed) {
         const t = dia.turnos[0], p = t || dia.libres[0] || {};
@@ -1750,6 +1773,19 @@
         ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" data-tu="${dia.f}|${esc(p.id)}">${esc(p.nombre)}</button>`).join('')}</div>` : ''}
         ${TU.abierto && TU.abierto.f === dia.f ? editorTurno(dia) : ''}</div>`;
     }).join('');
+  }
+  /* Horas de la semana por persona (suma de entrada a salida de cada turno, con los cambios de Felipe) */
+  const minHM = h => +h.slice(0, 2) * 60 + +h.slice(3, 5);
+  const txtHoras = m => `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
+  function resumenHorasTurnos(d) {
+    const p = {};
+    d.dias.forEach(dia => dia.turnos.forEach(t => { const o = p[t.id] || (p[t.id] = { nombre: t.nombre, min: 0, dias: 0 }); o.min += Math.max(0, minHM(t.s) - minHM(t.e)); o.dias++; }));
+    const filas = Object.values(p).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    if (!d.edita) { const o = filas[0]; return `<div class="tu-resumen"><div class="fila total" style="border:0"><span>Horas de esta semana</span><b>${o ? txtHoras(o.min) : '0 h'}</b><small>${o ? o.dias : 0} día(s)</small></div></div>`; }
+    if (!filas.length) return '';
+    const tot = filas.reduce((s, o) => s + o.min, 0);
+    return `<div class="tu-resumen"><h3>Horas de la semana</h3>${filas.map(o => `<div class="fila"><span>${esc(o.nombre)}</span><b>${txtHoras(o.min)}</b><small>${o.dias} día(s)</small></div>`).join('')}
+      <div class="fila total"><span>Total equipo</span><b>${txtHoras(tot)}</b><small></small></div></div>`;
   }
   function editorTurno(dia) {
     const d = TU.datos, a = TU.abierto, t = dia.turnos.find(x => x.id === a.id), p = t || dia.libres.find(x => x.id === a.id);
