@@ -79,8 +79,10 @@
   .rango { font-weight: 700; color: var(--black); }
   .pers-et { font-size: 12px; color: var(--mute); font-weight: 600; }
   .pers-par { display: inline-flex; align-items: center; gap: 6px; }
-  #persTodo { background: var(--paper); color: var(--black); border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
-  #persTodo:hover { border-color: var(--black); }
+  .nav #persTodo { width: auto; height: 32px; padding: 0 12px; margin-left: 4px; background: #fff; color: var(--black); border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; flex: none; }
+  .nav #persTodo:hover { border-color: var(--black); }
+  .nav #persTodo.on { background: var(--black); border-color: var(--black); color: #fff; }
   @media (max-width: 640px) { #segPeriodo button { padding: 7px 9px; } #persBox { flex-wrap: wrap; } }
   .filtros .der { margin-left: auto; color: var(--mute); font-size: 12px; }
 
@@ -733,7 +735,7 @@ function controlesPeriodo() {
     if (!as.includes(E.fecha.slice(0, 4))) as.push(E.fecha.slice(0, 4));
     $('selAno').innerHTML = as.map(a => `<option${a === E.fecha.slice(0, 4) ? ' selected' : ''}>${a}</option>`).join('');
   }
-  if (p === 'pers') { $('persIni').value = E.pIni; $('persFin').value = E.pFin; }
+  if (p === 'pers') { $('persIni').value = E.pIni; $('persFin').value = E.pFin; if (E.R) $('persTodo').classList.toggle('on', E.pIni === primerDiaVentas() && E.pFin === E.R.hoy); }
 }
 function pintar() {
   E.charts.forEach(c => c.destroy()); E.charts = [];
