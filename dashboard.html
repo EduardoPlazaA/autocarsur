@@ -1575,7 +1575,12 @@ function tabClientes(r) {
   // Por mes, desde el primer cierre (máximo 24 meses): crece a medida que se acumulan los cierres
   // Histórico: desde el primer día con datos de Bicom (o el registro histórico si el período lo toca); boletas = todas las de Bicom del mes
   const primerBicom = Object.keys(R.diario).filter(f => Object.keys(R.diario[f]).some(l => l !== HIST)).sort()[0] || (R.primerCierre || r.ini);
-  const desdeCli = E.local === 'TODOS' && R.iniHistCli ? R.iniHistCli.slice(0, 7) : min(primerBicom, R.primerCierre || primerBicom).slice(0, 7); // todos los locales: desde el primer registro histórico
+  // Meses que se muestran según el filtro: Año y Personalizado largo = sus meses; Día, Semana y Mes = los 12 meses hasta ese mes.
+  // Nunca antes del primer dato (todos los locales: el registro histórico; un local: Bicom o el primer cierre).
+  const iniDatosCli = E.local === 'TODOS' && R.iniHistCli ? R.iniHistCli.slice(0, 7) : min(primerBicom, R.primerCierre || primerBicom).slice(0, 7);
+  const porPeriodo = PER() === 'ano' ? r.ini.slice(0, 7) : sumarMeses(corte.slice(0, 7) + '-01', -11).slice(0, 7);
+  const desdeCli = max(porPeriodo, iniDatosCli);
+  const rangoCli = PER() === 'ano' ? etiquetaRango(E.per, r) : `12 meses hasta ${fMes(corte.slice(0, 7))}`;
   const ms = []; for (let m = desdeCli; m <= corte.slice(0, 7); m = sumarMeses(m + '-01', 1).slice(0, 7)) ms.push(m);
   const filasMes = ms.map(m => {
     const fin = min(finMes(m + '-01'), corte), c = clientes(m + '-01', fin);
@@ -1584,9 +1589,9 @@ function tabClientes(r) {
   });
   const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
   html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
-    <div class="sub">Por mes · ${E.local === 'TODOS' ? `todos los locales · ${R.iniHistCli ? `${fMes(R.iniHistCli.slice(0, 7))} a ${fMes(R.finHistCli.slice(0, 7))}: entradas y boletas del registro histórico (Excel AutoCarSur, sin separar por local) · ` : ''}` : esc(E.local) + ' · '}desde ${fCorta(R.primerCierre || corte)} ${(R.primerCierre || corte).slice(0, 4)}: entradas y compras según el cierre de día; boletas: todas las de Bicom del mes</div>
+    <div class="sub">Por mes · ${esc(rangoCli)} · ${E.local === 'TODOS' ? `todos los locales · ${R.iniHistCli ? `${fMes(R.iniHistCli.slice(0, 7))} a ${fMes(R.finHistCli.slice(0, 7))}: entradas y boletas del registro histórico (Excel AutoCarSur, sin separar por local) · ` : ''}` : esc(E.local) + ' · '}desde ${fCorta(R.primerCierre || corte)} ${(R.primerCierre || corte).slice(0, 4)}: entradas y compras según el cierre de día; boletas: todas las de Bicom del mes</div>
     ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]], ['% conversión (eje derecho)', '#B8322A', 1]])}<div class="lienzo"><canvas id="gCli"></canvas></div>
-    <p class="sub" style="margin-top:8px">% conversión = compras ÷ entradas. En el registro histórico no hay compras declaradas (el cierre de día parte el 3-nov-2026): ahí se usan las boletas del Excel, igual que su columna "% convertibilidad".</p></div>`;
+    <p class="sub" style="margin-top:8px">% conversión = compras ÷ entradas. En los meses del registro histórico (antes del cierre de día, que parte el 3-nov-2026) las compras son las boletas del Excel, igual que su columna "% convertibilidad".</p></div>`;
   html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
     <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
     <th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th></tr></thead><tbody>
@@ -1607,7 +1612,7 @@ function tabClientes(r) {
       labels: filasMes.map(x => `${MESES[+x.m.slice(5) - 1]} ${x.m.slice(2, 4)}`),
       datasets: [
         { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas || null), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
-        { label: 'Compras declaradas', data: filasMes.map(x => x.compras - x.histBol || null), backgroundColor: COLORES[1], borderRadius: 3, order: 2 }, // en el histórico no hay compras declaradas (solo boletas)
+        { label: 'Compras declaradas', data: filasMes.map(x => x.compras || null), backgroundColor: COLORES[1], borderRadius: 3, order: 2 }, // histórico: las boletas del Excel hacen de compras (igual que la tabla)
         { label: 'Boletas Bicom', data: filasMes.map(x => x.bolMes || null), backgroundColor: COLORES[2], borderRadius: 3, order: 2 },
         { type: 'line', label: '% conversión', data: filasMes.map(x => (x.entradas ? x.compras / x.entradas : null)), yAxisID: 'y2', fmt: v => pct(v, 1),
           borderColor: '#B8322A', backgroundColor: '#B8322A', borderWidth: 2, pointRadius: 2, tension: .25, spanGaps: false, order: 0 },
