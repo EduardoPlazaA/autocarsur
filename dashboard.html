@@ -859,6 +859,19 @@ function grafico(id, cfg) {
     });
     ctx.restore();
   } });
+  if (cfg.diasMeta) { base.layout = { padding: { top: 18 } }; plugins.push({ id: 'diasMeta', afterDatasetsDraw(ch) { // días dentro de cada tramo y % sobre la meta arriba
+    const ctx = ch.ctx, [m0, m1] = [ch.getDatasetMeta(0), ch.getDatasetMeta(1)], [d0, d1] = [ch.data.datasets[0].data, ch.data.datasets[1].data];
+    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ch.data.labels.forEach((_, j) => {
+      [[m0, d0, '#fff'], [m1, d1, '#3A3C43']].forEach(([m, d, col]) => {
+        const el = m.data[j]; if (!el || !d[j] || Math.abs(el.base - el.y) < 14) return;
+        ctx.font = '700 12px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; ctx.fillStyle = col; ctx.fillText(String(d[j]), el.x, (el.y + el.base) / 2);
+      });
+      const tot = (d0[j] || 0) + (d1[j] || 0), top = m1.data[j] && d1[j] ? m1.data[j] : m0.data[j];
+      if (tot && top) { ctx.font = '700 11px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; ctx.fillStyle = '#2E8B4E'; ctx.textBaseline = 'bottom'; ctx.fillText(pct((d0[j] || 0) / tot, 0), top.x, top.y - 4); ctx.textBaseline = 'middle'; }
+    });
+    ctx.restore();
+  } }); }
   if (cfg.etiquetas) plugins.push({ id: 'etiquetas', afterDatasetsDraw(ch) { // valores sobre algunos puntos o barras
     const { ds = 0, indices, fmt = mm } = cfg.etiquetas, meta = ch.getDatasetMeta(ds), datos = ch.data.datasets[ds].data;
     const ctx = ch.ctx; ctx.save();
@@ -954,7 +967,7 @@ function tabResumen(r) {
     <div class="card"><h3>Evolución de ventas vs presupuesto</h3><div class="sub">${PER() === 'dia' ? 'Últimos 14 días' : PER() === 'ano' ? 'Por mes' : 'Por día'}</div>
       ${leyenda(localesVisibles().map(l => [l, colorLocal(l)]).concat([['Presupuesto', 'var(--meta)', 1]]))}<div class="lienzo"><canvas id="gEvo"></canvas></div></div>
     <div class="card"><h3>Acumulado vs meta</h3><div class="sub">${PER() === 'dia' ? 'Mes en curso' : 'Dentro del período'}</div>
-      ${leyenda([['Venta acumulada', COLORES[0], 1], ['Meta acumulada', 'var(--meta)', 1], ['Año anterior', '#C9CCD3', 1]])}<div class="lienzo"><canvas id="gAcu"></canvas></div></div>
+      ${leyenda([['Venta acumulada', COLORES[0], 1], ['Meta acumulada', '#C8312B', 1], ['Año anterior', '#D08A2E', 1]])}<div class="lienzo"><canvas id="gAcu"></canvas></div></div>
   </div>`;
 
   const porMesMeta = dm.n && entre(dm.ini, dm.fin) > 62;
@@ -967,7 +980,7 @@ function tabResumen(r) {
   // Días sobre el presupuesto
   if (dm.n && porMesMeta) {
     const ms = [...new Set(dm.dias.map(x => x.f.slice(0, 7)))];
-    grafico('gMeta', { apilado: true, fmt: ent, fmtEje: ent, data: { labels: ms.map(m => `${MESES[+m.slice(5) - 1]} ${m.slice(2, 4)}`), datasets: [
+    grafico('gMeta', { apilado: true, diasMeta: true, fmt: ent, fmtEje: ent, data: { labels: ms.map(m => `${MESES[+m.slice(5) - 1]} ${m.slice(2, 4)}`), datasets: [
       { label: 'Días sobre la meta', data: ms.map(m => dm.dias.filter(x => x.sobre && x.f.startsWith(m)).length), backgroundColor: '#2E8B4E', borderRadius: 3, stack: 'd' },
       { label: 'Días bajo la meta', data: ms.map(m => dm.dias.filter(x => !x.sobre && x.f.startsWith(m)).length), backgroundColor: '#C9CCD3', borderRadius: 3, stack: 'd' }] } });
   } else if (dm.n) {
@@ -1002,8 +1015,8 @@ function tabResumen(r) {
       labels: tA.map(x => x.et),
       datasets: [
         { label: 'Venta acumulada', data: ac.map(x => x.v), borderColor: COLORES[0], backgroundColor: 'rgba(36,66,94,.08)', fill: true, borderWidth: 2.5, pointRadius: 0, tension: .2 },
-        { label: 'Meta acumulada', data: ac.map(x => x.p), borderColor: '#8A8F98', borderDash: [5, 4], borderWidth: 2, pointRadius: 0 },
-        { label: 'Año anterior', data: ac.map(x => x.a), borderColor: '#C9CCD3', borderWidth: 2, pointRadius: 0, tension: .2 },
+        { label: 'Meta acumulada', data: ac.map(x => x.p), borderColor: '#C8312B', borderDash: [6, 4], borderWidth: 2, pointRadius: 0 },
+        { label: 'Año anterior', data: ac.map(x => x.a), borderColor: '#D08A2E', borderWidth: 2, pointRadius: 0, tension: .2 },
       ],
     },
   });
