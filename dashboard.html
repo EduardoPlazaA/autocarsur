@@ -876,7 +876,8 @@ function grafico(id, cfg) {
     const { ds = 0, indices, fmt = mm } = cfg.etiquetas, meta = ch.getDatasetMeta(ds), datos = ch.data.datasets[ds].data;
     const ctx = ch.ctx; ctx.save();
     ctx.font = '600 11px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; ctx.fillStyle = '#3A3C43'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    (indices || datos.map((_, i) => i)).forEach(i => { const el = meta.data[i]; if (el && datos[i] != null) ctx.fillText(fmt(datos[i]), el.x, el.y - 5); });
+    (indices || datos.map((_, i) => i)).forEach(i => { const el = meta.data[i]; if (!el || datos[i] == null) return;
+      ctx.font = `600 ${el.width && el.width < 16 ? 8 : el.width && el.width < 24 ? 9 : 11}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`; ctx.fillText(fmt(datos[i]), el.x, el.y - 5); });
     ctx.restore();
   } });
   E.charts.push(new Chart($(id), { type: cfg.tipo || 'bar', data: cfg.data, options: base, plugins }));
@@ -984,7 +985,7 @@ function tabResumen(r) {
       { label: 'Días sobre la meta', data: ms.map(m => dm.dias.filter(x => x.sobre && x.f.startsWith(m)).length), backgroundColor: '#2E8B4E', borderRadius: 3, stack: 'd' },
       { label: 'Días bajo la meta', data: ms.map(m => dm.dias.filter(x => !x.sobre && x.f.startsWith(m)).length), backgroundColor: '#C9CCD3', borderRadius: 3, stack: 'd' }] } });
   } else if (dm.n) {
-    grafico('gMeta', { fmt: v => pct(v / 100), fmtEje: v => v + '%', data: { labels: dm.dias.map(x => `${DIAS[dsem(x.f)]} ${+x.f.slice(8)}`), datasets: [
+    grafico('gMeta', { fmt: v => pct(v / 100), fmtEje: v => v + '%', etiquetas: { ds: 0, fmt: v => Math.round(v) + '%' }, data: { labels: dm.dias.map(x => `${DIAS[dsem(x.f)]} ${+x.f.slice(8)}`), datasets: [
       { label: 'Cumplimiento del día', data: dm.dias.map(x => Math.round(x.v / x.p * 1000) / 10), backgroundColor: dm.dias.map(x => (x.sobre ? '#2E8B4E' : '#C8312B')), borderRadius: 3, order: 2 },
       { type: 'line', label: 'Meta (100 %)', data: dm.dias.map(() => 100), borderColor: '#8A8F98', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, order: 1 }] } });
   }
