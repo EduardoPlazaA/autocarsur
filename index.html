@@ -238,6 +238,24 @@
 
   /* iOS: el campo de fecha tiene un ancho mínimo propio y se montaba sobre la columna vecina */
   input[type=date], input[type=time] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; min-height: 52px; }
+  select { -webkit-appearance: none; appearance: none; min-height: 52px; padding-right: 36px; background-repeat: no-repeat; background-position: right 12px center; background-size: 14px;
+           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232C2E34' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+  #pvProv { text-align: center; text-align-last: center; padding-left: 36px; } /* mismo alto que la fecha y el nombre centrado */
+  /* Mi tiempo › calendario mensual (grilla) y anual (12 meses) */
+  .ti-modo { display: flex; gap: 8px; margin-bottom: 12px; }
+  .ti-sem, .ti-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .ti-sem span { text-align: center; font-size: 11px; font-weight: 800; color: var(--mute); padding: 2px 0; }
+  .ti-cal .d { min-height: 58px; border-radius: 8px; background: var(--bg); padding: 3px; font-size: 11px; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+  .ti-cal .d.vacio { background: none; } .ti-cal .d.inh { background: #EBECEF; color: var(--mute); } .ti-cal .d.hoy { box-shadow: inset 0 0 0 2px var(--red); }
+  .ti-cal .d b { font-size: 11px; } .ti-cal .d i { font-style: normal; font-size: 10px; line-height: 1.25; padding: 1px 3px; border-radius: 4px; background: #2F5D62; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ti-cal .d i.pend { background: none; color: var(--amber); border: 1px dashed var(--amber); }
+  .ti-anio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media (min-width: 560px) { .ti-anio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .ti-mini { border: 1.5px solid var(--line); background: var(--paper); border-radius: 10px; padding: 8px; text-align: left; font: inherit; color: var(--black); }
+  .ti-mini b { display: block; font-size: 13px; margin-bottom: 4px; text-transform: capitalize; } .ti-mini small { color: var(--mute); font-size: 11px; }
+  .ti-mini .g { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+  .ti-mini .g span { aspect-ratio: 1; border-radius: 2px; background: var(--bg); } .ti-mini .g span.x { background: none; } .ti-mini .g span.inh { background: #E4E5E9; }
+  .ti-mini .g span.v1 { background: #8FB3B6; } .ti-mini .g span.v2 { background: #2F5D62; } .ti-mini .g span.p { box-shadow: inset 0 0 0 1.5px var(--amber); }
   input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value { text-align: left; }
   .pv-nuevo { border: 1.5px solid var(--black); border-radius: 12px; padding: 12px; margin: -4px 0 14px; }
   .pv-nuevo .field { margin-bottom: 10px; } .pv-nuevo .secondary, .pv-nuevo .primary { margin-top: 0; padding: 12px; font-size: 15px; }
@@ -701,7 +719,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V59';
+  const VERSION_APP = 'V60';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -2024,7 +2042,7 @@
   }
 
   /* ── Mi tiempo: vacaciones y días sueltos. Días hábiles = lunes a viernes sin feriados (el sábado no se descuenta, art. 69) ── */
-  const TI = { d: null, tab: '', tipo: 'VACACIONES', mesCal: '' };
+  const TI = { d: null, tab: '', tipo: 'VACACIONES', mesCal: '', calModo: 'mes', anioCal: '' };
   function abrirTiempo() { ver('v-tiempo'); if (TI.d) pintarTiempo(); cargarTiempo(); }
   function cargarTiempo() {
     servidor('obtenerMiTiempo', S.token).then(r => { TI.d = r; pintarTiempo(); })
@@ -2085,14 +2103,45 @@
       <h3 style="margin:18px 0 4px">Aprobadas por venir</h3>${prox.length ? prox.map(x => filaSol(x, true)).join('') : '<p class="tu-nota">Nada programado.</p>'}
       ${otras.length ? `<h3 style="margin:18px 0 4px">Anteriores</h3>${otras.map(x => filaSol(x, true)).join('')}` : ''}`;
   }
+  /* Calendario del equipo: Mes (grilla con nombres) o Año (12 meses en miniatura; tocar un mes lo abre) */
+  const enDia = f => TI.d.todas.filter(s => (s.estado === 'APROBADA' || s.estado === 'PENDIENTE') && s.desde <= f && f <= s.hasta);
+  const nom1 = n => esc(String(n).split(' ')[0]);
+  const NOM_MES = m => new Date(m + '-15T12:00:00').toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
   function vistaCalendario() {
-    const d = TI.d, m = TI.mesCal || (TI.mesCal = d.hoy.slice(0, 7)), dias = [];
-    for (let f = m + '-01'; f.slice(0, 7) === m; f = sumarDia(f, 1)) {
-      const quien = d.todas.filter(s => (s.estado === 'APROBADA' || s.estado === 'PENDIENTE') && s.desde <= f && f <= s.hasta);
-      if (quien.length) dias.push(`<div class="ti-dia"><b>${esc(fDia(f))}</b>${habilTI(f) ? '' : ' <small style="color:var(--mute)">(no se descuenta)</small>'}<br>${quien.map(s => `<span class="${s.estado === 'PENDIENTE' ? 'pend' : ''}">${esc(s.nombre)}${s.estado === 'PENDIENTE' ? ' · por aprobar' : ''}</span>`).join('')}</div>`);
+    const d = TI.d, modo = TI.calModo;
+    const sw = `<div class="chips ti-modo"><button type="button" data-timodo="mes"${modo === 'mes' ? ' class="on"' : ''}>Mes</button><button type="button" data-timodo="ano"${modo === 'ano' ? ' class="on"' : ''}>Año</button></div>`;
+    return sw + (modo === 'ano' ? calAnio() : calMes()) + '<p class="ti-nota">Con borde punteado: pedidas, aún sin aprobar. En gris: sábados, domingos y feriados (no se descuentan).</p>';
+  }
+  function calMes() {
+    const d = TI.d, m = TI.mesCal || (TI.mesCal = d.hoy.slice(0, 7)), ini = m + '-01', pad = (new Date(ini + 'T12:00:00Z').getUTCDay() + 6) % 7, celdas = [], lista = [];
+    for (let i = 0; i < pad; i++) celdas.push('<div class="d vacio"></div>');
+    for (let f = ini; f.slice(0, 7) === m; f = sumarDia(f, 1)) {
+      const q = enDia(f);
+      celdas.push(`<div class="d${habilTI(f) ? '' : ' inh'}${f === d.hoy ? ' hoy' : ''}"><b>${+f.slice(8)}</b>${q.map(s => `<i class="${s.estado === 'PENDIENTE' ? 'pend' : ''}" title="${esc(s.nombre)}">${nom1(s.nombre)}</i>`).join('')}</div>`);
+      if (q.length) lista.push(`<div class="ti-dia"><b>${esc(fDia(f))}</b>${habilTI(f) ? '' : ' <small style="color:var(--mute)">(no se descuenta)</small>'}<br>${q.map(s => `<span class="${s.estado === 'PENDIENTE' ? 'pend' : ''}">${esc(s.nombre)}${s.estado === 'PENDIENTE' ? ' · por aprobar' : ''}</span>`).join('')}</div>`);
     }
     return `<div class="rs-nav"><button type="button" data-times="-1" aria-label="Mes anterior">‹</button><b>${esc(periodoTxt(m))}</b><button type="button" data-times="1" aria-label="Mes siguiente">›</button></div>
-      ${dias.length ? dias.join('') : '<div class="empty">Nadie de vacaciones este mes.</div>'}<p class="ti-nota">Con borde punteado: pedidas, aún sin aprobar.</p>`;
+      <div class="ti-sem">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(x => `<span>${x}</span>`).join('')}</div><div class="ti-cal">${celdas.join('')}</div>
+      ${lista.length ? `<h3 style="margin:16px 0 4px;font-size:15px">Detalle del mes</h3>${lista.join('')}` : '<div class="empty">Nadie de vacaciones este mes.</div>'}`;
+  }
+  function calAnio() {
+    const d = TI.d, a = TI.anioCal || (TI.anioCal = d.hoy.slice(0, 4)), por = {};
+    const meses = Array.from({ length: 12 }, (_, i) => `${a}-${String(i + 1).padStart(2, '0')}`).map(m => {
+      const ini = m + '-01', pad = (new Date(ini + 'T12:00:00Z').getUTCDay() + 6) % 7, cel = []; let dias = 0;
+      for (let i = 0; i < pad; i++) cel.push('<span class="x"></span>');
+      for (let f = ini; f.slice(0, 7) === m; f = sumarDia(f, 1)) {
+        const q = enDia(f), ap = q.filter(s => s.estado === 'APROBADA');
+        if (habilTI(f)) ap.forEach(s => { por[s.nombre] = (por[s.nombre] || 0) + 1; dias++; });
+        cel.push(`<span class="${habilTI(f) ? '' : 'inh '}${ap.length > 1 ? 'v2' : ap.length ? 'v1' : ''}${q.length > ap.length ? ' p' : ''}" title="${f}: ${esc(q.map(s => s.nombre).join(', '))}"></span>`);
+      }
+      return `<button type="button" class="ti-mini" data-timesab="${m}"><b>${esc(new Date(m + '-15T12:00:00').toLocaleDateString('es-CL', { month: 'long' }))}</b><div class="g">${cel.join('')}</div><small>${dias ? dias + ' día(s) hábil(es) aprobados' : '—'}</small></button>`;
+    });
+    const filas = Object.keys(por).sort((x, y) => x.localeCompare(y, 'es'));
+    return `<div class="rs-nav"><button type="button" data-tiano="-1" aria-label="Año anterior">‹</button><b>${a}</b><button type="button" data-tiano="1" aria-label="Año siguiente">›</button></div>
+      <div class="ti-anio">${meses.join('')}</div>
+      <h3 style="margin:16px 0 4px;font-size:15px">Días hábiles aprobados en ${a}</h3>
+      ${filas.length ? `<table class="ti-tabla"><tbody>${filas.map(n => `<tr><td>${esc(n)}</td><td><b>${por[n]}</b></td></tr>`).join('')}</tbody></table>` : '<p class="tu-nota">Nadie con vacaciones aprobadas este año.</p>'}
+      <p class="ti-nota">Color claro: una persona; oscuro: dos o más. Toca un mes para verlo en detalle.</p>`;
   }
   function vistaSaldos() {
     const e = TI.d.equipo;
@@ -2113,10 +2162,13 @@
   $('tiTabs').addEventListener('click', e => { const b = e.target.closest('[data-ti]'); if (b) { TI.tab = b.dataset.ti; pintarTiempo(); } });
   $('tiCont').addEventListener('change', e => { if (e.target.id === 'tiDesde' || e.target.id === 'tiHasta') { if (e.target.id === 'tiDesde' && $('tiHasta') && (!$('tiHasta').value || $('tiHasta').value < e.target.value)) $('tiHasta').value = e.target.value; previaTI(); } });
   $('tiCont').addEventListener('click', e => {
-    const b = e.target.closest('[data-tit],[data-times],[data-tires],#tiEnviar');
+    const b = e.target.closest('[data-tit],[data-times],[data-timodo],[data-tiano],[data-timesab],[data-tires],#tiEnviar');
     if (!b || !TI.d) return;
     if (b.dataset.tit) { TI.tipo = b.dataset.tit; return pintarTiempo(); }
     if (b.dataset.times) { TI.mesCal = mesMas(TI.mesCal, +b.dataset.times).slice(0, 7); return pintarTiempo(); }
+    if (b.dataset.timodo) { TI.calModo = b.dataset.timodo; if (TI.calModo === 'ano') TI.anioCal = (TI.mesCal || TI.d.hoy).slice(0, 4); return pintarTiempo(); }
+    if (b.dataset.tiano) { TI.anioCal = String(+TI.anioCal + +b.dataset.tiano); return pintarTiempo(); }
+    if (b.dataset.timesab) { TI.mesCal = b.dataset.timesab; TI.calModo = 'mes'; return pintarTiempo(); }
     if (b.dataset.tires) {
       const [accion, sid] = b.dataset.tires.split('|'), x = (TI.d.todas || TI.d.solicitudes).find(s => s.sid === sid) || TI.d.solicitudes.find(s => s.sid === sid);
       const nota = (document.querySelector(`[data-nota="${sid}"]`) || {}).value || '';

@@ -79,6 +79,8 @@
   .rango { font-weight: 700; color: var(--black); }
   .pers-et { font-size: 12px; color: var(--mute); font-weight: 600; }
   .pers-par { display: inline-flex; align-items: center; gap: 6px; }
+  #persTodo { background: var(--paper); color: var(--black); border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+  #persTodo:hover { border-color: var(--black); }
   @media (max-width: 640px) { #segPeriodo button { padding: 7px 9px; } #persBox { flex-wrap: wrap; } }
   .filtros .der { margin-left: auto; color: var(--mute); font-size: 12px; }
 
@@ -255,7 +257,7 @@
     <div class="nav hidden" id="persBox">
       <span class="pers-par"><label class="pers-et" for="persIni">Desde</label><input id="persIni" type="date"></span>
       <span class="pers-par"><label class="pers-et" for="persFin">Hasta</label><input id="persFin" type="date"></span>
-      <button type="button" class="btn-sec" id="persTodo" title="Desde el primer día con ventas hasta hoy">Toda la historia</button>
+      <button type="button" id="persTodo" title="Desde el primer día con ventas hasta hoy">Toda la historia</button>
     </div>
     <span class="rango" id="rango"></span>
     <select id="local"></select>
@@ -808,7 +810,7 @@ function grafico(id, cfg) {
     responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: 'index', intersect: false },
     plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => {
-      let t = `${c.dataset.label}: ${cfg.fmt ? cfg.fmt(c.raw) : clp(c.raw)}`;
+      const fmtS = c.dataset.fmt || cfg.fmt; let t = `${c.dataset.label}: ${fmtS ? fmtS(c.raw) : clp(c.raw)}`;
       if (cfg.pctApilado && (c.dataset.type || c.chart.config.type) === 'bar') { // peso del local en ese período
         const tot = c.chart.data.datasets.filter(d => (d.type || c.chart.config.type) === 'bar').reduce((s, d) => s + (+d.data[c.dataIndex] || 0), 0);
         if (tot) t += ` (${pct(c.raw / tot, 0)})`;
@@ -828,6 +830,7 @@ function grafico(id, cfg) {
       y: { beginAtZero: true, grid: { color: '#EEEFF2' }, border: { display: false }, ticks: { color: '#6B6F78', callback: v => (cfg.fmtEje || mm)(v) } },
     },
   };
+  if (cfg.y2) base.scales.y2 = { position: 'right', beginAtZero: true, suggestedMax: cfg.y2.max, grid: { display: false }, border: { display: false }, ticks: { color: '#B8322A', callback: v => cfg.y2.fmt(v) } };
   if (cfg.horizontal) { base.indexAxis = 'y'; [base.scales.x, base.scales.y] = [base.scales.y, base.scales.x]; base.scales.y.grid = { display: false }; }
   if (cfg.apilado) { base.scales.x.stacked = true; base.scales.y.stacked = true; }
   if (cfg.etiquetas) base.layout = { padding: { top: 16, right: 28 } }; // espacio para los valores escritos sobre el gráfico
@@ -1582,7 +1585,8 @@ function tabClientes(r) {
   const previo = m => clientes(sumarMeses(m + '-01', -12).slice(0, 7) + '-01', finMes(sumarMeses(m + '-01', -12)));
   html += `<div class="card" style="margin-bottom:14px"><h3>Entrada de clientes vs ventas</h3>
     <div class="sub">Por mes · ${E.local === 'TODOS' ? `todos los locales · ${R.iniHistCli ? `${fMes(R.iniHistCli.slice(0, 7))} a ${fMes(R.finHistCli.slice(0, 7))}: entradas y boletas del registro histórico (Excel AutoCarSur, sin separar por local) · ` : ''}` : esc(E.local) + ' · '}desde ${fCorta(R.primerCierre || corte)} ${(R.primerCierre || corte).slice(0, 4)}: entradas y compras según el cierre de día; boletas: todas las de Bicom del mes</div>
-    ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]]])}<div class="lienzo"><canvas id="gCli"></canvas></div></div>`;
+    ${leyenda([['Entradas de clientes', COLORES[0]], ['Compras declaradas', COLORES[1]], ['Boletas Bicom', COLORES[2]], ['% conversión (eje derecho)', '#B8322A', 1]])}<div class="lienzo"><canvas id="gCli"></canvas></div>
+    <p class="sub" style="margin-top:8px">% conversión = compras ÷ entradas. En el registro histórico no hay compras declaradas (el cierre de día parte el 3-nov-2026): ahí se usan las boletas del Excel, igual que su columna "% convertibilidad".</p></div>`;
   html += `<div class="card"><h3>Crecimiento de entradas</h3><div class="sub">¿Está entrando más gente a los locales? · la comparación con el año anterior aparece cuando haya un año de cierres</div>
     <div class="tabla"><table><thead><tr><th>Mes</th><th class="r">Entradas</th><th class="r">vs mes ant.</th><th class="r">vs año ant.</th><th class="r">Prom. diario</th>
     <th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th></tr></thead><tbody>
@@ -1598,13 +1602,15 @@ function tabClientes(r) {
   $('contenido').innerHTML = html;
 
   grafico('gCli', {
-    fmt: ent, fmtEje: ent, etiquetas: { ds: 0, fmt: ent },
+    fmt: ent, fmtEje: ent, etiquetas: { ds: 0, fmt: ent }, y2: { fmt: v => pct(v, 0), max: 1 },
     data: {
       labels: filasMes.map(x => `${MESES[+x.m.slice(5) - 1]} ${x.m.slice(2, 4)}`),
       datasets: [
         { label: 'Entradas de clientes', data: filasMes.map(x => x.entradas || null), backgroundColor: COLORES[0], borderRadius: 3, order: 2 },
         { label: 'Compras declaradas', data: filasMes.map(x => x.compras - x.histBol || null), backgroundColor: COLORES[1], borderRadius: 3, order: 2 }, // en el histórico no hay compras declaradas (solo boletas)
         { label: 'Boletas Bicom', data: filasMes.map(x => x.bolMes || null), backgroundColor: COLORES[2], borderRadius: 3, order: 2 },
+        { type: 'line', label: '% conversión', data: filasMes.map(x => (x.entradas ? x.compras / x.entradas : null)), yAxisID: 'y2', fmt: v => pct(v, 1),
+          borderColor: '#B8322A', backgroundColor: '#B8322A', borderWidth: 2, pointRadius: 2, tension: .25, spanGaps: false, order: 0 },
       ],
     },
   });
