@@ -295,6 +295,14 @@
   .ti-dia { border-top: 1px solid var(--line); padding: 8px 0; font-size: 14px; } .ti-dia b { text-transform: capitalize; }
   .ti-dia span { display: inline-block; margin: 4px 6px 0 0; padding: 3px 9px; border-radius: 999px; background: var(--bg); font-size: 13px; }
   .ti-dia span.pend { border: 1.5px dashed var(--amber); background: none; color: var(--amber); }
+  .saludo-dia { position: relative; margin: 12px 0 4px; padding: 14px 40px 14px 14px; border-radius: 14px; background: var(--red-tint); border-left: 4px solid var(--red); }
+  .saludo-dia b { display: block; font-size: 17px; margin-bottom: 4px; } .saludo-dia p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--steel); }
+  .saludo-dia .cerrar { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(0,0,0,.06); color: var(--steel); font-size: 14px; }
+  .saludo-dia.CUMPLE { background: linear-gradient(135deg, #FFF3D6, #FBE0EC); border-left-color: #E0A100; }
+  .saludo-dia.CUMPLE::after { content: '🎊'; position: absolute; right: 12px; bottom: 8px; font-size: 26px; opacity: .85; }
+  .saludo-dia.NAVIDAD { background: linear-gradient(135deg, #E7F3EA, #FBEAE9); border-left-color: #2E7D4F; }
+  .saludo-dia.ANO_NUEVO { background: linear-gradient(135deg, #1C1D21, #3A3420); border-left-color: #D4AF37; }
+  .saludo-dia.ANO_NUEVO b { color: #F4D77A; } .saludo-dia.ANO_NUEVO p { color: #E8E6DF; } .saludo-dia.ANO_NUEVO .cerrar { background: rgba(255,255,255,.12); color: #fff; }
   .row2 > * { min-width: 0; } .form-corr input[type=date], .form-corr input[type=time] { min-width: 0; padding-left: 8px; padding-right: 8px; }
   .masivo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1.5px dashed var(--steel); background: var(--paper);
                  border-radius: 12px; padding: 13px; font-weight: 800; font-size: 15px; color: var(--black); margin-bottom: 14px; }
@@ -477,6 +485,7 @@
         <div><h2 id="saludo">Hola</h2><div class="status" id="estado"><i></i><span>Sin marcas hoy</span></div></div>
         <div class="hello-acc"><div class="acc-links"><button class="link" id="btnPin" type="button">Mi PIN</button><button class="link" id="btnSalir" type="button">Salir</button></div><button type="button" class="act-btn hidden" id="btnAct">↻ Actualizar ventas</button></div>
       </div>
+      <div class="saludo-dia hidden" id="saludoDia" role="status"><button type="button" class="cerrar" id="sdCerrar" aria-label="Cerrar mensaje">✕</button><b id="sdTit"></b><p id="sdTxt"></p></div>
       <div class="local-pick" id="localPick" role="group" aria-label="Local"></div>
       <div class="franja hidden" id="franjaEfec" aria-label="Efectivo">
         <div id="fRetirar"><small>💵 Por retirar en locales</small><b>$0</b><em></em></div>
@@ -719,7 +728,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V60';
+  const VERSION_APP = 'V61';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1044,6 +1053,7 @@
     $('subTiempo').textContent = ti && ti.aprueba ? (nTi ? `${nTi} solicitud(es) por aprobar` : 'Vacaciones del equipo') : 'Vacaciones y días libres';
     $('badgeTiempo').textContent = nTi; $('badgeTiempo').classList.toggle('hidden', !nTi);
     pintarOperacion(e.operacion);
+    pintarSaludo(e.saludo);
     const av = $('avisoCierre'), cp = e.cierrePendiente;
     av.textContent = cp ? `El cierre de ayer (${fCorta(cp.fecha)}) de ${cp.local} quedó pendiente. Avisa a Felipe.` : ''; av.classList.toggle('hidden', !cp);
     // Perfiles sin marcaje (Config › SIN_MARCAJE): sin Entrada, Salida ni Cierre de día, ni estado de marcas ni selector de local
@@ -2192,6 +2202,16 @@
       modal('ok', fn === 'solicitarVacaciones' ? 'Solicitud enviada' : 'Listo', r.mensaje, r.fueraPlazo ? 'Quedó marcada fuera de plazo (menos de un mes de anticipación).' : '', [{ t: 'Listo', cls: 'dark' }]);
     }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
   }
+
+  /* ── Mensaje del día (lunes, fiestas de fin de año, cumpleaños): lo arma el servidor; cerrarlo lo oculta solo hoy ── */
+  function pintarSaludo(x) {
+    const c = $('saludoDia'), clave = x ? hoyTxt() + '|' + x.tipo : '';
+    c.classList.toggle('hidden', !x || store.get('acs_saludo_cerrado') === clave);
+    if (!x) return;
+    c.className = 'saludo-dia ' + x.tipo + (store.get('acs_saludo_cerrado') === clave ? ' hidden' : '');
+    $('sdTit').textContent = x.titulo; $('sdTxt').textContent = x.texto; c.dataset.clave = clave;
+  }
+  $('sdCerrar').addEventListener('click', () => { store.set('acs_saludo_cerrado', $('saludoDia').dataset.clave); $('saludoDia').classList.add('hidden'); });
 
   /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
   const hm = min => { const h = Math.floor(min / 60), m = min % 60; return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`; };
