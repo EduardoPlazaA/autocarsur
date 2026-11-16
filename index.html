@@ -235,6 +235,48 @@
   .marca .info { flex: 1; font-size: 12px; color: var(--mute); min-width: 0; }
   .marca button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 14px; color: var(--steel); }
   .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .acciones .secondary { margin-top: 12px; } .acciones .full { grid-column: 1 / -1; margin-top: 0; }
+
+  /* iOS: el campo de fecha tiene un ancho mínimo propio y se montaba sobre la columna vecina */
+  input[type=date], input[type=time] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; min-height: 52px; }
+  input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value { text-align: left; }
+  .pv-nuevo { border: 1.5px solid var(--black); border-radius: 12px; padding: 12px; margin: -4px 0 14px; }
+  .pv-nuevo .field { margin-bottom: 10px; } .pv-nuevo .secondary, .pv-nuevo .primary { margin-top: 0; padding: 12px; font-size: 15px; }
+  /* Horas extra y atrasos (Felipe) */
+  .hx-p { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; background: var(--bg); border: 1.5px solid transparent; border-radius: 10px; padding: 10px 12px; margin: 6px 0; color: var(--black); }
+  .hx-p.sel { border-color: var(--black); } .hx-p b { font-variant-numeric: tabular-nums; } .hx-p small { grid-column: 1 / -1; color: var(--mute); font-size: 12px; }
+  .hx-p .deuda { color: var(--amber); font-weight: 800; }
+  .hx-det { border: 1.5px solid var(--black); border-radius: 12px; padding: 12px; margin: 4px 0 12px; display: grid; gap: 10px; }
+  .hx-det h3 { margin: 0; font-size: 15px; } .hx-det .field { margin: 0; } .hx-det .primary, .hx-det .secondary { margin-top: 0; }
+  .hx-det .chips button { font-size: 13px; padding: 6px 10px; }
+  .hx-aj { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; background: var(--bg); border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+  .hx-aj small { grid-column: 1 / -1; color: var(--mute); font-size: 12px; } .hx-aj .acc { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .hx-aj .acc button, .ti-sol .acc button { border: 1.5px solid var(--line); background: var(--paper); border-radius: 8px; padding: 6px 10px; font-weight: 700; font-size: 13px; color: var(--steel); }
+  .hx-dias { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hx-dias th { text-align: left; color: var(--mute); font-weight: 700; padding: 4px; border-bottom: 1px solid var(--line); }
+  .hx-dias td { padding: 6px 4px; border-bottom: 1px solid var(--line); } .hx-dias tr[data-hxf] { cursor: pointer; }
+  .hx-dias .r { text-align: right; } .hx-dias .aj { color: var(--amber); font-weight: 700; }
+  .hx-hm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Mi tiempo */
+  .t-tiempo { background: #2F5D62; }
+  .ti-saldo { background: var(--bg); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .ti-saldo .big { font-size: 34px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .ti-saldo .fila { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .ti-saldo .fila:first-of-type { margin-top: 10px; } .ti-saldo .fila b { font-variant-numeric: tabular-nums; }
+  .ti-nota { color: var(--mute); font-size: 12px; margin: 8px 0 0; }
+  .ti-aviso { background: var(--amber-tint); color: var(--amber); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+  .ti-prev { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: -4px 0 14px; }
+  .ti-sol { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 4px; font-size: 14px; }
+  .ti-sol .cab { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .ti-sol small { color: var(--mute); } .ti-sol .acc { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .ti-sol .acc input { flex: 1 1 140px; padding: 8px 10px; font-size: 14px; min-height: 0; }
+  .ti-sol .acc .si { background: var(--green); border-color: var(--green); color: #fff; } .ti-sol .acc .no { color: var(--red); }
+  .est.pend { background: var(--amber-tint); color: var(--amber); } .est.ok { background: var(--green); color: #fff; } .est.rech { background: var(--red); color: #fff; }
+  .ti-tabla { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ti-tabla th { text-align: right; color: var(--mute); font-weight: 700; padding: 4px; border-bottom: 1px solid var(--line); } .ti-tabla th:first-child, .ti-tabla td:first-child { text-align: left; }
+  .ti-tabla td { text-align: right; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  .ti-dia { border-top: 1px solid var(--line); padding: 8px 0; font-size: 14px; } .ti-dia b { text-transform: capitalize; }
+  .ti-dia span { display: inline-block; margin: 4px 6px 0 0; padding: 3px 9px; border-radius: 999px; background: var(--bg); font-size: 13px; }
+  .ti-dia span.pend { border: 1.5px dashed var(--amber); background: none; color: var(--amber); }
   .row2 > * { min-width: 0; } .form-corr input[type=date], .form-corr input[type=time] { min-width: 0; padding-left: 8px; padding-right: 8px; }
   .masivo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1.5px dashed var(--steel); background: var(--paper);
                  border-radius: 12px; padding: 13px; font-weight: 800; font-size: 15px; color: var(--black); margin-bottom: 14px; }
@@ -468,6 +510,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
         <span>Turnos<small id="subTurnos">Mis turnos de la semana</small></span>
       </button>
+      <button class="tile t-tiempo hidden" id="tileTiempo" data-accion="TIEMPO" type="button">
+        <span class="badge hidden" id="badgeTiempo">0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3h5v5"/><path d="M21 3l-6 6"/></svg>
+        <span>Mi tiempo<small id="subTiempo">Vacaciones y días libres</small></span>
+      </button>
       <button class="tile t-efec hidden" id="tileEfec" data-accion="EFECTIVO" type="button">
         <span class="badge hidden" id="badgeEfec">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
@@ -568,8 +615,21 @@
     <button class="back" data-volver type="button">← Menú</button>
     <h2>Turnos</h2>
     <p class="sub" id="tuSub">Tus turnos de la semana</p>
-    <div class="rs-nav"><button type="button" id="tuAnt" aria-label="Semana anterior">‹</button><b id="tuEtiqueta"></b><button type="button" id="tuSig" aria-label="Semana siguiente">›</button></div>
-    <div id="tuCont"><div class="empty">Cargando…</div></div>
+    <div class="segtab hidden" id="tuVista" role="tablist"><button type="button" data-tv="semana" class="on">Semana</button><button type="button" data-tv="horas">Horas extra y atrasos</button></div>
+    <div id="tuSemana">
+      <div class="rs-nav"><button type="button" id="tuAnt" aria-label="Semana anterior">‹</button><b id="tuEtiqueta"></b><button type="button" id="tuSig" aria-label="Semana siguiente">›</button></div>
+      <div id="tuCont"><div class="empty">Cargando…</div></div>
+    </div>
+    <div id="tuHoras" class="hidden"></div>
+  </section>
+
+  <!-- Mi tiempo: vacaciones y días sueltos (cada trabajador pide; Felipe aprueba y ve todo) -->
+  <section id="v-tiempo" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Mi tiempo</h2>
+    <p class="sub" id="tiSub">Tus vacaciones y días libres</p>
+    <div class="segtab hidden" id="tiTabs" role="tablist"></div>
+    <div id="tiCont"><div class="empty">Cargando…</div></div>
   </section>
 
   <!-- 8. Mi PIN -->
@@ -641,7 +701,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V58';
+  const VERSION_APP = 'V59';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -757,7 +817,7 @@
   /* Vistas */
   function ver(id) {
     if (recargarEnMenu && id === 'v-menu') { location.reload(); return; }
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-tiempo', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -960,7 +1020,11 @@
     pintarEfectivoMenu(e.efectivo);
     pintarProvMenu(e.proveedores);
     $('tileTurnos').classList.toggle('hidden', !e.turnos);
-    $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Ver y cambiar los del equipo' : 'Mis turnos de la semana';
+    $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Turnos, horas extra y atrasos' : 'Mis turnos de la semana';
+    const ti = e.tiempo, nTi = ti && ti.aprueba ? ti.pendientes : 0;
+    $('tileTiempo').classList.toggle('hidden', !ti);
+    $('subTiempo').textContent = ti && ti.aprueba ? (nTi ? `${nTi} solicitud(es) por aprobar` : 'Vacaciones del equipo') : 'Vacaciones y días libres';
+    $('badgeTiempo').textContent = nTi; $('badgeTiempo').classList.toggle('hidden', !nTi);
     pintarOperacion(e.operacion);
     const av = $('avisoCierre'), cp = e.cierrePendiente;
     av.textContent = cp ? `El cierre de ayer (${fCorta(cp.fecha)}) de ${cp.local} quedó pendiente. Avisa a Felipe.` : ''; av.classList.toggle('hidden', !cp);
@@ -1011,6 +1075,7 @@
     else if (a === 'EFECTIVO') abrirEfectivo();
     else if (a === 'PROVEEDORES') abrirProv();
     else if (a === 'TURNOS') abrirTurnos();
+    else if (a === 'TIEMPO') abrirTiempo();
     else if (a === 'CORREGIR') abrirCorr();
     else if (a === 'RESUMEN') abrirResumen();
     else abrirDocs();
@@ -1522,7 +1587,12 @@
     return `
       <div class="row2">
         <div class="field"><label for="pvFecha">Fecha de la factura</label><input type="date" id="pvFecha" value="${hoy}" max="${hoy}"></div>
-        <div class="field"><label for="pvProv">Proveedor</label><select id="pvProv"><option value="">Elegir…</option>${d.proveedores.map(p => `<option value="${esc(p[0])}">${esc(p[0])}</option>`).join('')}</select></div>
+        <div class="field"><label for="pvProv">Proveedor</label><select id="pvProv">${opcionesProv(d)}</select></div>
+      </div>
+      <div class="pv-nuevo hidden" id="pvNuevo">
+        <div class="field"><label for="pvNuevoNom">Nombre del proveedor nuevo</label><input id="pvNuevoNom" maxlength="60" autocomplete="off" placeholder="Ej.: Repuestos del Sur"></div>
+        <div class="field"><label>Plazo de pago</label><div class="chips">${[0, 15, 30, 45, 60, 90].map(p => `<button type="button" data-plazo="${p}">${p ? p + ' días' : 'Contado'}</button>`).join('')}</div></div>
+        <div class="row2"><button type="button" class="secondary" id="pvNuevoCancel">Cancelar</button><button type="button" class="primary dark" id="pvNuevoOk">Agregar</button></div>
       </div>
       <div class="pv-info hidden" id="pvPlazo"></div>
       <div class="row2">
@@ -1558,7 +1628,36 @@
       sumaPct();
     }));
     $('pvGuardar').addEventListener('click', () => confirmarCompra(d));
+    activarProvNuevo(d);
   }
+  /* Proveedor nuevo: última opción de la lista; nombre + plazo fijo de pago */
+  function activarProvNuevo(d) {
+    const caja = $('pvNuevo');
+    $('pvProv').addEventListener('change', () => {
+      const nuevo = $('pvProv').value === '__nuevo'; caja.classList.toggle('hidden', !nuevo);
+      if (nuevo) { $('pvNuevoNom').value = ''; PV.plazoNuevo = null; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.remove('on')); $('pvNuevoNom').focus(); }
+    });
+    caja.querySelectorAll('[data-plazo]').forEach(b => b.addEventListener('click', () => { PV.plazoNuevo = +b.dataset.plazo; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.toggle('on', x === b)); }));
+    $('pvNuevoCancel').addEventListener('click', () => { caja.classList.add('hidden'); $('pvProv').value = ''; infoProv(d); });
+    $('pvNuevoOk').addEventListener('click', () => {
+      const nombre = $('pvNuevoNom').value.trim();
+      if (nombre.length < 2) return modal('err', 'Falta el nombre', 'Escribe el nombre del proveedor.', '', [{ t: 'Entendido', cls: 'dark' }]);
+      if (PV.plazoNuevo == null) return modal('err', 'Falta el plazo', 'Elige en cuántos días se le paga (contado = 0 días).', '', [{ t: 'Entendido', cls: 'dark' }]);
+      const b = $('pvNuevoOk'); b.disabled = true;
+      api('agregarProveedor', S.token, { nombre, plazo: PV.plazoNuevo, idEnvio: nuevoId() }).then(r => {
+        b.disabled = false;
+        const elegir = r.proveedor || r.existe;
+        if (r.datos) { d.proveedores = r.datos.proveedores; d.facturas = r.datos.facturas; }
+        if (elegir) {
+          $('pvProv').innerHTML = opcionesProv(d); $('pvProv').value = elegir; caja.classList.add('hidden'); infoProv(d); revisarDup(d);
+        }
+        if (!r.ok) return modal('err', r.existe ? 'Ya existe' : 'No se pudo agregar', r.error, r.existe ? 'Lo dejé elegido en la lista.' : '', [{ t: 'Entendido', cls: 'dark' }]);
+        modal('ok', 'Proveedor agregado', r.mensaje, 'Ya quedó elegido en esta compra.', [{ t: 'Listo', cls: 'dark' }]);
+      }).catch(x => { b.disabled = false; if (!sesionError(x)) modal('err', 'No se pudo agregar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+    });
+  }
+  const opcionesProv = d => `<option value="">Elegir…</option>${d.proveedores.map(p => `<option value="${esc(p[0])}">${esc(p[0])}</option>`).join('')}${d.registra ? '<option value="__nuevo">+ Agregar proveedor nuevo…</option>' : ''}`;
+
   const pctsMixta = () => { const o = {}; document.querySelectorAll('[data-pct]').forEach(i => { const n = Number(i.value.replace(',', '.')); if (n > 0) o[i.dataset.pct] = n; }); return o; };
   function sumaPct() { const t = Object.values(pctsMixta()).reduce((s, x) => s + x, 0); $('pvSuma').textContent = `Suma: ${String(Math.round(t * 10) / 10).replace('.', ',')} %${Math.abs(t - 100) < 0.05 ? ' ✓' : ' (debe dar 100 %)'}`; }
   function infoProv(d) {
@@ -1746,8 +1845,8 @@
   }
 
   /* ── Turnos: semana proyectada del ciclo de 14 días. Felipe/Eduardo tocan un turno (o a alguien libre) y lo cambian solo ese día ── */
-  const TU = { datos: null, abierto: null };
-  function abrirTurnos() { ver('v-turnos'); TU.abierto = null; if (TU.datos) pintarTurnos(); cargarTurnos(''); }
+  const TU = { datos: null, abierto: null, vista: 'semana' };
+  function abrirTurnos() { ver('v-turnos'); TU.abierto = null; vistaTurnos('semana'); if (TU.datos) pintarTurnos(); cargarTurnos(''); }
   function cargarTurnos(desde) {
     if (!TU.datos || desde) $('tuCont').innerHTML = '<div class="empty">Cargando…</div>';
     servidor('obtenerTurnos', S.token, desde).then(r => { TU.datos = r; TU.abierto = null; pintarTurnos(); })
@@ -1758,19 +1857,20 @@
   const fSem = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
   function pintarTurnos() {
     const d = TU.datos, ed = d.edita;
-    $('tuSub').textContent = ed ? 'Toca un turno o a alguien libre para cambiar solo ese día' : 'Tus turnos de la semana';
+    $('tuSub').textContent = ed ? (TU.vista === 'horas' ? 'Horas extra y atrasos del equipo, mes a mes' : 'Toca un turno o a alguien libre para cambiar solo ese día') : 'Tus turnos de la semana';
+    $('tuVista').classList.toggle('hidden', !ed);
     $('tuEtiqueta').textContent = `${fSem(d.desde)} al ${fSem(sumarDia(d.desde, 6))}`;
     $('tuCont').innerHTML = resumenHorasTurnos(d) + d.dias.map(dia => {
       const hoy = dia.f === d.hoy, cab = `<div class="tu-fecha">${esc(fDia(dia.f))}${hoy ? ' · hoy' : ''}${dia.feriado ? ` <span class="est venc">Feriado: ${esc(dia.feriado)}</span>` : ''}</div>`;
       if (!ed) {
         const t = dia.turnos[0], p = t || dia.libres[0] || {};
-        return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}<div class="tu-det">${t ? `<b>${t.e} a ${t.s}</b><small>${esc(t.l)}</small>` : '<b class="libre">Libre</b>'}
+        return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}<div class="tu-det">${t ? `<b>${t.e} a ${t.s}</b><small>${esc(t.l)}</small>` : p.vac ? '<b class="libre">🌴 Vacaciones</b>' : '<b class="libre">Libre</b>'}
           ${p.cambio ? '<span class="est">Cambiado</span>' : ''}</div>${p.cambio && p.motivo ? `<div class="tu-nota">${esc(p.motivo)}</div>` : ''}</div>`;
       }
       const sel = id => TU.abierto && TU.abierto.f === dia.f && TU.abierto.id === id ? ' sel' : '';
       return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}
         ${dia.turnos.length ? dia.turnos.map(t => `<button type="button" class="tu-p${t.cambio ? ' cambio' : ''}${sel(t.id)}" data-tu="${dia.f}|${esc(t.id)}"><span>${esc(t.nombre)}</span><b>${t.e} a ${t.s}</b><small>${esc(t.l)}${t.cambio ? ' · cambiado' : ''}</small></button>`).join('') : '<p class="tu-nota">Nadie con turno</p>'}
-        ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" data-tu="${dia.f}|${esc(p.id)}">${esc(p.nombre)}</button>`).join('')}</div>` : ''}
+        ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" data-tu="${dia.f}|${esc(p.id)}">${p.vac ? '🌴 ' : ''}${esc(p.nombre)}</button>`).join('')}</div>` : ''}
         ${TU.abierto && TU.abierto.f === dia.f ? editorTurno(dia) : ''}</div>`;
     }).join('');
   }
@@ -1829,6 +1929,217 @@
     }).catch(x => { b.disabled = false; if (!sesionError(x)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
   });
   $('tuCont').addEventListener('change', e => { if (!TU.abierto) return; if (e.target.id === 'tuE') TU.abierto.e = e.target.value; if (e.target.id === 'tuS') TU.abierto.s = e.target.value; });
+
+
+  /* ── Turnos › Horas extra y atrasos (Felipe/Eduardo): calculadas con las marcas + ajustes (agregar, quitar, día completo, devolución de atraso) ── */
+  const HX = { datos: null, mes: '', abierto: null, form: null };
+  const TIPOS_HX = [['AGREGAR', 'Agregar horas extra'], ['QUITAR', 'Quitar horas extra'], ['DIA_COMPLETO', 'Día completo de horas extra'], ['DEVOLUCION', 'Devolución de atraso']];
+  const nomTipoHx = t => ({ AGREGAR: 'Horas extra agregadas', QUITAR: 'Horas extra quitadas', DIA_COMPLETO: 'Día completo de horas extra', DEVOLUCION: 'Atraso devuelto' }[t] || t);
+  const hm0 = m => (m ? hm(m) : '—');
+  function vistaTurnos(v) {
+    TU.vista = v;
+    document.querySelectorAll('#tuVista [data-tv]').forEach(b => b.classList.toggle('on', b.dataset.tv === v));
+    $('tuSemana').classList.toggle('hidden', v !== 'semana'); $('tuHoras').classList.toggle('hidden', v !== 'horas');
+    if (TU.datos && TU.datos.edita) $('tuSub').textContent = v === 'horas' ? 'Horas extra y atrasos del equipo, mes a mes' : 'Toca un turno o a alguien libre para cambiar solo ese día';
+    if (v === 'horas') { if (HX.datos) pintarHoras(); cargarHoras(HX.mes || hoyTxt().slice(0, 7)); }
+  }
+  document.querySelectorAll('#tuVista [data-tv]').forEach(b => b.addEventListener('click', () => vistaTurnos(b.dataset.tv)));
+  function cargarHoras(mes) {
+    if (!HX.datos || HX.datos.mes !== mes) $('tuHoras').innerHTML = '<div class="empty">Cargando…</div>';
+    servidor('obtenerHorasEquipo', S.token, mes).then(r => { HX.datos = r; HX.mes = r.mes; pintarHoras(); })
+      .catch(e => { if (!sesionError(e)) $('tuHoras').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
+  }
+  function pintarHoras() {
+    const d = HX.datos, p = d.personas.find(x => x.id === HX.abierto);
+    $('tuHoras').innerHTML = `<div class="rs-nav"><button type="button" data-hxmes="-1" aria-label="Mes anterior">‹</button><b>${esc(periodoTxt(d.mes))}</b>
+      <button type="button" data-hxmes="1" aria-label="Mes siguiente"${d.mes >= d.hoy.slice(0, 7) ? ' disabled' : ''}>›</button></div>
+      <p class="tu-nota" style="margin:0 0 8px">Se calculan con las marcas (desde ${d.tolerancia} min fuera del turno). Toca a una persona para agregar, quitar o modificar horas extra, darle un día completo o anotar atraso devuelto.</p>
+      ${d.personas.length ? d.personas.map(x => `<button type="button" class="hx-p${x.id === HX.abierto ? ' sel' : ''}" data-hxp="${esc(x.id)}"><span>${esc(x.nombre)}</span><b>${x.extra ? hm(x.extra) : '0 h'} extra</b>
+        <small>Atrasos del mes ${hm0(x.atraso)}${x.devuelto ? ` · devuelto ${hm(x.devuelto)}` : ''} · <span class="${x.porDevolver ? 'deuda' : ''}">por devolver ${hm0(x.porDevolver)}</span>${x.ajustes.length ? ` · ${x.ajustes.length} ajuste(s)` : ''}</small></button>
+        ${x.id === HX.abierto ? detalleHoras(x) : ''}`).join('') : '<div class="empty">Nadie con turnos.</div>'}`;
+    if (p && HX.form) $('hxMot').value = HX.form.motivo || '';
+  }
+  function detalleHoras(p) {
+    const f = HX.form || (HX.form = { tipo: 'AGREGAR', fecha: '', h: '', m: '0', motivo: '', reemplaza: '' });
+    const maxF = HX.datos.mes === HX.datos.hoy.slice(0, 7) ? HX.datos.hoy : finDeMes(HX.datos.mes);
+    return `<div class="hx-det" id="hxDet">
+      <h3>${f.reemplaza ? 'Modificar ajuste' : 'Nuevo ajuste'} · ${esc(p.nombre)}</h3>
+      <div class="chips" id="hxTipo">${TIPOS_HX.map(([k, t]) => `<button type="button" data-hxt="${k}"${f.tipo === k ? ' class="on"' : ''}>${t}</button>`).join('')}</div>
+      <div class="field"><label for="hxF">Día</label><input type="date" id="hxF" value="${f.fecha}" min="${HX.datos.mes}-01" max="${maxF}"></div>
+      <div class="hx-hm"><div class="field"><label for="hxH">Horas</label><input id="hxH" inputmode="numeric" maxlength="2" placeholder="0" value="${f.h}"></div>
+        <div class="field"><label for="hxM">Minutos</label><select id="hxM">${[0, 5, 10, 15, 20, 30, 40, 45, 50].map(m => `<option${String(m) === String(f.m) ? ' selected' : ''}>${m}</option>`).join('')}</select></div></div>
+      <div class="field"><label for="hxMot">Motivo</label><input id="hxMot" maxlength="200" autocomplete="off" placeholder="${f.tipo === 'DEVOLUCION' ? 'Ej.: se quedó 30 min después del cierre' : 'Ej.: inventario autorizado por Felipe'}"></div>
+      <button type="button" class="primary dark" id="hxGuardar">${f.reemplaza ? 'Guardar cambio' : 'Guardar ajuste'}</button>
+      ${f.reemplaza ? '<button type="button" class="secondary" id="hxCancelar">Cancelar la modificación</button>' : ''}
+      ${p.ajustes.length ? `<b style="font-size:14px">Ajustes del mes</b>${p.ajustes.map(a => `<div class="hx-aj"><span>${esc(fDia(a.f))} · ${esc(nomTipoHx(a.tipo))}</span><b>${a.tipo === 'QUITAR' ? '−' : a.tipo === 'DEVOLUCION' ? '' : '+'}${hm(a.min)}</b>
+        <small>${esc(a.motivo)} · ${esc(a.por)} ${esc(a.el)}</small><div class="acc"><button type="button" data-hxed="${esc(a.aid)}">Modificar</button><button type="button" data-hxan="${esc(a.aid)}">Quitar</button></div></div>`).join('')}` : ''}
+      <b style="font-size:14px">Días del mes</b>
+      ${p.dias.length ? `<table class="hx-dias"><thead><tr><th>Día</th><th>Turno · marcas</th><th class="r">Extra</th><th class="r">Atraso</th></tr></thead><tbody>
+        ${p.dias.map(x => `<tr data-hxf="${x[0]}"><td>${esc(fDia(x[0]))}</td><td>${x[1] ? `${x[1]}–${x[2]}` : 'sin turno'}${x[3] ? ` · ${x[3]}–${x[4] || '?'}` : x[10] === 'libre' ? ' · libre' : ''}</td>
+          <td class="r">${x[7] !== x[6] ? `<span class="aj">${hm0(x[7])}</span><br><small>calc. ${hm0(x[6])}</small>` : hm0(x[7])}</td><td class="r">${hm0(x[8])}${x[9] ? `<br><small>dev. ${hm(x[9])}</small>` : ''}</td></tr>`).join('')}</tbody></table>
+        <p class="tu-nota" style="margin:0">Toca un día para usarlo en el ajuste.</p>` : '<p class="tu-nota" style="margin:0">Sin días con turno o marcas este mes.</p>'}
+    </div>`;
+  }
+  const finDeMes = m => sumarDia(mesMas(m, 1), -1);
+  function leerFormHx() { const f = HX.form; if (!f || !$('hxF')) return; f.fecha = $('hxF').value; f.h = $('hxH').value.replace(/\D/g, ''); f.m = $('hxM').value; f.motivo = $('hxMot').value; }
+  /* Día completo: por defecto, el largo del turno de ese día (o lo trabajado; si no hay nada, 8 h) */
+  function sugerirDiaCompleto() {
+    const p = HX.datos.personas.find(x => x.id === HX.abierto), f = HX.form; if (!p || f.tipo !== 'DIA_COMPLETO' || !f.fecha) return;
+    const x = p.dias.find(y => y[0] === f.fecha), min = x && x[1] && x[2] ? minHM(x[2]) - minHM(x[1]) : x && x[5] ? x[5] : 480;
+    f.h = String(Math.floor(min / 60)); f.m = String([0, 5, 10, 15, 20, 30, 40, 45, 50].reduce((a, b) => (Math.abs(b - min % 60) < Math.abs(a - min % 60) ? b : a), 0));
+  }
+  $('tuHoras').addEventListener('click', e => {
+    const b = e.target.closest('[data-hxmes],[data-hxp],[data-hxt],[data-hxf],[data-hxed],[data-hxan],#hxGuardar,#hxCancelar');
+    if (!b || !HX.datos) return;
+    if (b.dataset.hxmes) { HX.abierto = null; HX.form = null; return cargarHoras(mesMas(HX.datos.mes, +b.dataset.hxmes).slice(0, 7)); }
+    if (b.dataset.hxp) { HX.abierto = HX.abierto === b.dataset.hxp ? null : b.dataset.hxp; HX.form = null; pintarHoras(); if ($('hxDet') && $('hxDet').scrollIntoView) $('hxDet').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+    leerFormHx();
+    if (b.dataset.hxt) { HX.form.tipo = b.dataset.hxt; sugerirDiaCompleto(); return pintarHoras(); }
+    if (b.dataset.hxf) { HX.form.fecha = b.dataset.hxf; sugerirDiaCompleto(); pintarHoras(); if ($('hxF')) $('hxF').focus(); return; }
+    if (b.id === 'hxCancelar') { HX.form = null; return pintarHoras(); }
+    const p = HX.datos.personas.find(x => x.id === HX.abierto);
+    if (b.dataset.hxed) {
+      const a = p.ajustes.find(x => x.aid === b.dataset.hxed);
+      HX.form = { tipo: a.tipo, fecha: a.f, h: String(Math.floor(a.min / 60)), m: String(a.min % 60), motivo: a.motivo, reemplaza: a.aid };
+      pintarHoras(); if ($('hxDet') && $('hxDet').scrollIntoView) $('hxDet').scrollIntoView({ block: 'start', behavior: 'smooth' }); return;
+    }
+    if (b.dataset.hxan) {
+      const a = p.ajustes.find(x => x.aid === b.dataset.hxan);
+      return modal('ask', '¿Quitar este ajuste?', `${p.nombre} · ${fDia(a.f)} · ${nomTipoHx(a.tipo)} ${hm(a.min)}`, 'Vuelve a contar lo calculado con las marcas.', [
+        { t: 'Quitar ajuste', cls: 'dark', fn: () => enviarHx('anularAjusteHoras', { aid: a.aid, mes: HX.datos.mes, idEnvio: nuevoId() }) }, { t: 'Cancelar', sec: true }]);
+    }
+    const f = HX.form, min = (Number(f.h) || 0) * 60 + (Number(f.m) || 0);
+    if (!f.fecha) return modal('err', 'Falta el día', 'Elige el día del ajuste.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    if (!min) return modal('err', 'Faltan las horas', 'Indica cuántas horas o minutos.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    if (f.motivo.trim().length < 3) return modal('err', 'Falta el motivo', 'Escribe el motivo del ajuste.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    enviarHx('guardarAjusteHoras', { id: p.id, fecha: f.fecha, tipo: f.tipo, minutos: min, motivo: f.motivo.trim(), reemplaza: f.reemplaza, idEnvio: nuevoId() });
+  });
+  function enviarHx(fn, datos) {
+    api(fn, S.token, datos).then(r => {
+      if (r.datos) { HX.datos = r.datos; HX.mes = r.datos.mes; }
+      if (!r.ok) { pintarHoras(); return modal('err', 'No se pudo guardar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]); }
+      HX.form = null; pintarHoras();
+      modal('ok', 'Listo', r.mensaje, 'Se ve en el resumen del mes y en Mi resumen de la persona.', [{ t: 'Listo', cls: 'dark' }]);
+    }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+  }
+
+  /* ── Mi tiempo: vacaciones y días sueltos. Días hábiles = lunes a viernes sin feriados (el sábado no se descuenta, art. 69) ── */
+  const TI = { d: null, tab: '', tipo: 'VACACIONES', mesCal: '' };
+  function abrirTiempo() { ver('v-tiempo'); if (TI.d) pintarTiempo(); cargarTiempo(); }
+  function cargarTiempo() {
+    servidor('obtenerMiTiempo', S.token).then(r => { TI.d = r; pintarTiempo(); })
+      .catch(e => { if (!sesionError(e)) $('tiCont').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
+  }
+  const numDias = x => String(Math.round(x * 100) / 100).replace('.', ',');
+  const habilTI = f => { const w = new Date(f + 'T12:00:00Z').getUTCDay(); return w >= 1 && w <= 5 && !TI.d.feriados.includes(f); };
+  const habilesTI = (a, b) => { let n = 0; for (let f = a; f <= b; f = sumarDia(f, 1)) if (habilTI(f)) n++; return n; };
+  const diasEntre = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);
+  const ESTADO_TI = { PENDIENTE: ['pend', 'Pendiente de aprobación'], APROBADA: ['ok', 'Aprobada'], RECHAZADA: ['rech', 'Rechazada'], ANULADA: ['', 'Anulada'] };
+  const rangoTI = s => s.desde === s.hasta ? fDia(s.desde) : `${fDia(s.desde)} al ${fDia(s.hasta)}`;
+  function pintarTiempo() {
+    const d = TI.d, tabs = [];
+    if (d.propio) tabs.push(['mio', 'Mis vacaciones']);
+    if (d.aprueba) { const n = d.todas.filter(s => s.estado === 'PENDIENTE').length; tabs.push(['sol', 'Solicitudes' + (n ? ` <span class="cuenta">${n}</span>` : '')], ['cal', 'Calendario'], ['saldos', 'Saldos']); }
+    if (!tabs.some(t => t[0] === TI.tab)) TI.tab = d.aprueba && d.todas.some(s => s.estado === 'PENDIENTE') ? 'sol' : tabs[0][0];
+    $('tiTabs').classList.toggle('hidden', tabs.length < 2);
+    $('tiTabs').innerHTML = tabs.map(([k, t]) => `<button type="button" data-ti="${k}"${k === TI.tab ? ' class="on"' : ''}>${t}</button>`).join('');
+    $('tiSub').textContent = d.aprueba ? 'Vacaciones y días libres del equipo: tú apruebas' : 'Tus vacaciones y días libres';
+    $('tiCont').innerHTML = { mio: vistaMio, sol: vistaSolicitudes, cal: vistaCalendario, saldos: vistaSaldos }[TI.tab]();
+    if (TI.tab === 'mio') previaTI();
+  }
+  function vistaMio() {
+    const d = TI.d, s = d.saldo, hoy = d.hoy, min = sumarDia(hoy, 1);
+    return `<div class="ti-saldo"><small style="color:var(--mute);font-weight:700">Te quedan</small><div class="big">${numDias(s.disponible)} días hábiles</div>
+      <div class="fila"><span>Saldo a hoy</span><b>${numDias(s.saldo)}</b></div>
+      ${s.pendientes ? `<div class="fila"><span>Pedidos, esperando aprobación</span><b>− ${numDias(s.pendientes)}</b></div>` : ''}
+      ${s.reservados ? `<div class="fila"><span>Aprobados, aún por tomar</span><b>− ${numDias(s.reservados)}</b></div>` : ''}
+      ${s.usados ? `<div class="fila"><span>Ya tomados (desde ${esc(fDia(s.fechaInicial))})</span><b>${numDias(s.usados)}</b></div>` : ''}
+      <p class="ti-nota">Se suman ${numDias(d.reglas.porMes)} días hábiles el día 1 de cada mes (15 al año). Se pueden acumular hasta ${d.reglas.tope} días (2 períodos). Sábados, domingos y feriados no se descuentan.</p></div>
+      ${s.alTope ? `<p class="ti-aviso">Llegaste al tope de ${d.reglas.tope} días: mientras no tomes vacaciones ya no se suman más. Conversa con Felipe para programarlas.</p>` : ''}
+      <h3 style="margin:0 0 10px">Nueva solicitud</h3>
+      <div class="chips" id="tiTipo" style="margin-bottom:14px"><button type="button" data-tit="VACACIONES"${TI.tipo === 'VACACIONES' ? ' class="on"' : ''}>Vacaciones</button><button type="button" data-tit="DIA"${TI.tipo === 'DIA' ? ' class="on"' : ''}>Día suelto</button></div>
+      <div class="${TI.tipo === 'DIA' ? '' : 'row2'}"><div class="field"><label for="tiDesde">${TI.tipo === 'DIA' ? 'Día' : 'Desde'}</label><input type="date" id="tiDesde" min="${min}"></div>
+        ${TI.tipo === 'DIA' ? '' : `<div class="field"><label for="tiHasta">Hasta</label><input type="date" id="tiHasta" min="${min}"></div>`}</div>
+      <div class="ti-prev hidden" id="tiPrev"></div>
+      <div class="field"><label for="tiCom">Comentario <span class="opt">(opcional)</span></label><input id="tiCom" maxlength="200" autocomplete="off" placeholder="Ej.: viaje familiar"></div>
+      <button type="button" class="primary dark" id="tiEnviar">Enviar solicitud</button>
+      <p class="ti-nota">Pide con al menos ${d.reglas.anticipacion} días (un mes) de anticipación. Felipe aprueba.</p>
+      <h3 style="margin:18px 0 4px">Mis solicitudes</h3>
+      ${d.solicitudes.length ? d.solicitudes.map(x => filaSol(x, false)).join('') : '<p class="tu-nota">Aún no tienes solicitudes.</p>'}`;
+  }
+  function filaSol(x, admin) {
+    const [cls, txt] = ESTADO_TI[x.estado] || ['', x.estado], quien = admin ? `<b>${esc(x.nombre)}</b> · ` : '';
+    const acc = admin
+      ? x.estado === 'PENDIENTE' ? `<div class="acc"><input data-nota="${esc(x.sid)}" maxlength="200" placeholder="Nota (opcional)" aria-label="Nota"><button type="button" class="si" data-tires="APROBAR|${esc(x.sid)}">Aprobar</button><button type="button" class="no" data-tires="RECHAZAR|${esc(x.sid)}">Rechazar</button></div>`
+        : x.estado === 'APROBADA' && x.hasta >= TI.d.hoy ? `<div class="acc"><button type="button" class="no" data-tires="ANULAR|${esc(x.sid)}">Anular</button></div>` : ''
+      : x.estado === 'PENDIENTE' ? `<div class="acc"><button type="button" class="no" data-tires="ANULAR|${esc(x.sid)}">Retirar solicitud</button></div>` : '';
+    const eq = admin && x.estado === 'PENDIENTE' ? (TI.d.equipo.find(p => p.id === x.id) || null) : null;
+    return `<div class="ti-sol"><div class="cab"><span>${quien}${x.tipo === 'DIA' ? 'Día suelto' : 'Vacaciones'} · ${esc(rangoTI(x))}</span><span class="est ${cls}">${txt}</span></div>
+      <small>${numDias(x.dias)} día(s) hábil(es) · pedida el ${esc(x.creada)}${x.fueraPlazo ? ` · <b style="color:var(--amber)">⚠ fuera de plazo (${x.anticipacion} días de anticipación)</b>` : ''}${eq ? ` · le quedan ${numDias(eq.disponible)} (ya descontada)` : ''}</small>
+      ${x.comentario ? `<small>“${esc(x.comentario)}”</small>` : ''}${x.resueltaPor ? `<small>${txt} por ${esc(x.resueltaPor)} el ${esc(x.resueltaEl)}${x.nota ? ' · ' + esc(x.nota) : ''}</small>` : ''}${acc}</div>`;
+  }
+  function vistaSolicitudes() {
+    const t = TI.d.todas, pend = t.filter(s => s.estado === 'PENDIENTE'), prox = t.filter(s => s.estado === 'APROBADA' && s.hasta >= TI.d.hoy);
+    const otras = t.filter(s => !pend.includes(s) && !prox.includes(s)).reverse().slice(0, 20);
+    return `<h3 style="margin:0 0 4px">Esperando tu aprobación</h3>${pend.length ? pend.map(x => filaSol(x, true)).join('') : '<p class="tu-nota">No hay solicitudes pendientes 👌</p>'}
+      <h3 style="margin:18px 0 4px">Aprobadas por venir</h3>${prox.length ? prox.map(x => filaSol(x, true)).join('') : '<p class="tu-nota">Nada programado.</p>'}
+      ${otras.length ? `<h3 style="margin:18px 0 4px">Anteriores</h3>${otras.map(x => filaSol(x, true)).join('')}` : ''}`;
+  }
+  function vistaCalendario() {
+    const d = TI.d, m = TI.mesCal || (TI.mesCal = d.hoy.slice(0, 7)), dias = [];
+    for (let f = m + '-01'; f.slice(0, 7) === m; f = sumarDia(f, 1)) {
+      const quien = d.todas.filter(s => (s.estado === 'APROBADA' || s.estado === 'PENDIENTE') && s.desde <= f && f <= s.hasta);
+      if (quien.length) dias.push(`<div class="ti-dia"><b>${esc(fDia(f))}</b>${habilTI(f) ? '' : ' <small style="color:var(--mute)">(no se descuenta)</small>'}<br>${quien.map(s => `<span class="${s.estado === 'PENDIENTE' ? 'pend' : ''}">${esc(s.nombre)}${s.estado === 'PENDIENTE' ? ' · por aprobar' : ''}</span>`).join('')}</div>`);
+    }
+    return `<div class="rs-nav"><button type="button" data-times="-1" aria-label="Mes anterior">‹</button><b>${esc(periodoTxt(m))}</b><button type="button" data-times="1" aria-label="Mes siguiente">›</button></div>
+      ${dias.length ? dias.join('') : '<div class="empty">Nadie de vacaciones este mes.</div>'}<p class="ti-nota">Con borde punteado: pedidas, aún sin aprobar.</p>`;
+  }
+  function vistaSaldos() {
+    const e = TI.d.equipo;
+    return `<table class="ti-tabla"><thead><tr><th>Persona</th><th>Saldo hoy</th><th>Por aprobar</th><th>Aprobados por tomar</th><th>Disponible</th></tr></thead><tbody>
+      ${e.map(p => `<tr><td>${esc(p.nombre)}${p.alTope ? ' <span class="est venc">tope</span>' : ''}</td><td>${numDias(p.saldo)}</td><td>${p.pendientes ? numDias(p.pendientes) : '—'}</td><td>${p.reservados ? numDias(p.reservados) : '—'}</td><td><b>${numDias(p.disponible)}</b></td></tr>`).join('')}</tbody></table>
+      <p class="ti-nota">Días hábiles. Se suman ${numDias(TI.d.reglas.porMes)} cada mes, con tope de ${TI.d.reglas.tope} (2 períodos). El saldo inicial de cada persona se fija en la hoja Vacaciones_Saldos (hoy: 10 días provisorios).</p>`;
+  }
+  function previaTI() {
+    const a = $('tiDesde') && $('tiDesde').value, b = TI.tipo === 'DIA' ? a : $('tiHasta') && $('tiHasta').value, p = $('tiPrev');
+    if (!p) return;
+    if (!a || !b || b < a) { p.classList.add('hidden'); return; }
+    const n = habilesTI(a, b), queda = TI.d.saldo.disponible - n, ant = diasEntre(TI.d.hoy, a);
+    p.classList.remove('hidden');
+    p.innerHTML = n ? `Son <b>${n} día(s) hábil(es)</b> · te quedarían <b>${numDias(queda)}</b>${queda < 0 ? ' <b style="color:var(--red)">(no te alcanzan)</b>' : ''}` +
+      (ant < TI.d.reglas.anticipacion ? `<br><b style="color:var(--amber)">⚠ Faltan ${ant} día(s): se pide con menos de un mes de anticipación. Puedes enviarla, pero queda marcada fuera de plazo.</b>` : '')
+      : 'En esas fechas no hay días hábiles: no se descuenta nada.';
+  }
+  $('tiTabs').addEventListener('click', e => { const b = e.target.closest('[data-ti]'); if (b) { TI.tab = b.dataset.ti; pintarTiempo(); } });
+  $('tiCont').addEventListener('change', e => { if (e.target.id === 'tiDesde' || e.target.id === 'tiHasta') { if (e.target.id === 'tiDesde' && $('tiHasta') && (!$('tiHasta').value || $('tiHasta').value < e.target.value)) $('tiHasta').value = e.target.value; previaTI(); } });
+  $('tiCont').addEventListener('click', e => {
+    const b = e.target.closest('[data-tit],[data-times],[data-tires],#tiEnviar');
+    if (!b || !TI.d) return;
+    if (b.dataset.tit) { TI.tipo = b.dataset.tit; return pintarTiempo(); }
+    if (b.dataset.times) { TI.mesCal = mesMas(TI.mesCal, +b.dataset.times).slice(0, 7); return pintarTiempo(); }
+    if (b.dataset.tires) {
+      const [accion, sid] = b.dataset.tires.split('|'), x = (TI.d.todas || TI.d.solicitudes).find(s => s.sid === sid) || TI.d.solicitudes.find(s => s.sid === sid);
+      const nota = (document.querySelector(`[data-nota="${sid}"]`) || {}).value || '';
+      const titulo = { APROBAR: '¿Aprobar?', RECHAZAR: '¿Rechazar?', ANULAR: x.estado === 'PENDIENTE' ? '¿Retirar la solicitud?' : '¿Anular vacaciones aprobadas?' }[accion];
+      return modal('ask', titulo, `${x.nombre} · ${rangoTI(x)} · ${numDias(x.dias)} día(s) hábil(es)`, accion === 'ANULAR' ? 'Los días vuelven al saldo.' : '', [
+        { t: { APROBAR: 'Aprobar', RECHAZAR: 'Rechazar', ANULAR: 'Sí, anular' }[accion], cls: accion === 'APROBAR' ? 'green' : 'dark', fn: () => enviarTI('resolverVacaciones', { sid, accion, nota, idEnvio: nuevoId() }) }, { t: 'Cancelar', sec: true }]);
+    }
+    const a = $('tiDesde').value, h = TI.tipo === 'DIA' ? a : $('tiHasta').value;
+    if (!a || !h) return modal('err', 'Faltan las fechas', TI.tipo === 'DIA' ? 'Elige el día.' : 'Elige desde y hasta qué día.', '', [{ t: 'Entendido', cls: 'dark' }]);
+    const n = habilesTI(a, h > a ? h : a), ant = diasEntre(TI.d.hoy, a), fuera = ant < TI.d.reglas.anticipacion;
+    const datos = { tipo: TI.tipo, desde: a, hasta: h, comentario: $('tiCom').value.trim(), idEnvio: nuevoId() };
+    modal(fuera ? 'err' : 'ask', fuera ? 'Fuera de plazo' : '¿Enviar solicitud?', `${TI.tipo === 'DIA' ? 'Día suelto' : 'Vacaciones'} · ${rangoTI(datos)} · ${n} día(s) hábil(es)`,
+      fuera ? `Faltan ${ant} día(s) y la regla es pedir con un mes de anticipación. Se envía igual, marcada fuera de plazo, y Felipe decide.` : 'Queda pendiente de aprobación de Felipe.', [
+        { t: 'Enviar solicitud', cls: 'dark', fn: () => enviarTI('solicitarVacaciones', datos) }, { t: 'Cancelar', sec: true }]);
+  });
+  function enviarTI(fn, datos) {
+    api(fn, S.token, datos).then(r => {
+      if (r.datos) TI.d = r.datos;
+      pintarTiempo();
+      if (!r.ok) return modal('err', 'No se pudo guardar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+      modal('ok', fn === 'solicitarVacaciones' ? 'Solicitud enviada' : 'Listo', r.mensaje, r.fueraPlazo ? 'Quedó marcada fuera de plazo (menos de un mes de anticipación).' : '', [{ t: 'Listo', cls: 'dark' }]);
+    }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo guardar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+  }
 
   /* ── Resumen del mes: horas extra y marcas pendientes (solo quien tiene turnos) ── */
   const hm = min => { const h = Math.floor(min / 60), m = min % 60; return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`; };
