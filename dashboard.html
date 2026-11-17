@@ -273,7 +273,7 @@
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="compras">Compras</button><button data-t="clientes">Clientes</button><button data-t="remu">Remuneraciones</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="compras">Compras</button><button data-t="clientes">Clientes</button><button data-t="vacaciones">Vacaciones</button><button data-t="remu">Remuneraciones</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -744,7 +744,7 @@ function pintar() {
   E.rango = PER() === 'dia' ? { ini: sumar(r.ini, -13), fin: r.fin } : r; // el gráfico diario mira 14 días hacia atrás
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, compras: tabCompras, clientes: tabClientes, remu: tabRemu })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, compras: tabCompras, clientes: tabClientes, vacaciones: tabVacaciones, remu: tabRemu })[E.tab](r);
   etiquetarTablas();
   alinearTarjetas();
 }
@@ -1359,14 +1359,24 @@ function tabEquipo(r) {
   const todosAtr = R.atrasos || [];
   const atr = todosAtr.filter(a => a[0] >= r.ini && a[0] <= fin && esDe(a[1])).sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
   const atrHoy = todosAtr.filter(a => a[0] === R.hoy && esDe(a[1]));
-  const nuevo = nombre => ({ nombre, dias: new Set(), min: 0, cerradas: 0, ent: 0, sal: 0, abiertas: 0, fuera: 0, atrDias: 0, atrMin: 0 });
+  const nuevo = (nombre, id) => ({ nombre, id, dias: new Set(), min: 0, cerradas: 0, ent: 0, sal: 0, abiertas: 0, fuera: 0, atrDias: 0, atrMin: 0 });
   const per = {};
   js.forEach(j => {
-    const p = per[j.id] || (per[j.id] = nuevo(j.nombre));
+    const p = per[j.id] || (per[j.id] = nuevo(j.nombre, j.id));
     p.dias.add(j.f); p.ent += minutos(j.entrada);
     if (j.salida) { p.min += minutos(j.salida) - minutos(j.entrada); p.cerradas++; p.sal += minutos(j.salida); } else if (j.f < R.hoy) p.abiertas++;
   });
-  atr.forEach(a => { const p = per[a[1]] || (per[a[1]] = nuevo(a[2])); p.atrDias++; p.atrMin += a[6]; });
+  atr.forEach(a => { const p = per[a[1]] || (per[a[1]] = nuevo(a[2], a[1])); p.atrDias++; p.atrMin += a[6]; });
+
+  // Horas extra y devoluciones de atraso (con los ajustes de Felipe)
+  const hrs = (R.horas || []).filter(h => h[0] >= r.ini && h[0] <= fin && esDe(h[1]));
+  const ajs = (R.ajustesHoras || []).filter(a => a[0] >= r.ini && a[0] <= fin && esDe(a[1])).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  hrs.forEach(h => { const p = per[h[1]] || (per[h[1]] = nuevo(h[2], h[1])); p.heCalc = (p.heCalc || 0) + h[3]; p.heAut = (p.heAut || 0) + h[4]; p.dev = (p.dev || 0) + h[5]; if (h[4] > 0) p.heDias = (p.heDias || 0) + 1; });
+  const devTot = hrs.reduce((s, h) => s + h[5], 0), heCalc = hrs.reduce((s, h) => s + h[3], 0), heAut = hrs.reduce((s, h) => s + h[4], 0);
+  // Por devolver: todos los atrasos registrados menos todo lo devuelto (no solo el período)
+  const porDev = {}; todosAtr.forEach(a => { porDev[a[1]] = (porDev[a[1]] || 0) + a[6]; }); (R.horas || []).forEach(h => { porDev[h[1]] = (porDev[h[1]] || 0) - h[5]; });
+  const porDevolver = id => Math.max(0, porDev[id] || 0);
+  const porDevTot = Object.keys(porDev).filter(id => esDe(id)).reduce((s, id) => s + porDevolver(id), 0);
   const fuera = marcasRango(r.ini, r.fin).filter(m => m.ubic === 'FUERA DE RANGO' && esDe(m.id));
   fuera.forEach(m => { if (per[m.id]) per[m.id].fuera++; });
   const filas = Object.values(per).sort((a, b) => b.atrMin - a.atrMin || b.min - a.min);
@@ -1382,9 +1392,15 @@ function tabEquipo(r) {
     <span class="sub" style="margin:0">Atraso = entrada ${tol} min o más después del inicio del turno</span></div>`;
   html += '<div class="grid kpis fila" style="--n:4">';
   html += kpi('Días con atraso', ent(atr.length), atr.length ? `${personasAtr} persona(s) · ${jornadasN ? pct(atr.length / jornadasN) + ' de las jornadas' : ''}` : '<span class="chip up">Sin atrasos en el período</span>');
-  html += kpi('Atraso acumulado', atr.length ? hm(totAtr) : '0 h 00 min', atr.length ? `Promedio ${Math.round(totAtr / atr.length)} min por atraso` : '—');
+  html += kpi('Atraso acumulado', atr.length ? hm(totAtr) : '0 h 00 min', (atr.length ? `Promedio ${Math.round(totAtr / atr.length)} min por atraso` : 'Sin atrasos') + (devTot ? ` · devuelto ${hm(devTot)}` : ''));
   html += kpi('Entradas tardías hoy', ent(atrHoy.length), atrHoy.length ? atrHoy.map(a => `${esc(a[2])} ${a[5]}`).join(' · ') : '<span class="chip up">Todos a la hora</span>');
   html += kpi('Puntualidad', jornadasN ? pct(1 - atr.length / jornadasN) : '—', jornadasN ? `${ent(jornadasN - atr.length)} de ${ent(jornadasN)} jornadas a la hora` : 'Sin jornadas en el período');
+  html += '</div><div class="grid kpis fila" style="--n:4">';
+  html += kpi('Horas extra autorizadas', hm(heAut), `${esc(etiquetaRango(E.per, r))} · calculadas con las marcas + ajustes de Felipe − atraso devuelto`);
+  html += kpi('Calculadas por marcas', hm(heCalc), `Desde ${R.tolHE || 15} min fuera del turno`);
+  const ajHE = ajs.reduce((n, a) => n + (a[3] === 'QUITAR' ? -a[4] : a[3] === 'DEVOLUCION' ? 0 : a[4]), 0);
+  html += kpi('Ajustes de Felipe', (ajHE >= 0 ? '+ ' : '− ') + hm(Math.abs(ajHE)), ajs.length ? `${ajs.filter(a => a[3] !== 'DEVOLUCION').length} ajuste(s) de horas extra en el período` : 'Sin ajustes en el período');
+  html += kpi('Atraso por devolver', hm(porDevTot), `Total pendiente (todos los atrasos − lo devuelto)${devTot ? ` · devuelto en el período ${hm(devTot)}` : ''}`);
   html += '</div>';
   if (atrHoy.length) html += `<div class="card" style="margin-bottom:14px;border:1px solid var(--red)"><h3>⚠️ Entradas tardías hoy</h3>
     <div class="tabla"><table><thead><tr><th>Persona</th><th>Local</th><th class="r">Turno</th><th class="r">Entrada</th><th class="r">Atraso</th></tr></thead><tbody>
@@ -1393,13 +1409,18 @@ function tabEquipo(r) {
     ${hoy.length ? `<div class="turno">${hoy.map(j => `<span>${esc(j.nombre)}<small>${esc(j.l)} · desde ${j.entrada}</small></span>`).join('')}</div>` : '<p class="vacio">Nadie ha marcado entrada hoy</p>'}</div>
   <div class="card" style="margin-bottom:14px"><h3>Asistencia por persona</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · control interno (no es el registro oficial de asistencia)</div>
     ${filas.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th class="r">Días</th><th class="r">Horas</th><th class="r">Prom. diario</th><th class="r">Entrada prom.</th>
-      <th class="r">Salida prom.</th><th class="r">Días con atraso</th><th class="r">Atraso acumulado</th><th class="r">Sin salida</th><th class="r">Fuera del local</th></tr></thead><tbody>
+      <th class="r">Salida prom.</th><th class="r">Días con atraso</th><th class="r">Atraso acumulado</th><th class="r">Devuelto</th><th class="r">Por devolver</th><th class="r">H. extra autorizadas</th><th class="r">Sin salida</th><th class="r">Fuera del local</th></tr></thead><tbody>
     ${filas.map(p => `<tr><td>${esc(p.nombre)}</td><td class="r num">${p.dias.size}</td><td class="r num">${hhmm(p.min)}</td>
       <td class="r num">${p.cerradas ? hhmm(p.min / p.cerradas) : '—'}</td><td class="r num">${p.dias.size ? hhmm(p.ent / p.dias.size) : '—'}</td>
       <td class="r num">${p.cerradas ? hhmm(p.sal / p.cerradas) : '—'}</td>
       <td class="r num">${p.atrDias ? `<span class="chip down">${p.atrDias}</span>` : '0'}</td><td class="r num">${p.atrMin ? hm(p.atrMin) : '—'}</td>
+      <td class="r num">${p.dev ? `<span class="chip up">${hm(p.dev)}</span>` : '—'}</td><td class="r num">${p.id && porDevolver(p.id) ? `<span class="chip warn">${hm(porDevolver(p.id))}</span>` : '—'}</td><td class="r num">${p.heAut ? hm(p.heAut) : '—'}</td>
       <td class="r num">${p.abiertas ? `<span class="chip warn">${p.abiertas}</span>` : '0'}</td>
       <td class="r num">${p.fuera ? `<span class="chip warn">${p.fuera}</span>` : '0'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin marcas en el período</p>'}</div>
+  <div class="card" style="margin-bottom:14px"><h3>Horas extra y devoluciones registradas por Felipe</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · agregar, quitar, día completo o atraso devuelto (se hace en la app › Turnos › Horas extra y atrasos)</div>
+    ${ajs.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Persona</th><th>Tipo</th><th class="r">Tiempo</th><th>Motivo</th><th>Registró</th></tr></thead><tbody>
+    ${ajs.map(a => `<tr><td>${fCorta(a[0])}</td><td>${esc(a[2])}</td><td>${{ AGREGAR: 'Horas extra agregadas', QUITAR: 'Horas extra quitadas', DIA_COMPLETO: 'Día completo de horas extra', DEVOLUCION: 'Atraso devuelto' }[a[3]] || esc(a[3])}</td>
+      <td class="r num">${a[3] === 'QUITAR' ? '− ' : a[3] === 'DEVOLUCION' ? '' : '+ '}${hm(a[4])}</td><td class="obs">${esc(a[5])}</td><td>${esc(a[6])}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Sin ajustes en el período.</p>'}</div>
   <div class="card" style="margin-bottom:14px"><h3>Detalle de atrasos</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · del más reciente al más antiguo${atr.length > 60 ? ' · últimos 60' : ''}</div>
     ${atr.length ? `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Persona</th><th>Local</th><th class="r">Turno</th><th class="r">Entrada</th><th class="r">Atraso</th></tr></thead><tbody>
     ${atr.slice(0, 60).map(a => `<tr><td>${fCorta(a[0])}</td><td>${esc(a[2])}</td><td>${esc(a[3])}</td><td class="r num">${esc(a[4])}</td><td class="r num">${esc(a[5])}</td><td class="r num">${a[6]} min</td></tr>`).join('')}</tbody></table></div>`
@@ -1410,6 +1431,45 @@ function tabEquipo(r) {
     </tbody></table></div></div>` : ''}`;
   $('contenido').innerHTML = html;
   $('selPersona').onchange = e => { E.persona = e.target.value; pintar(); };
+}
+
+
+/* ═══════════════ Vacaciones y días de permiso (Mi tiempo) ═══════════════ */
+function tabVacaciones(r) {
+  const V = E.R.vacaciones, R = E.R;
+  if (!V) { $('contenido').innerHTML = '<div class="card"><h3>Vacaciones</h3><p class="vacio">Sin datos.</p></div>'; return; }
+  const fer = new Set(V.feriados || []), habil = f => { const w = dsem(f); return w < 5 && !fer.has(f); }; // dsem: 0 = lunes
+  const habiles = (a, b) => { let n = 0; for (let f = a; f <= b; f = sumar(f, 1)) if (habil(f)) n++; return n; };
+  const ini = r.ini, fin = r.fin, nd = x => String(Math.round(x * 100) / 100).replace('.', ',');
+  const enPer = V.sol.filter(s => s.desde <= fin && s.hasta >= ini && (s.estado === 'APROBADA' || s.estado === 'PENDIENTE'));
+  const tomados = (tipo, est) => enPer.filter(s => s.tipo === tipo && s.estado === est).reduce((n, s) => n + habiles(max(s.desde, ini), min(s.hasta, fin)), 0);
+  const hoyFuera = V.sol.filter(s => s.estado === 'APROBADA' && s.desde <= R.hoy && R.hoy <= s.hasta);
+  const pend = V.sol.filter(s => s.estado === 'PENDIENTE');
+  const disp = V.equipo.reduce((n, p) => n + p.disponible, 0);
+  const tipoTxt = t => (t === 'DIA' ? 'Día de permiso' : 'Vacaciones');
+  const estTxt = { PENDIENTE: '<span class="chip warn">Pendiente</span>', APROBADA: '<span class="chip up">Aprobada</span>', RECHAZADA: '<span class="chip down">Rechazada</span>' };
+  const rango = s => (s.desde === s.hasta ? fCorta(s.desde) : `${fCorta(s.desde)} – ${fCorta(s.hasta)}`) + ` ${s.hasta.slice(0, 4)}`;
+  let html = '<div class="grid kpis fila" style="--n:4">';
+  html += kpi('Días de vacaciones', nd(tomados('VACACIONES', 'APROBADA')), `${esc(etiquetaRango(E.per, r))} · días hábiles aprobados` + (tomados('VACACIONES', 'PENDIENTE') ? ` · ${nd(tomados('VACACIONES', 'PENDIENTE'))} por aprobar` : ''));
+  html += kpi('Días de permiso', nd(tomados('DIA', 'APROBADA')), 'Días sueltos aprobados en el período' + (tomados('DIA', 'PENDIENTE') ? ` · ${nd(tomados('DIA', 'PENDIENTE'))} por aprobar` : ''));
+  html += kpi('Hoy fuera', ent(hoyFuera.length), hoyFuera.length ? hoyFuera.map(s => esc(s.nombre)).join(' · ') : 'Todo el equipo disponible');
+  html += kpi('Solicitudes por aprobar', ent(pend.length), pend.length ? `${pend.filter(s => s.fueraPlazo).length} fuera de plazo · se aprueban en la app (Mi tiempo)` : '<span class="chip up">Al día</span>');
+  html += '</div>';
+  html += `<div>
+    <div class="card" style="margin-bottom:14px"><h3>Saldo de vacaciones por persona</h3><div class="sub">Días hábiles · se suman 1,25 cada mes · tope 30 (2 períodos) · a hoy</div>
+      <div class="tabla"><table><thead><tr><th>Persona</th><th class="r">Saldo hoy</th><th class="r">Tomados</th><th class="r">Aprobados por tomar</th><th class="r">Por aprobar</th><th class="r">Disponible</th></tr></thead><tbody>
+      ${V.equipo.map(p => `<tr><td>${esc(p.nombre)}${p.alTope ? ' <span class="chip down">tope</span>' : ''}</td><td class="r num">${nd(p.saldo)}</td><td class="r num">${p.usados ? nd(p.usados) : '—'}</td>
+        <td class="r num">${p.reservados ? nd(p.reservados) : '—'}</td><td class="r num">${p.pendientes ? nd(p.pendientes) : '—'}</td><td class="r num"><b>${nd(p.disponible)}</b></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td><b>Total equipo</b></td><td class="r num">${nd(V.equipo.reduce((n, p) => n + p.saldo, 0))}</td><td></td><td></td><td></td><td class="r num"><b>${nd(disp)}</b></td></tr></tfoot></table></div></div>
+    <div class="card"><h3>Vacaciones y permisos en el período</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · aprobadas y pendientes · días hábiles (lunes a viernes sin feriados)</div>
+      ${enPer.length ? `<div class="tabla"><table><thead><tr><th>Persona</th><th>Tipo</th><th>Fechas</th><th class="r">Días</th><th>Estado</th></tr></thead><tbody>
+      ${enPer.sort((a, b) => (a.desde < b.desde ? -1 : 1)).map(s => `<tr><td>${esc(s.nombre)}</td><td>${tipoTxt(s.tipo)}</td><td>${rango(s)}${s.fueraPlazo ? ' <span class="chip warn">fuera de plazo</span>' : ''}</td>
+        <td class="r num">${nd(s.dias)}</td><td>${estTxt[s.estado] || esc(s.estado)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="vacio">Nadie de vacaciones ni con permiso en el período.</p>'}</div>
+  </div>`;
+  const prox = V.sol.filter(s => s.desde > R.hoy && (s.estado === 'APROBADA' || s.estado === 'PENDIENTE')).sort((a, b) => (a.desde < b.desde ? -1 : 1));
+  html += `<div class="card" style="margin-top:14px"><h3>Próximas salidas</h3><div class="sub">Desde mañana · para planificar turnos</div>
+    ${prox.length ? `<div class="turno">${prox.map(s => `<span${s.estado === 'PENDIENTE' ? ' style="background:var(--amber-tint);color:var(--amber)"' : ''}>${esc(s.nombre)}<small>${tipoTxt(s.tipo)} · ${rango(s)} · ${nd(s.dias)} día(s)${s.estado === 'PENDIENTE' ? ' · por aprobar' : ''}</small></span>`).join('')}</div>` : '<p class="vacio">No hay salidas programadas.</p>'}</div>`;
+  $('contenido').innerHTML = html;
 }
 
 /* ═══════════════ Efectivo (datos siempre reales) ═══════════════ */
