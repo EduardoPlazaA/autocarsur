@@ -1456,9 +1456,9 @@ function tabVacaciones(r) {
   html += kpi('Solicitudes por aprobar', ent(pend.length), pend.length ? `${pend.filter(s => s.fueraPlazo).length} fuera de plazo · se aprueban en la app (Mi tiempo)` : '<span class="chip up">Al día</span>');
   html += '</div>';
   html += `<div>
-    <div class="card" style="margin-bottom:14px"><h3>Saldo de vacaciones por persona</h3><div class="sub">Días hábiles · se suman 1,25 cada mes · tope 30 (2 períodos) · a hoy</div>
+    <div class="card" style="margin-bottom:14px"><h3>Saldo de vacaciones por persona</h3><div class="sub">Días hábiles · cada persona suma sus días anuales de contrato ÷ 12 por mes trabajado · tope 2 períodos · a hoy</div>
       <div class="tabla"><table><thead><tr><th>Persona</th><th class="r">Saldo hoy</th><th class="r">Tomados</th><th class="r">Aprobados por tomar</th><th class="r">Por aprobar</th><th class="r">Disponible</th></tr></thead><tbody>
-      ${V.equipo.map(p => `<tr><td>${esc(p.nombre)}${p.alTope ? ' <span class="chip down">tope</span>' : ''}</td><td class="r num">${nd(p.saldo)}</td><td class="r num">${p.usados ? nd(p.usados) : '—'}</td>
+      ${V.equipo.map(p => `<tr><td>${esc(p.nombre)} <small style="color:var(--mute)">${p.anual || 15}/año</small>${p.alTope ? ' <span class="chip down">tope</span>' : ''}</td><td class="r num">${nd(p.saldo)}</td><td class="r num">${p.usados ? nd(p.usados) : '—'}</td>
         <td class="r num">${p.reservados ? nd(p.reservados) : '—'}</td><td class="r num">${p.pendientes ? nd(p.pendientes) : '—'}</td><td class="r num"><b>${nd(p.disponible)}</b></td></tr>`).join('')}</tbody>
       <tfoot><tr><td><b>Total equipo</b></td><td class="r num">${nd(V.equipo.reduce((n, p) => n + p.saldo, 0))}</td><td></td><td></td><td></td><td class="r num"><b>${nd(disp)}</b></td></tr></tfoot></table></div></div>
     <div class="card"><h3>Vacaciones y permisos en el período</h3><div class="sub">${esc(etiquetaRango(E.per, r))} · aprobadas y pendientes · días hábiles (lunes a viernes sin feriados)</div>

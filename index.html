@@ -729,7 +729,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V66';
+  const VERSION_APP = 'V68';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -2083,8 +2083,8 @@
       ${s.pendientes ? `<div class="fila"><span>Pedidos, esperando aprobación</span><b>− ${numDias(s.pendientes)}</b></div>` : ''}
       ${s.reservados ? `<div class="fila"><span>Aprobados, aún por tomar</span><b>− ${numDias(s.reservados)}</b></div>` : ''}
       ${s.usados ? `<div class="fila"><span>Ya tomados (desde ${esc(fDia(s.fechaInicial))})</span><b>${numDias(s.usados)}</b></div>` : ''}
-      <p class="ti-nota">Se suman ${numDias(d.reglas.porMes)} días hábiles el día 1 de cada mes (15 al año). Se pueden acumular hasta ${d.reglas.tope} días (2 períodos). Sábados, domingos y feriados no se descuentan.</p></div>
-      ${s.alTope ? `<p class="ti-aviso">Llegaste al tope de ${d.reglas.tope} días: mientras no tomes vacaciones ya no se suman más. Conversa con Felipe para programarlas.</p>` : ''}
+      <p class="ti-nota">Tu contrato te da ${s.anual} días hábiles al año: se suman ${numDias(s.porMes)} por cada mes trabajado (desde el ${esc(fDia(s.fechaInicial))}). Se pueden acumular hasta ${s.tope} días (2 períodos). Sábados, domingos y feriados no se descuentan.</p></div>
+      ${s.alTope ? `<p class="ti-aviso">Llegaste al tope de ${s.tope} días: mientras no tomes vacaciones ya no se suman más. Conversa con Felipe para programarlas.</p>` : ''}
       <h3 style="margin:0 0 10px">Nueva solicitud</h3>
       <div class="chips" id="tiTipo" style="margin-bottom:14px"><button type="button" data-tit="VACACIONES"${TI.tipo === 'VACACIONES' ? ' class="on"' : ''}>Vacaciones</button><button type="button" data-tit="DIA"${TI.tipo === 'DIA' ? ' class="on"' : ''}>Día suelto</button></div>
       <div class="${TI.tipo === 'DIA' ? '' : 'row2'}"><div class="field"><label for="tiDesde">${TI.tipo === 'DIA' ? 'Día' : 'Desde'}</label><input type="date" id="tiDesde" min="${min}"></div>
@@ -2157,8 +2157,8 @@
   function vistaSaldos() {
     const e = TI.d.equipo;
     return `<table class="ti-tabla"><thead><tr><th>Persona</th><th>Saldo hoy</th><th>Por aprobar</th><th>Aprobados por tomar</th><th>Disponible</th></tr></thead><tbody>
-      ${e.map(p => `<tr><td>${esc(p.nombre)}${p.alTope ? ' <span class="est venc">tope</span>' : ''}</td><td>${numDias(p.saldo)}</td><td>${p.pendientes ? numDias(p.pendientes) : '—'}</td><td>${p.reservados ? numDias(p.reservados) : '—'}</td><td><b>${numDias(p.disponible)}</b></td></tr>`).join('')}</tbody></table>
-      <p class="ti-nota">Días hábiles. Se suman ${numDias(TI.d.reglas.porMes)} cada mes, con tope de ${TI.d.reglas.tope} (2 períodos). El saldo inicial de cada persona se fija en la hoja Vacaciones_Saldos (hoy: 10 días provisorios).</p>`;
+      ${e.map(p => `<tr><td>${esc(p.nombre)} <small style="color:var(--mute)">${p.anual}/año</small>${p.alTope ? ' <span class="est venc">tope</span>' : ''}</td><td>${numDias(p.saldo)}</td><td>${p.pendientes ? numDias(p.pendientes) : '—'}</td><td>${p.reservados ? numDias(p.reservados) : '—'}</td><td><b>${numDias(p.disponible)}</b></td></tr>`).join('')}</tbody></table>
+      <p class="ti-nota">Días hábiles. Cada persona suma sus días anuales de contrato ÷ 12 por mes trabajado, con tope de 2 períodos. Fecha y saldo de partida: hoja Vacaciones_Saldos.</p>`;
   }
   function previaTI() {
     const a = $('tiDesde') && $('tiDesde').value, b = TI.tipo === 'DIA' ? a : $('tiHasta') && $('tiHasta').value, p = $('tiPrev');
