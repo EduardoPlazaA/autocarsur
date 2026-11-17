@@ -376,6 +376,7 @@
   .pv-pct input { padding: 9px 10px; text-align: right; font-weight: 700; }
   .pv-info { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin: -4px 0 14px; font-size: 14px; color: var(--steel); }
   .pv-info.contado { background: var(--amber-tint); color: var(--amber); }
+  .pv-cplazo { margin-left: 6px; border: 1px solid var(--line, #d9d9d9); background: #fff; color: var(--black); font: inherit; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
   .est { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--mute); margin-left: 4px; }
   .est.venc { background: var(--red); color: #fff; }
   .pv-dup { color: var(--red); font-size: 13px; font-weight: 700; margin: -4px 0 14px; }
@@ -729,7 +730,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V68';
+  const VERSION_APP = 'V69';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1540,7 +1541,7 @@
   }
 
   /* ── Proveedores: factura de compra (fecha, proveedor, cotización, factura, monto, tipo, locales), vencimiento automático y pago ── */
-  const PV = { datos: null, tab: 'nueva', tocado: false, tipo: '', loc: '', filtro: '', comp: null };
+  const PV = { datos: null, tab: 'nueva', tocado: false, tipo: '', loc: '', filtro: '', comp: null, dias: 60 };
   const hoyTxt = () => (S.estado && S.estado.hoy && S.estado.hoy.fecha) || new Date().toLocaleDateString('sv-SE');
   const fVence = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
   const entreDias = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);
@@ -1550,9 +1551,9 @@
     const r = p && p.resumen;
     $('franjaProv').classList.toggle('hidden', !r);
     if (!p) return;
-    const n = r ? r.nVencidas + (r.nPorDistribuir || 0) : 0;
+    const n = r ? r.nVencidas : 0;
     $('badgeProv').textContent = n; $('badgeProv').classList.toggle('hidden', !n);
-    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') + (r.nPorDistribuir ? ` · ${r.nPorDistribuir} por distribuir` : '') : 'Registrar factura de compra';
+    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') : 'Registrar factura de compra';
     if (!r) return;
     $('fVencido').querySelector('b').textContent = pesos(r.vencido);
     $('fVencido').querySelector('em').textContent = r.nVencidas ? `${r.nVencidas} factura(s) sin pagar` : 'Nada vencido';
@@ -1599,7 +1600,7 @@
   function pintarProv() {
     const d = PV.datos, c = $('pvContenido');
     if (!d) return;
-    const n = d.resumen.nVencidas + (d.paga ? d.resumen.nPorDistribuir || 0 : 0);
+    const n = d.resumen.nVencidas;
     // Leandro: no ve lo pendiente ni lo vencido, solo las facturas pagadas. Leidy: además las por pagar que ella registró (sin contador)
     const conPagar = d.paga || d.propias;
     document.querySelector('[data-pv="pagar"]').classList.toggle('hidden', !conPagar);
@@ -1620,10 +1621,17 @@
       </div>
       <div class="pv-nuevo hidden" id="pvNuevo">
         <div class="field"><label for="pvNuevoNom">Nombre del proveedor nuevo</label><input id="pvNuevoNom" maxlength="60" autocomplete="off" placeholder="Ej.: Repuestos del Sur"></div>
-        <div class="field"><label>Plazo de pago</label><div class="chips">${[0, 15, 30, 45, 60, 90].map(p => `<button type="button" data-plazo="${p}">${p ? p + ' días' : 'Contado'}</button>`).join('')}</div></div>
+        <div class="field"><label>Plazo de pago</label><div class="chips">${PLAZOS_SUG.map(p => `<button type="button" data-plazo="${p}">${p ? p + ' días' : 'Contado'}</button>`).join('')}</div>
+          <input id="pvNuevoOtro" inputmode="numeric" maxlength="3" placeholder="Otro plazo (días)" aria-label="Otro plazo en días" style="margin-top:8px"></div>
         <div class="row2"><button type="button" class="secondary" id="pvNuevoCancel">Cancelar</button><button type="button" class="primary dark" id="pvNuevoOk">Agregar</button></div>
       </div>
       <div class="pv-info hidden" id="pvPlazo"></div>
+      <div class="pv-nuevo hidden" id="pvPlazoEdit">
+        <div class="field"><label>Nuevo plazo de pago de <b id="pvPlazoProv"></b></label><div class="chips" id="pvPlazoChips">${PLAZOS_SUG.map(p => `<button type="button" data-nplazo="${p}">${p ? p + ' días' : 'Contado'}</button>`).join('')}</div>
+          <input id="pvPlazoOtro" inputmode="numeric" maxlength="3" placeholder="Otro plazo (días)" aria-label="Otro plazo en días" style="margin-top:8px"></div>
+        <p class="sub" style="margin:0 0 8px">Rige para las facturas que se registren desde ahora; las ya registradas mantienen su vencimiento.</p>
+        <div class="row2"><button type="button" class="secondary" id="pvPlazoCancel">Cancelar</button><button type="button" class="primary dark" id="pvPlazoOk">Guardar plazo</button></div>
+      </div>
       <div class="row2">
         <div class="field"><label for="pvCot">N° cotización <span class="opt" id="pvCotOpt">(opcional)</span></label><input id="pvCot" autocomplete="off"></div>
         <div class="field"><label for="pvFact">N° factura</label><input id="pvFact" inputmode="numeric" autocomplete="off"></div>
@@ -1631,10 +1639,8 @@
       <p class="pv-dup hidden" id="pvDup" role="alert"></p>
       <div class="field"><label for="pvMonto">Monto de la factura <span class="opt">(total con IVA)</span></label><div class="money"><input id="pvMonto" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
       <div class="field"><label>Tipo de compra</label><div class="chips" id="pvTipo">${d.tipos.map(t => `<button type="button" data-tipo="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
-      <div class="field"><label>Local</label><div class="chips" id="pvLocal">${d.locales.map(l => `<button type="button" data-loc="${esc(l)}"${PV.loc === l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}${d.locales.length > 1 ? `<button type="button" data-loc="__mixta">${d.paga ? 'Mixta (%)' : 'Mixta (Felipe reparte)'}</button>` : ''}</div>
-        ${d.paga ? '' : '<p class="sub hidden" id="pvMixtaAviso" style="margin:8px 0 0">Felipe hará la distribución por local.</p>'}
-        <div id="pvMixta" class="hidden">${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-pct="${esc(l)}" placeholder="0" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
-          <p class="sub" id="pvSuma" style="margin:8px 0 0"></p></div></div>
+      <div class="field"><label>Local</label><div class="chips" id="pvLocal">${d.locales.map(l => `<button type="button" data-loc="${esc(l)}"${PV.loc === l ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}</div>
+        ${d.distribuye && d.locales.length > 1 ? '<p class="sub" style="margin:8px 0 0">Para repartir en % entre locales, usa <b>Distribuir</b> en la factura ya registrada.</p>' : ''}</div>
       <div class="field"><label for="pvObs">Observación <span class="opt">(opcional)</span></label><textarea id="pvObs" maxlength="200" placeholder="Ej.: repuestos para el pedido de la semana"></textarea></div>
       <button class="primary dark" id="pvGuardar" type="button">Registrar compra</button>`;
   }
@@ -1647,26 +1653,20 @@
     $('pvTipo').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { PV.tipo = b.dataset.tipo; $('pvTipo').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
     $('pvLocal').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
       PV.loc = b.dataset.loc; $('pvLocal').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-      $('pvMixta').classList.toggle('hidden', PV.loc !== '__mixta' || !d.paga);
-      if ($('pvMixtaAviso')) $('pvMixtaAviso').classList.toggle('hidden', PV.loc !== '__mixta');
-    }));
-    const pcts = [...document.querySelectorAll('[data-pct]')];
-    pcts.forEach(inp => inp.addEventListener('input', () => {
-      inp.value = inp.value.replace(/[^\d.,]/g, '');
-      if (pcts.length === 2) { const x = Number(inp.value.replace(',', '.')), otro = pcts.find(o => o !== inp); if (x >= 0 && x <= 100) otro.value = inp.value === '' ? '' : String(Math.round((100 - x) * 10) / 10).replace('.', ','); }
-      sumaPct();
     }));
     $('pvGuardar').addEventListener('click', () => confirmarCompra(d));
     activarProvNuevo(d);
+    activarCambioPlazo(d);
   }
   /* Proveedor nuevo: última opción de la lista; nombre + plazo fijo de pago */
   function activarProvNuevo(d) {
     const caja = $('pvNuevo');
     $('pvProv').addEventListener('change', () => {
       const nuevo = $('pvProv').value === '__nuevo'; caja.classList.toggle('hidden', !nuevo);
-      if (nuevo) { $('pvNuevoNom').value = ''; PV.plazoNuevo = null; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.remove('on')); $('pvNuevoNom').focus(); }
+      if (nuevo) { $('pvNuevoNom').value = ''; $('pvNuevoOtro').value = ''; PV.plazoNuevo = null; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.remove('on')); $('pvNuevoNom').focus(); }
     });
-    caja.querySelectorAll('[data-plazo]').forEach(b => b.addEventListener('click', () => { PV.plazoNuevo = +b.dataset.plazo; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.toggle('on', x === b)); }));
+    caja.querySelectorAll('[data-plazo]').forEach(b => b.addEventListener('click', () => { PV.plazoNuevo = +b.dataset.plazo; $('pvNuevoOtro').value = ''; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.toggle('on', x === b)); }));
+    $('pvNuevoOtro').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, ''); PV.plazoNuevo = e.target.value === '' ? null : +e.target.value; caja.querySelectorAll('[data-plazo]').forEach(x => x.classList.remove('on')); });
     $('pvNuevoCancel').addEventListener('click', () => { caja.classList.add('hidden'); $('pvProv').value = ''; infoProv(d); });
     $('pvNuevoOk').addEventListener('click', () => {
       const nombre = $('pvNuevoNom').value.trim();
@@ -1685,16 +1685,41 @@
       }).catch(x => { b.disabled = false; if (!sesionError(x)) modal('err', 'No se pudo agregar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
     });
   }
+  const PLAZOS_SUG = [0, 15, 30, 45, 60, 90, 120];
+  /* Cambiar el plazo de pago del proveedor elegido (Felipe, Leidy, Leandro, Eduardo): rige para facturas nuevas */
+  function activarCambioPlazo(d) {
+    const caja = $('pvPlazoEdit'), elegir = n => { PV.plazoEdit = n; caja.querySelectorAll('[data-nplazo]').forEach(x => x.classList.toggle('on', +x.dataset.nplazo === n)); };
+    $('pvPlazo').addEventListener('click', e => {
+      if (!e.target.closest('[data-cplazo]')) return;
+      const p = d.proveedores.find(x => x[0] === $('pvProv').value); if (!p) return;
+      $('pvPlazoProv').textContent = p[0]; $('pvPlazoOtro').value = ''; elegir(p[1]); caja.classList.remove('hidden');
+    });
+    caja.querySelectorAll('[data-nplazo]').forEach(b => b.addEventListener('click', () => { $('pvPlazoOtro').value = ''; elegir(+b.dataset.nplazo); }));
+    $('pvPlazoOtro').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, ''); elegir(e.target.value === '' ? null : +e.target.value); });
+    $('pvPlazoCancel').addEventListener('click', () => caja.classList.add('hidden'));
+    $('pvPlazoOk').addEventListener('click', () => {
+      const prov = $('pvProv').value, plazo = PV.plazoEdit;
+      if (plazo == null || plazo > 180) return modal('err', 'Revisa el plazo', 'Elige un plazo o escribe los días (0 a 180).', '', [{ t: 'Entendido', cls: 'dark' }]);
+      const b = $('pvPlazoOk'); b.disabled = true;
+      api('cambiarPlazoProveedor', S.token, { proveedor: prov, plazo, idEnvio: nuevoId() }).then(r => {
+        b.disabled = false;
+        if (r.datos) { d.proveedores = r.datos.proveedores; PV.datos.proveedores = r.datos.proveedores; }
+        if (!r.ok) return modal('err', 'No se pudo cambiar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+        caja.classList.add('hidden'); infoProv(d);
+        modal('ok', 'Plazo actualizado', r.mensaje, 'Rige para las facturas que se registren desde ahora.', [{ t: 'Listo', cls: 'dark' }]);
+      }).catch(x => { b.disabled = false; if (!sesionError(x)) modal('err', 'No se pudo cambiar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+    });
+  }
   const opcionesProv = d => `<option value="">Elegir…</option>${d.proveedores.map(p => `<option value="${esc(p[0])}">${esc(p[0])}</option>`).join('')}${d.registra ? '<option value="__nuevo">+ Agregar proveedor nuevo…</option>' : ''}`;
 
-  const pctsMixta = () => { const o = {}; document.querySelectorAll('[data-pct]').forEach(i => { const n = Number(i.value.replace(',', '.')); if (n > 0) o[i.dataset.pct] = n; }); return o; };
-  function sumaPct() { const t = Object.values(pctsMixta()).reduce((s, x) => s + x, 0); $('pvSuma').textContent = `Suma: ${String(Math.round(t * 10) / 10).replace('.', ',')} %${Math.abs(t - 100) < 0.05 ? ' ✓' : ' (debe dar 100 %)'}`; }
   function infoProv(d) {
     const p = d.proveedores.find(x => x[0] === $('pvProv').value), info = $('pvPlazo'), fecha = $('pvFecha').value;
     info.classList.toggle('hidden', !p);
+    if ($('pvPlazoEdit')) $('pvPlazoEdit').classList.add('hidden');
     if (!p) return;
     info.classList.toggle('contado', p[1] === 0);
-    info.textContent = p[1] === 0 ? `Pago al contado (0 días)${fecha ? ' · vence el ' + fVence(fecha) : ''}` : fecha ? `Plazo ${p[1]} días · vence el ${fVence(sumarDia(fecha, p[1]))}` : `Plazo ${p[1]} días`;
+    info.innerHTML = esc(p[1] === 0 ? `Pago al contado (0 días)${fecha ? ' · vence el ' + fVence(fecha) : ''}` : fecha ? `Plazo ${p[1]} días · vence el ${fVence(sumarDia(fecha, p[1]))}` : `Plazo ${p[1]} días`)
+      + (d.editaPlazo ? ' <button type="button" class="pv-cplazo" data-cplazo="1">Cambiar plazo</button>' : '');
   }
   /* Factura ya registrada: mismo proveedor y mismo N° (sin ceros a la izquierda ni guiones), igual que el servidor */
   const normFact = x => String(x).replace(/\D/g, '').replace(/^0+/, '') || String(x).trim().toUpperCase();
@@ -1710,19 +1735,19 @@
   }
   function confirmarCompra(d) {
     const p = d.proveedores.find(x => x[0] === $('pvProv').value);
-    const mixtaFelipe = PV.loc === '__mixta' && !d.paga; // la reparte Felipe después
-    const dist = mixtaFelipe ? {} : PV.loc === '__mixta' ? pctsMixta() : PV.loc ? { [PV.loc]: 100 } : {};
+    if (!d.locales.includes(PV.loc)) PV.loc = '';
+    const dist = PV.loc ? { [PV.loc]: 100 } : {};
     const sumaD = Object.values(dist).reduce((s, x) => s + x, 0);
     const monto = valor($('pvMonto'));
     const falta = !$('pvFecha').value ? 'Ingresa la fecha de la factura.' : !p ? 'Elige el proveedor.'
       : !$('pvFact').value.trim() ? 'Ingresa el N° de factura.' : facturaRepetida(d) ? `La factura ${$('pvFact').value.trim()} de ${p[0]} ya está registrada.`
       : !monto ? 'Ingresa el monto de la factura.'
-      : !PV.tipo ? 'Elige el tipo de compra.' : mixtaFelipe ? '' : !sumaD ? 'Elige el local de la compra.' : Math.abs(sumaD - 100) > 0.05 ? 'La distribución por local debe sumar 100 %.' : '';
+      : !PV.tipo ? 'Elige el tipo de compra.' : !sumaD ? 'Elige el local de la compra.' : Math.abs(sumaD - 100) > 0.05 ? 'La distribución por local debe sumar 100 %.' : '';
     if (falta) return modal('err', 'Falta información', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
     const id = nuevoId();
     const datos = { fecha: $('pvFecha').value, proveedor: p[0], cotizacion: $('pvCot').value.trim(), factura: $('pvFact').value.trim(), monto,
-      tipo: PV.tipo, dist, mixta: mixtaFelipe, obs: $('pvObs').value.trim(), idEnvio: id };
-    modal('ask', `¿Registrar factura ${datos.factura} de ${p[0]}?`, `${pesos(monto)} · ${PV.tipo} · ${mixtaFelipe ? 'Mixta: Felipe la reparte' : distTxt(dist)}`,
+      tipo: PV.tipo, dist, obs: $('pvObs').value.trim(), idEnvio: id };
+    modal('ask', `¿Registrar factura ${datos.factura} de ${p[0]}?`, `${pesos(monto)} · ${PV.tipo} · ${distTxt(dist)}`,
       (p[1] === 0 ? `Pago al contado: vence el ${fVence(datos.fecha)}.` : `Vence el ${fVence(sumarDia(datos.fecha, p[1]))}.`) + (datos.obs ? ' Obs.: ' + datos.obs : ''), [
       { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarCompraProveedor', S.token, datos).then(r => {
         if (r.datos) provActualizado(r.datos);
@@ -1740,22 +1765,39 @@
     const monto = c.estado === 'PAGADA' || anulada ? c.monto : c.porPagar;
     return `<${conCheck ? 'label' : 'div'} class="mov${anulada ? ' anulada' : ''}"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Mixta · por distribuir' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}</span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Pendiente distribución de locales' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${PV.datos && PV.datos.distribuye && !anulada ? `<button type="button" class="pv-comp" data-redist="${esc(c.id)}">Distribuir</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}</span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
-  function bloqueDistribuir(d) {
-    if (!d.paga || !(d.porDistribuir || []).length) return '';
-    return `<div class="grupo">Por distribuir entre locales · ${d.porDistribuir.length}</div>
-      <p class="sub" style="margin:0 0 6px">Compras mixtas registradas por el equipo: indica el % de cada local.</p>` + d.porDistribuir.map(c => `
+  /* Caja para repartir una factura en % entre locales (solo Felipe): con la distribución actual precargada */
+  const cajaDist = (c, d, cancelar) => `
       <div class="mov" style="grid-template-columns:1fr auto;align-items:start" data-dist="${esc(c.id)}">
         <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · registró ${esc(c.por)}</small>
-          ${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-dpct="${esc(l)}" placeholder="0" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
-          <button type="button" class="secondary" data-dguardar="${esc(c.id)}" style="margin-top:8px">Guardar distribución</button></span>
+          ${d.locales.map(l => `<div class="pv-pct"><span>${esc(l)}</span><input inputmode="decimal" data-dpct="${esc(l)}" placeholder="0" value="${c.dist && c.dist[l] ? String(c.dist[l]).replace('.', ',') : ''}" aria-label="Porcentaje ${esc(l)}"><b>%</b></div>`).join('')}
+          <div class="row2" style="margin-top:8px">${cancelar ? `<button type="button" class="secondary" data-dcancel="1">Cancelar</button>` : ''}<button type="button" class="${cancelar ? 'primary dark' : 'secondary'}" data-dguardar="${esc(c.id)}">Guardar distribución</button></div></span>
         <span class="monto">${pesos(c.monto)}</span>
-      </div>`).join('');
+      </div>`;
+  function bloqueDistribuir(d) {
+    if (!d.distribuye || !(d.porDistribuir || []).length) return '';
+    return `<div class="grupo">Pendiente distribución de locales</div>
+      <p class="sub" style="margin:0 0 6px">Indica el % de cada local.</p>` + d.porDistribuir.map(c => cajaDist(c, d, false)).join('');
   }
-  function activarDistribuir() {
-    document.querySelectorAll('[data-dist]').forEach(caja => {
+  /* Felipe: botón "Distribuir" en cualquier factura → abre la caja de % bajo la fila */
+  function activarRedistribuir() {
+    const cont = $('pvContenido');
+    cont.querySelectorAll('[data-redist]').forEach(b => b.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const d = PV.datos, c = [...(d.porPagar || []), ...(d.recientes || []), ...(d.porDistribuir || [])].find(x => x.id === b.dataset.redist);
+      if (!c) return;
+      cont.querySelectorAll('[data-dist].abierta').forEach(x => x.remove());
+      const fila = b.closest('.mov'); fila.insertAdjacentHTML('afterend', cajaDist(c, d, true));
+      const caja = fila.nextElementSibling; caja.classList.add('abierta');
+      caja.querySelector('[data-dcancel]').addEventListener('click', () => caja.remove());
+      activarDistribuir(caja);
+      const i = caja.querySelector('[data-dpct]'); if (i) i.focus();
+    }));
+  }
+  function activarDistribuir(raiz) {
+    (raiz ? [raiz] : document.querySelectorAll('[data-dist]')).forEach(caja => {
       const ins = [...caja.querySelectorAll('[data-dpct]')];
       ins.forEach(inp => inp.addEventListener('input', () => {
         PV.tocado = true; inp.value = inp.value.replace(/[^\d.,]/g, '');
@@ -1794,6 +1836,7 @@
   }
   function activarPorPagar() {
     activarDistribuir();
+    activarRedistribuir();
     const checks = [...document.querySelectorAll('[data-pg]')];
     const tot = () => checks.filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
     checks.forEach(c => c.addEventListener('change', () => { PV.tocado = true; $('totPago').textContent = pesos(tot()); }));
@@ -1861,16 +1904,20 @@
     if (!d.recientes.length) return `<div class="empty">${d.paga ? 'Aún no hay compras registradas' : 'Aún no hay facturas pagadas en los últimos 60 días'}</div>`;
     const provs = [...new Set(d.recientes.map(c => c.prov))].sort((a, b) => a.localeCompare(b, 'es'));
     if (PV.filtro && !provs.includes(PV.filtro)) PV.filtro = '';
-    const l = PV.filtro ? d.recientes.filter(c => c.prov === PV.filtro) : d.recientes;
+    const desde = sumarDia(hoyTxt(), -PV.dias), enRango = d.recientes.filter(c => c.fecha >= desde || c.registrado >= desde);
+    const l = PV.filtro ? enRango.filter(c => c.prov === PV.filtro) : enRango;
     const total = l.reduce((s, c) => s + c.monto, 0);
-    return `<p class="sub" style="margin:0 0 8px">${d.paga ? 'Últimos 60 días' : 'Facturas pagadas · últimos 60 días'}</p>
-      <div class="pv-filtro"><label for="pvFiltro" class="sub" style="margin:0">Proveedor</label><select id="pvFiltro"><option value="">Todos (${d.recientes.length})</option>${provs.map(p => `<option value="${esc(p)}"${p === PV.filtro ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
-      ${PV.filtro ? `<p class="sub" style="margin:0 0 4px">${l.length} factura(s) · ${pesos(total)}</p>` : ''}`
+    return `<p class="sub" style="margin:0 0 8px">${d.paga ? 'Compras' : 'Facturas pagadas'} · últimos ${PV.dias} días</p>
+      <div class="chips" id="pvDias" style="margin:0 0 10px">${[15, 30, 60].map(n => `<button type="button" data-dias="${n}"${n === PV.dias ? ' class="on"' : ''}>${n} días</button>`).join('')}</div>
+      <div class="pv-filtro"><label for="pvFiltro" class="sub" style="margin:0">Proveedor</label><select id="pvFiltro"><option value="">Todos (${enRango.length})</option>${provs.map(p => `<option value="${esc(p)}"${p === PV.filtro ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
+      ${PV.filtro || PV.dias !== 60 ? `<p class="sub" style="margin:0 0 4px">${l.length} factura(s) · ${pesos(total)}</p>` : ''}${l.length ? '' : `<div class="empty">Sin compras en los últimos ${PV.dias} días</div>`}`
       + l.map(c => filaCompra(c, false, false, d.paga).replace('<small>', `<small>Registró ${esc(c.por)} · `)).join('');
   }
   function activarRecientes() {
     const sel = $('pvFiltro');
     if (sel) sel.addEventListener('change', () => { PV.filtro = sel.value; pintarProv(); });
+    document.querySelectorAll('#pvDias [data-dias]').forEach(b => b.addEventListener('click', () => { PV.dias = +b.dataset.dias; pintarProv(); }));
+    activarRedistribuir();
   }
 
   /* ── Turnos: semana proyectada del ciclo de 14 días. Felipe/Eduardo tocan un turno (o a alguien libre) y lo cambian solo ese día ── */
