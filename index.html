@@ -398,9 +398,10 @@
   .op-msg { display: block; color: var(--mute); font-size: 12px; margin-top: 4px; }
   .op-msg:empty { display: none; }
   .op-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; margin-top: 8px; }
-  .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
+  .op-loc { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .op-loc { display: block; } .op-loc em { min-height: 2.5em; } }
   .op-loc small { color: var(--mute); font-size: 12px; font-weight: 600; }
+  .op-loc em.op-bol { color: var(--steel); font-weight: 600; }
   .op-loc em.op-pend, .op-loc b.op-pend { color: var(--red); font-weight: 700; }
   .op-alerta { grid-row: auto; border: 1px solid var(--red); display: block; }
   .op-est { font-size: 12px; font-weight: 700; color: var(--mute); }
@@ -730,7 +731,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V69';
+  const VERSION_APP = 'V70';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1308,6 +1309,7 @@
       const d = document.createElement('div'); d.className = 'op-loc' + (l.cerrado ? ' cerrado' : l.abierto ? ' abierto' : '');
       const mk = (tag, txt, cls) => { const e = document.createElement(tag); e.textContent = txt; if (cls) e.className = cls; d.appendChild(e); };
       mk('small', l.local); mk('span', l.cerrado ? 'Cerrado' : l.abierto ? 'Abierto' : 'Sin abrir', 'op-est'); mk('b', pesos(l.venta));
+      mk('em', l.boletas == null ? 'Boletas Bicom: —' : `${fmtCLP.format(l.boletas)} boleta${l.boletas === 1 ? '' : 's'} Bicom`, 'op-bol');
       mk('em', l.meta ? Math.round(l.pct) + '% de la meta (' + pesos(l.meta) + ')' : 'Sin meta hoy');
       mk('em', l.cerrado ? 'Cerró ' + l.horaCierre + ' · ' + l.quienCierre : l.abierto ? 'Abrió ' + l.hora + ' · ' + l.quien : 'Nadie ha marcado entrada');
       const ca = l.cierreAyer; mk('em', ca === 'pendiente' ? 'Cierre de ayer: pendiente' : ca === 'hecho' ? 'Cierre de ayer: hecho' : 'Ayer sin actividad', ca === 'pendiente' ? 'op-pend' : '');
