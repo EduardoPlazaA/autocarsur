@@ -381,6 +381,7 @@
   .est.venc { background: var(--red); color: #fff; }
   .pv-dup { color: var(--red); font-size: 13px; font-weight: 700; margin: -4px 0 14px; }
   .pv-comp { margin-top: 6px; border: 0; background: var(--bg); color: var(--black); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  .pv-dist { margin-left: 4px; }
   .pv-anular { margin-top: 6px; margin-left: 4px; border: 0; background: var(--red-tint); color: var(--red); font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
   .est.anul { background: var(--line); color: var(--steel); } .mov.anulada .monto { text-decoration: line-through; color: var(--mute); }
   #pvMotivo { width: 100%; min-height: 70px; margin-top: 10px; font: inherit; font-weight: 400; padding: 10px; border: 1.5px solid var(--line); border-radius: 10px; resize: vertical; }
@@ -731,7 +732,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V70';
+  const VERSION_APP = 'V71';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1767,7 +1768,7 @@
     const monto = c.estado === 'PAGADA' || anulada ? c.monto : c.porPagar;
     return `<${conCheck ? 'label' : 'div'} class="mov${anulada ? ' anulada' : ''}"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Pendiente distribución de locales' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${PV.datos && PV.datos.distribuye && !anulada ? `<button type="button" class="pv-comp" data-redist="${esc(c.id)}">Distribuir</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}</span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Pendiente distribución de locales' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}${PV.datos && PV.datos.distribuye && !anulada ? `<button type="button" class="pv-comp pv-dist" data-redist="${esc(c.id)}">Distribuir</button>` : ''}</span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
   /* Caja para repartir una factura en % entre locales (solo Felipe): con la distribución actual precargada */
