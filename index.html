@@ -732,7 +732,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V72';
+  const VERSION_APP = 'V73';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1768,7 +1768,7 @@
     const monto = c.estado === 'PAGADA' || anulada ? c.monto : c.porPagar;
     return `<${conCheck ? 'label' : 'div'} class="mov${anulada ? ' anulada' : ''}"${conCheck ? '' : ' style="grid-template-columns:1fr auto"'}>
       ${conCheck ? `<input type="checkbox" data-pg="${esc(c.id)}" data-monto="${c.porPagar}">` : ''}
-      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Pendiente distribución de locales' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}${PV.datos && PV.datos.distribuye && !anulada ? `<button type="button" class="pv-comp pv-dist" data-redist="${esc(c.id)}">Distribuir</button>` : ''}</span>
+      <span class="det">${esc(c.prov)} · Fact. ${esc(c.fact)} ${est}<small>${fCorta(c.fecha)} · ${esc(c.tipo)} · ${c.porDistribuir ? 'Pendiente distribución de locales' : esc(distTxt(c.dist))}${c.pagadoCot != null && c.porPagar && c.estado !== 'PAGADA' ? ` · saldo en contra (pagado ${pesos(c.pagadoCot)} de ${pesos(c.monto)})` : ''}${c.saldoFavor ? ` · ${pesos(c.saldoFavor)} a favor` : ''}${c.abonado ? ` · <b>abonado ${pesos(c.abonado)}</b>${c.estado === 'POR PAGAR' ? ` · pendiente ${pesos(c.porPagar)}` : ''} (${(c.abonos || []).map(a => `${fCorta(a.fecha)} ${pesos(a.monto)}`).join(', ')})` : ''}${c.obs ? ` · Obs.: ${esc(c.obs)}` : ''}${anulada && c.anulacion ? ` · Anuló ${esc(c.anulacion)}` : ''}</small>${c.estado === 'PAGADA' && c.comp ? `<button type="button" class="pv-comp" data-comp="${esc(c.id)}">📎 Ver comprobante</button>` : ''}${PV.datos && PV.datos.paga && c.estado === 'POR PAGAR' ? `<button type="button" class="pv-comp pv-dist" data-abonar="${esc(c.id)}">Abonar</button>` : ''}${anular && !anulada ? `<button type="button" class="pv-anular" data-anular="${esc(c.id)}">Anular</button>` : ''}${PV.datos && PV.datos.distribuye && !anulada ? `<button type="button" class="pv-comp pv-dist" data-redist="${esc(c.id)}">Distribuir</button>` : ''}</span>
       <span class="monto">${pesos(monto)}</span></${conCheck ? 'label' : 'div'}>`;
   }
   /* Caja para repartir una factura en % entre locales (solo Felipe): con la distribución actual precargada */
@@ -1783,6 +1783,40 @@
     if (!d.distribuye || !(d.porDistribuir || []).length) return '';
     return `<div class="grupo">Pendiente distribución de locales</div>
       <p class="sub" style="margin:0 0 6px">Indica el % de cada local.</p>` + d.porDistribuir.map(c => cajaDist(c, d, false)).join('');
+  }
+  /* Felipe/Eduardo: "Abonar" en una factura por pagar → caja bajo la fila con el pendiente; no se abona más que el pendiente */
+  function activarAbonar() {
+    const cont = $('pvContenido');
+    cont.querySelectorAll('[data-abonar]').forEach(b => b.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const d = PV.datos, c = [...(d.porPagar || []), ...(d.recientes || [])].find(x => x.id === b.dataset.abonar);
+      if (!c) return;
+      cont.querySelectorAll('.pv-abono').forEach(x => x.remove());
+      const fila = b.closest('.mov');
+      fila.insertAdjacentHTML('afterend', `<div class="mov pv-abono" style="grid-template-columns:1fr;display:block">
+        <span class="det">Abono a ${esc(c.prov)} · Fact. ${esc(c.fact)}<small>Monto ${pesos(c.monto)}${c.abonado ? ` · abonado ${pesos(c.abonado)}` : ''} · <b>pendiente ${pesos(c.porPagar)}</b></small></span>
+        <div class="row2" style="margin-top:8px"><div class="field"><label for="pvAbMonto">Monto del abono</label><div class="money"><input id="pvAbMonto" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+          <div class="field"><label for="pvAbFecha">Fecha</label><input type="date" id="pvAbFecha" value="${hoyTxt()}" max="${hoyTxt()}"></div></div>
+        <p class="pv-dup hidden" id="pvAbErr" role="alert"></p>
+        <div class="row2"><button type="button" class="secondary" id="pvAbCancel">Cancelar</button><button type="button" class="primary dark" id="pvAbOk">Registrar abono</button></div></div>`);
+      const caja = fila.nextElementSibling, inp = $('pvAbMonto'), err = $('pvAbErr');
+      const revisar = () => { const m = valor(inp), malo = m > c.porPagar; err.textContent = malo ? `No puedes abonar más que el pendiente (${pesos(c.porPagar)}).` : ''; err.classList.toggle('hidden', !malo); $('pvAbOk').disabled = malo; return m; };
+      inp.addEventListener('input', () => { const m = valor(inp); inp.value = m ? fmtCLP.format(m) : ''; revisar(); });
+      $('pvAbCancel').addEventListener('click', () => caja.remove());
+      $('pvAbOk').addEventListener('click', () => {
+        const m = revisar();
+        if (!m) return modal('err', 'Falta el monto', 'Ingresa el monto del abono.', '', [{ t: 'Entendido', cls: 'dark' }]);
+        if (m > c.porPagar) return;
+        modal('ask', `¿Abonar ${pesos(m)}?`, `${c.prov} · Fact. ${c.fact}`, m === c.porPagar ? 'Es el total pendiente: la factura queda pagada.' : `Quedará pendiente ${pesos(c.porPagar - m)}.`, [
+          { t: 'Sí, abonar', cls: 'dark', fn: () => api('abonarCompraProveedor', S.token, { id: c.id, monto: m, fecha: $('pvAbFecha').value, idEnvio: nuevoId() }).then(r => {
+            if (r.datos) { provActualizado(r.datos); pintarProv(); }
+            if (!r.ok) return modal('err', 'No se pudo abonar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+            modal('ok', r.pagada ? '¡Factura pagada!' : '¡Abono registrado!', r.mensaje, '', [{ t: 'Continuar', cls: 'dark' }]);
+          }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo abonar', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+          { t: 'Revisar', sec: true }]);
+      });
+      inp.focus();
+    }));
   }
   /* Felipe: botón "Distribuir" en cualquier factura → abre la caja de % bajo la fila */
   function activarRedistribuir() {
@@ -1840,6 +1874,7 @@
   function activarPorPagar() {
     activarDistribuir();
     activarRedistribuir();
+    activarAbonar();
     const checks = [...document.querySelectorAll('[data-pg]')];
     const tot = () => checks.filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
     checks.forEach(c => c.addEventListener('change', () => { PV.tocado = true; $('totPago').textContent = pesos(tot()); }));
@@ -1921,6 +1956,7 @@
     if (sel) sel.addEventListener('change', () => { PV.filtro = sel.value; pintarProv(); });
     document.querySelectorAll('#pvDias [data-dias]').forEach(b => b.addEventListener('click', () => { PV.dias = +b.dataset.dias; pintarProv(); }));
     activarRedistribuir();
+    activarAbonar();
   }
 
   /* ── Turnos: semana proyectada del ciclo de 14 días. Felipe/Eduardo tocan un turno (o a alguien libre) y lo cambian solo ese día ── */
