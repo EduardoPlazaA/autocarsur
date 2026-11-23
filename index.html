@@ -363,18 +363,20 @@
     main, header .top { max-width: 1240px; }
     main { padding: 0 32px 40px; }
     main > section.card { padding: 24px 28px; }
-    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
-    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > * { grid-column: 1 / -1; }
-    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.mov, .tu-dia, .docb, .doc, .hx-p, .ti-sol, .pend-item) { grid-column: auto; }
-    :is(#efContenido, #pvContenido) > .field:not(.row2) { grid-column: auto; } /* formularios: un campo por columna */
+    :is(#efContenido, #pvContenido, #gaCont, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
+    :is(#efContenido, #pvContenido, #gaCont, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > * { grid-column: 1 / -1; }
+    :is(#efContenido, #pvContenido, #gaCont, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.mov, .tu-dia, .docb, .doc, .hx-p, .ti-sol, .pend-item) { grid-column: auto; }
+    :is(#efContenido, #pvContenido) > .field:not(.row2) { grid-column: auto; }
+    #gaCont > .field:not(:has(textarea)):not(:has(.chips)) { grid-column: auto; } /* Gastos: fecha y monto lado a lado; categoría, local y descripción a lo ancho */ /* formularios: un campo por columna */
     :is(#efContenido, #pvContenido) > :is(.mov, .tu-dia, .docb, .hx-p, .ti-sol) + .field { grid-column-start: 1; } /* el formulario que sigue a una lista parte en una fila nueva */
-    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.pv-abono, [data-dist], .ancho-total) { grid-column: 1 / -1; } /* cajas que se abren bajo una fila */
+    :is(#efContenido, #pvContenido, #gaCont, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.pv-abono, [data-dist], .ancho-total) { grid-column: 1 / -1; } /* cajas que se abren bajo una fila */
     #formCierre { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; align-content: start; }
     #formCierre > * { grid-column: 1 / -1; }
     #formCierre > .field:not(.row2):not(#fMotivo):not(:has(textarea)) { grid-column: auto; }
     .names { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
     .rs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .ti-anio { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .ga-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* Gastos: los 4 indicadores en una fila */
     :is(#v-pin, #v-mipin) > * { max-width: 440px; margin-left: auto; margin-right: auto; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -411,6 +413,25 @@
   .franja div { background: var(--bg); border-radius: 12px; padding: 10px 12px; display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   @supports not (grid-template-rows: subgrid) { .franja div { display: block; } .franja small { line-height: 1.25; min-height: 2.5em; } }
   .t-prov { background: #5A3E2B; }
+  /* Gastos de la empresa (V80) */
+  .t-gastos { background: #6B2D3E; }
+  .ga-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
+  .ga-kpis > div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  .ga-kpis small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
+  .ga-kpis b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .ga-kpis em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
+  .ga-kpis em.sube { color: var(--red); font-weight: 700; } .ga-kpis em.baja { color: var(--green); font-weight: 700; }
+  .ga-bloque { margin-bottom: 16px; } .ga-bloque h3 { margin: 0 0 8px; font-size: 15px; }
+  .ga-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .ga-fila .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--bg); overflow: hidden; }
+  .ga-fila .bar i { display: block; height: 100%; background: #6B2D3E; border-radius: 3px; }
+  .ga-fila b { font-variant-numeric: tabular-nums; text-align: right; } .ga-fila small { color: var(--mute); font-weight: 600; margin-left: 6px; }
+  .ga-meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 140px; margin-top: 6px; }
+  .ga-meses div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; font-size: 10px; color: var(--mute); }
+  .ga-meses i { display: block; width: 100%; background: #6B2D3E; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .ga-meses div.sel i { background: var(--red); } .ga-meses div.sel { color: var(--black); font-weight: 700; }
+  .mov.anulada .det { color: var(--mute); } .est.cie { background: var(--amber-tint); color: var(--amber); }
+  #gaFiltro { margin: 0 0 10px; }
   #franjaProv { cursor: pointer; }
   .pv-pct { display: grid; grid-template-columns: 1fr 96px auto; gap: 8px; align-items: center; margin-top: 8px; font-weight: 600; }
   .pv-pct input { padding: 9px 10px; text-align: right; font-weight: 700; }
@@ -596,6 +617,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4h13v12H1z"/><path d="M14 8h4l4 4v4h-8"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="17.5" cy="18.5" r="2"/></svg>
         <span>Proveedores<small id="subProv">Facturas de compra</small></span>
       </button>
+      <button class="tile t-gastos hidden" id="tileGastos" data-accion="GASTOS" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18l-3-2-3 2-2-2-2 2-3-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        <span>Gastos<small id="subGastos">Gastos de la empresa</small></span>
+      </button>
       <button class="tile t-corr hidden" id="tileCorr" data-accion="CORREGIR" type="button">
         <span class="badge hidden" id="badgeCorr">0</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/></svg>
@@ -733,6 +758,19 @@
     <div id="corrDia"><div class="empty">Cargando…</div></div>
   </section>
 
+  <!-- Gastos de la empresa (solo Felipe y Eduardo) -->
+  <section id="v-gastos" class="card hidden">
+    <button class="back" data-volver type="button">← Menú</button>
+    <h2>Gastos de la empresa</h2>
+    <p class="sub">Registra cada gasto. Los gastos en efectivo del cierre de día entran solos como "Otros gastos".</p>
+    <div class="segtab" role="tablist">
+      <button type="button" data-ga="nuevo" class="on">Nuevo gasto</button>
+      <button type="button" data-ga="ind">Indicadores</button>
+      <button type="button" data-ga="mov">Movimientos</button>
+    </div>
+    <div id="gaCont"><div class="empty">Cargando…</div></div>
+  </section>
+
   <!-- 5. Documentos -->
   <section id="v-docs" class="card hidden">
     <button class="back" data-volver type="button">← Menú</button>
@@ -772,7 +810,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V79';
+  const VERSION_APP = 'V80';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -820,7 +858,7 @@
     obtenerInicio: 'Cargando…', ingresar: 'Verificando tu PIN…', marcar: 'Registrando tu marca…',
     registrarCierre: 'Guardando el cierre…', misDocumentos: 'Cargando tus documentos…', docsEquipo: 'Cargando los documentos del equipo…', abrirDocumentoEquipo: 'Abriendo el documento…',
     abrirDocumento: 'Abriendo el documento…', confirmarDocumento: 'Registrando tu confirmación…',
-    registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…', registrarGastoEfectivo: 'Guardando el gasto…',
+    registrarRetiro: 'Registrando el retiro…', registrarDeposito: 'Subiendo el comprobante…', registrarGastoEfectivo: 'Guardando el gasto…', registrarGasto: 'Registrando el gasto…', anularGasto: 'Anulando el gasto…', verComprobanteGasto: 'Abriendo el respaldo…',
     obtenerMiResumen: 'Cargando tu resumen…', obtenerCorreccion: 'Cargando las marcas…', corregirMarca: 'Guardando la corrección…', corregirMasivo: 'Procesando la corrección…',
   }; // obtenerEstado, obtenerPresupuesto y obtenerEfectivo van en segundo plano: la pantalla ya muestra lo que trae el estado del día
 
@@ -889,7 +927,7 @@
   function ver(id) {
     if (recargarEnMenu && id === 'v-menu') { location.reload(); return; }
     document.body.classList.toggle('en-menu', id === 'v-menu'); // diseño de escritorio solo en el inicio
-    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-tiempo', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-tiempo', 'v-mipin', 'v-gastos'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('[data-volver]').forEach(b => b.addEventListener('click', () => { ver('v-menu'); refrescarEstado(); }));
@@ -1096,6 +1134,7 @@
     $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Turnos, horas extra y atrasos' : e.turnos && e.turnos.equipo ? 'Turnos del equipo' : 'Mis turnos de la semana';
     const ti = e.tiempo, nTi = ti && ti.aprueba ? ti.pendientes : 0;
     $('tileTiempo').classList.toggle('hidden', !ti);
+    $('tileGastos').classList.toggle('hidden', !e.gastos); // solo Felipe y Eduardo
     $('subTiempo').textContent = ti && ti.aprueba ? (nTi ? `${nTi} solicitud(es) por aprobar` : 'Vacaciones del equipo') : S.soloLectura ? 'Calendario de vacaciones' : 'Vacaciones y días libres';
     $('badgeTiempo').textContent = nTi; $('badgeTiempo').classList.toggle('hidden', !nTi);
     pintarOperacion(e.operacion);
@@ -1148,6 +1187,7 @@
     else if (a === 'CIERRE') abrirCierre();
     else if (a === 'EFECTIVO') abrirEfectivo();
     else if (a === 'PROVEEDORES') abrirProv();
+    else if (a === 'GASTOS') abrirGastos();
     else if (a === 'TURNOS') abrirTurnos();
     else if (a === 'TIEMPO') abrirTiempo();
     else if (a === 'CORREGIR') abrirCorr();
@@ -1616,6 +1656,171 @@
       if (primera || (!PV.tocado && !$('v-prov').classList.contains('hidden'))) pintarProv();
     }).catch(e => { if (!sesionError(e)) $('pvContenido').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
   }
+  /* ── Gastos de la empresa (V80 · solo Felipe y Eduardo; el servidor lo valida en cada consulta) ──
+     gasto: [id, fecha, categoría, local, monto, descripción, tiene respaldo, registró, estado, anulación, origen FORM|CIERRE] */
+  const GA = { tab: 'nuevo', datos: null, mes: '', local: 'TODOS', cat: '', comp: null, catSel: '', locSel: '' };
+  const gaMes = (m, k) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+  const mesCorto = m => `${MES_LARGO[+m.slice(5, 7) - 1].slice(0, 3)} ${m.slice(2, 4)}`;
+  function abrirGastos(tab) {
+    ver('v-gastos'); GA.tab = tab || GA.tab; marcarTabGastos();
+    if (GA.datos) pintarGastos(); else $('gaCont').innerHTML = '<div class="empty">Cargando…</div>';
+    servidor('obtenerGastos', S.token).then(r => { GA.datos = r; if (!GA.mes) GA.mes = r.hoy.slice(0, 7); if (!GA.tocado) pintarGastos(); })
+      .catch(e => { if (!sesionError(e)) $('gaCont').innerHTML = '<div class="empty">No se pudo cargar. Revisa tu conexión.</div>'; });
+  }
+  function marcarTabGastos() { document.querySelectorAll('[data-ga]').forEach(x => x.classList.toggle('on', x.dataset.ga === GA.tab)); }
+  document.querySelectorAll('[data-ga]').forEach(b => b.addEventListener('click', () => { GA.tab = b.dataset.ga; GA.tocado = false; marcarTabGastos(); if (GA.datos) pintarGastos(); }));
+  function pintarGastos() {
+    const d = GA.datos; if (!d) return;
+    if (!GA.mes) GA.mes = d.hoy.slice(0, 7);
+    const c = $('gaCont');
+    c.innerHTML = GA.tab === 'nuevo' ? vistaNuevoGasto(d) : GA.tab === 'ind' ? vistaIndGastos(d) : vistaMovGastos(d);
+    if (GA.tab === 'nuevo') activarNuevoGasto(d); else activarFiltrosGastos();
+  }
+  /* Filtro común de Indicadores y Movimientos: mes y local */
+  function filtrosGastos(d) {
+    return `<div class="rs-nav"><button type="button" data-gmes="-1" aria-label="Mes anterior">‹</button><b>${esc(periodoTxt(GA.mes))}</b><button type="button" data-gmes="1" aria-label="Mes siguiente"${GA.mes >= d.hoy.slice(0, 7) ? ' disabled' : ''}>›</button></div>
+      <div class="chips" id="gaLocales" style="margin:0 0 12px">${['TODOS'].concat(d.locales).map(l => `<button type="button" data-gloc="${esc(l)}"${l === GA.local ? ' class="on"' : ''}>${l === 'TODOS' ? 'Todos' : esc(l)}</button>`).join('')}</div>`;
+  }
+  function activarFiltrosGastos() {
+    document.querySelectorAll('[data-gmes]').forEach(b => b.addEventListener('click', () => { GA.mes = gaMes(GA.mes, +b.dataset.gmes); pintarGastos(); }));
+    document.querySelectorAll('[data-gloc]').forEach(b => b.addEventListener('click', () => { GA.local = b.dataset.gloc; pintarGastos(); }));
+    const s = $('gaFiltro'); if (s) s.addEventListener('change', () => { GA.cat = s.value; pintarGastos(); });
+    document.querySelectorAll('[data-gmesbar]').forEach(b => b.addEventListener('click', () => { GA.mes = b.dataset.gmesbar; pintarGastos(); }));
+  }
+  const gastosDe = (d, mes, local = GA.local) => d.gastos.filter(g => g[8] === 'VIGENTE' && g[1].slice(0, 7) === mes && (local === 'TODOS' || g[3] === local));
+  const sumaG = l => l.reduce((s, g) => s + g[4], 0);
+  const ventasDe = (d, mes, local = GA.local) => { const v = d.ventasMes[mes] || {}; return local === 'TODOS' ? Object.values(v).reduce((s, x) => s + x, 0) : (v[local] || 0); };
+  function vistaIndGastos(d) {
+    const m = GA.mes, ant = gaMes(m, -1), l = gastosDe(d, m), la = gastosDe(d, ant), tot = sumaG(l), totA = sumaG(la), ven = ventasDe(d, m);
+    const doce = Array.from({ length: 12 }, (_, i) => gaMes(m, i - 11)), porMes = doce.map(x => sumaG(gastosDe(d, x)));
+    const conDatos = porMes.filter(x => x > 0), prom = conDatos.length ? conDatos.reduce((s, x) => s + x, 0) / conDatos.length : 0;
+    const varTxt = totA ? `${tot >= totA ? '▲' : '▼'} ${Math.abs(Math.round((tot / totA - 1) * 100))}% vs ${mesCorto(ant)} (${pesos(totA)})` : `Sin gastos en ${mesCorto(ant)}`;
+    const empresa = GA.local === LOCAL_EMPRESA_GA;
+    let h = filtrosGastos(d) + `<div class="ga-kpis">
+      <div><small>Total de gastos</small><b>${pesos(tot)}</b><em class="${totA ? (tot > totA ? 'sube' : 'baja') : ''}">${varTxt}</em></div>
+      <div><small>Gastos / ventas Bicom</small><b>${empresa ? '—' : ven ? Math.round(tot / ven * 1000) / 10 + '%' : '—'}</b><em>${empresa ? 'Gastos generales: sin ventas propias' : ven ? 'Ventas del mes ' + pesos(ven) + ' (con IVA)' : 'Sin ventas de Bicom en el mes'}</em></div>
+      <div><small>Promedio mensual (12 meses)</small><b>${pesos(prom)}</b><em>${conDatos.length} mes(es) con gastos</em></div>
+      <div><small>Cantidad de gastos</small><b>${l.length}</b><em>${l.filter(g => g[10] === 'CIERRE').length} desde el cierre de día</em></div></div>`;
+    const fila = (nombre, monto, base, extra) => `<div class="ga-fila"><span>${esc(nombre)}</span><b>${pesos(monto)}<small>${base ? Math.round(monto / base * 100) + '%' : ''}</small></b>${extra || ''}<div class="bar"><i style="width:${base ? Math.max(1, monto / base * 100) : 0}%"></i></div></div>`;
+    const cats = d.categorias.map(c => [c, sumaG(l.filter(g => g[2] === c)), sumaG(la.filter(g => g[2] === c))]);
+    h += `<div class="ga-bloque"><h3>Por categoría</h3>${cats.map(([c, mo, ma]) => fila(c, mo, tot, ma || mo ? `<small style="grid-column:1/-1;margin:0;color:var(--mute)">${mesCorto(ant)}: ${pesos(ma)}${ma ? ` · ${mo >= ma ? '▲' : '▼'} ${Math.abs(Math.round((mo / ma - 1) * 100))}%` : ''}</small>` : '')).join('')}</div>`;
+    if (GA.local === 'TODOS') {
+      const locs = d.locales.map(x => [x, sumaG(l.filter(g => g[3] === x)), ventasDe(d, m, x)]);
+      h += `<div class="ga-bloque"><h3>Por local</h3>${locs.map(([x, mo, v]) => fila(x, mo, tot, `<small style="grid-column:1/-1;margin:0;color:var(--mute)">${x === LOCAL_EMPRESA_GA ? 'Gastos generales de la empresa' : v ? `${Math.round(mo / v * 1000) / 10}% de sus ventas (${pesos(v)})` : 'Sin ventas en el mes'}</small>`)).join('')}</div>`;
+    }
+    const max = Math.max(1, ...porMes);
+    h += `<div class="ga-bloque"><h3>Últimos 12 meses</h3><div class="ga-meses">${doce.map((x, i) => `<div data-gmesbar="${x}" class="${x === m ? 'sel' : ''}" title="${esc(periodoTxt(x))}: ${pesos(porMes[i])}" style="cursor:pointer"><i style="height:${porMes[i] / max * 100}%"></i>${MES_LARGO[+x.slice(5, 7) - 1].slice(0, 3)}</div>`).join('')}</div>
+      <p class="tu-nota" style="margin-top:8px">Toca un mes para verlo. Montos con IVA, como se pagaron. El histórico anterior se cargará más adelante.</p></div>`;
+    return h;
+  }
+  const LOCAL_EMPRESA_GA = 'Empresa (general)';
+  function vistaMovGastos(d) {
+    const todos = d.gastos.filter(g => g[1].slice(0, 7) === GA.mes && (GA.local === 'TODOS' || g[3] === GA.local) && (!GA.cat || g[2] === GA.cat))
+      .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0));
+    const vig = todos.filter(g => g[8] === 'VIGENTE');
+    return filtrosGastos(d) + `<div class="pv-filtro" id="gaFiltroBox"><label for="gaFiltro" class="sub" style="margin:0">Categoría</label><select id="gaFiltro"><option value="">Todas</option>${d.categorias.map(c => `<option${c === GA.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+      <p class="sub" style="margin:0 0 4px">${vig.length} gasto(s) · ${pesos(sumaG(vig))}${todos.length > vig.length ? ` · ${todos.length - vig.length} anulado(s)` : ''}</p>`
+      + (todos.length ? todos.map(g => {
+        const an = g[8] === 'ANULADO', cie = g[10] === 'CIERRE';
+        return `<div class="mov${an ? ' anulada' : ''}" style="grid-template-columns:1fr auto"><span class="det">${esc(g[2])} · ${esc(g[3])} ${cie ? '<span class="est cie">Cierre de día</span>' : ''}${an ? '<span class="est anul">Anulado</span>' : ''}
+          <small>${fCorta(g[1])} · ${esc(g[5])} · registró ${esc(g[7])}${an && g[9] ? ` · Anuló ${esc(g[9])}` : ''}</small>
+          ${g[6] ? `<button type="button" class="pv-comp" data-gcomp="${esc(g[0])}">📎 Ver respaldo</button>` : ''}${!an && !cie ? `<button type="button" class="pv-anular" data-ganul="${esc(g[0])}">Anular</button>` : ''}</span>
+          <span class="monto">${pesos(g[4])}</span></div>`;
+      }).join('') : '<div class="empty">Sin gastos con este filtro</div>');
+  }
+  function vistaNuevoGasto(d) {
+    const hoy = d.hoy;
+    return `<div class="field"><label for="gaFecha">Fecha del gasto</label><input type="date" id="gaFecha" value="${hoy}" max="${hoy}"></div>
+      <div class="field"><label for="gaMonto">Monto <span class="opt">(con IVA, como se pagó)</span></label><div class="money"><input id="gaMonto" inputmode="numeric" autocomplete="off" placeholder="0"></div></div>
+      <div class="field"><label>Categoría</label><div class="chips" id="gaCats">${d.categorias.map((c, i) => `<button type="button" data-gcat="${esc(c)}"${c === GA.catSel ? ' class="on"' : ''}>${i + 1}. ${esc(c)}</button>`).join('')}</div></div>
+      <div class="field"><label>Local</label><div class="chips" id="gaLocs">${d.locales.map(l => `<button type="button" data-glsel="${esc(l)}"${l === GA.locSel ? ' class="on"' : ''}>${esc(l)}</button>`).join('')}</div></div>
+      <div class="field"><label for="gaDesc">Descripción</label><textarea id="gaDesc" maxlength="300" placeholder="Qué se pagó y a quién. Ej.: arriendo local Violeta Parra, noviembre"></textarea></div>
+      <div class="field"><label>Boleta o respaldo <span class="opt">(opcional · foto o PDF)</span></label><label class="foto" id="gaCompBox"><input type="file" id="gaComp" accept="image/*,application/pdf" hidden><span>📎 Adjuntar foto o PDF</span></label></div>
+      <button class="primary dark" id="gaGuardar" type="button">Registrar gasto</button>
+      <p class="tu-nota" style="margin-top:10px">Los gastos en efectivo que anotan los locales en el cierre de día aparecen solos como "${esc(d.catCierre)}".</p>`;
+  }
+  function activarNuevoGasto(d) {
+    GA.comp = null;
+    const fmt = () => { const i = $('gaMonto'), v = i.value.replace(/[^\d]/g, ''); i.value = v ? fmtCLP.format(+v) : ''; GA.tocado = true; };
+    $('gaMonto').addEventListener('input', fmt);
+    ['gaFecha', 'gaDesc'].forEach(id => $(id).addEventListener('input', () => { GA.tocado = true; }));
+    $('gaCats').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { GA.catSel = b.dataset.gcat; GA.tocado = true; $('gaCats').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
+    $('gaLocs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { GA.locSel = b.dataset.glsel; GA.tocado = true; $('gaLocs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
+    $('gaComp').addEventListener('change', e => leerRespaldoGasto(e.target.files[0]));
+    $('gaGuardar').addEventListener('click', () => {
+      const monto = +$('gaMonto').value.replace(/[^\d]/g, ''), fecha = $('gaFecha').value, desc = $('gaDesc').value.trim();
+      const falta = !fecha ? 'Elige la fecha del gasto.' : !monto ? 'Ingresa el monto.' : !GA.catSel ? 'Elige la categoría.' : !GA.locSel ? 'Elige el local (o "Empresa (general)").' : desc.length < 3 ? 'Escribe una descripción breve.' : '';
+      if (falta) return modal('err', 'Falta un dato', falta, '', [{ t: 'Entendido', cls: 'dark' }]);
+      const id = nuevoId();
+      modal('ask', '¿Registrar este gasto?', `${pesos(monto)} · ${GA.catSel} · ${GA.locSel} · ${fCorta(fecha)}`, GA.comp ? 'Con respaldo adjunto.' : 'Sin respaldo adjunto.', [
+        { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarGasto', S.token, { fecha, categoria: GA.catSel, local: GA.locSel, monto, descripcion: desc, comprobante: GA.comp || undefined, idEnvio: id }).then(r => {
+          if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+          GA.datos = r; GA.tocado = false; GA.catSel = ''; GA.locSel = ''; GA.comp = null; pintarGastos();
+          modal('ok', '¡Gasto registrado!', r.mensaje, '', [{ t: 'Registrar otro', cls: 'dark' }, { t: 'Ver indicadores', sec: true, fn: () => { GA.tab = 'ind'; GA.mes = fecha.slice(0, 7); marcarTabGastos(); pintarGastos(); } }]);
+        }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Tus datos siguen en el formulario: intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
+        { t: 'Revisar', sec: true },
+      ]);
+    });
+  }
+  /* Respaldo: la foto se achica (como en Proveedores); el PDF va tal cual (hasta 4 MB) */
+  function leerRespaldoGasto(arch) {
+    if (!arch) return;
+    const box = $('gaCompBox'), err = t => modal('err', 'No se pudo leer el respaldo', t, '', [{ t: 'Entendido', cls: 'dark' }]);
+    GA.tocado = true;
+    if (arch.type === 'application/pdf') {
+      if (arch.size > 4 * 1024 * 1024) return err('El PDF pesa más de 4 MB. Intenta con otro archivo.');
+      const fr = new FileReader();
+      fr.onload = () => { GA.comp = { base64: String(fr.result).split(',')[1], tipo: 'application/pdf' }; box.classList.add('ok'); box.querySelector('span').textContent = '📄 ' + arch.name + ' · toca para cambiarlo'; };
+      fr.onerror = () => err('Intenta con otro archivo.');
+      return fr.readAsDataURL(arch);
+    }
+    const img = new Image(), url = URL.createObjectURL(arch);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.75);
+      GA.comp = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
+      box.classList.add('ok'); box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Respaldo"><br>Toca para cambiarlo`;
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => err('Usa una foto (JPG o PNG) o un PDF.');
+    img.src = url;
+  }
+  $('gaCont').addEventListener('click', e => {
+    const an = e.target.closest('[data-ganul]');
+    if (an) {
+      const g = GA.datos.gastos.find(x => x[0] === an.dataset.ganul); if (!g) return;
+      modal('ask', '¿Anular este gasto?', `${pesos(g[4])} · ${g[2]} · ${g[3]} · ${fCorta(g[1])}`, '', [
+        { t: 'Sí, anular', cls: 'dark', fn: () => {
+          const motivo = ($('gaMotivo') ? $('gaMotivo').value : '').trim();
+          if (motivo.length < 5) return modal('err', 'Falta el motivo', 'Escribe por qué se anula el gasto (al menos 5 letras).', '', [{ t: 'Entendido', cls: 'dark' }]);
+          api('anularGasto', S.token, { id: g[0], motivo, idEnvio: nuevoId() }).then(r => {
+            if (!r.ok) return modal('err', 'No se pudo anular', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
+            GA.datos = r; pintarGastos(); modal('ok', 'Gasto anulado', r.mensaje, '', [{ t: 'Continuar', cls: 'dark' }]);
+          }).catch(x => { if (!sesionError(x)) modal('err', 'No se pudo anular', 'Sin conexión. Intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); });
+        } },
+        { t: 'No, volver', sec: true },
+      ]);
+      $('mExtra').innerHTML = '<label for="gaMotivo">Motivo de la anulación</label><textarea id="gaMotivo" maxlength="200" placeholder="Ej.: ingresado dos veces / monto equivocado"></textarea>';
+      return;
+    }
+    const b = e.target.closest('[data-gcomp]');
+    if (!b) return;
+    e.preventDefault();
+    let w = null;
+    try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif;padding:24px;color:#6B6F78">Abriendo respaldo…</p>'); } catch (x) { w = null; }
+    const fallo = t => { if (w) w.close(); modal('err', 'No se pudo abrir', t, '', [{ t: 'Entendido', cls: 'dark' }]); };
+    api('verComprobanteGasto', S.token, b.dataset.gcomp).then(r => {
+      if (!r.ok) return fallo(r.error);
+      const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.tipo || 'application/pdf' }));
+      if (w && !w.closed) w.location.href = url;
+      else { const a = document.createElement('a'); a.href = url; a.download = r.nombre || 'respaldo'; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60000);
+    }).catch(x => { if (w) w.close(); if (!sesionError(x)) fallo('Sin conexión. Intenta de nuevo.'); });
+  });
   function marcarTabProv() { document.querySelectorAll('[data-pv]').forEach(x => x.classList.toggle('on', x.dataset.pv === PV.tab)); }
   document.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => { PV.tab = b.dataset.pv; marcarTabProv(); if (PV.datos) pintarProv(); }));
   /* Ver el comprobante de pago: la pestaña se abre en el mismo toque (si se abre después de esperar al servidor, el navegador la bloquea) */

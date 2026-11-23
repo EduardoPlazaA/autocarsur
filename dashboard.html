@@ -290,7 +290,7 @@
   <div class="franjaEf hidden" id="franjaEf" title="Ver el detalle del efectivo"></div>
   <nav class="tabs" id="tabs">
     <button data-t="resumen" class="on">Resumen</button><button data-t="ventas">Ventas</button>
-    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="compras">Compras</button><button data-t="clientes">Clientes</button><button data-t="vacaciones">Vacaciones</button><button data-t="remu">Remuneraciones</button>
+    <button data-t="productos">Productos y margen</button><button data-t="caja">Caja y cierres</button><button data-t="equipo">Equipo</button><button data-t="efectivo">Efectivo</button><button data-t="compras">Compras</button><button data-t="clientes">Clientes</button><button data-t="vacaciones">Vacaciones</button><button data-t="remu">Remuneraciones</button><button data-t="gastos" id="tabGastos" class="hidden">Gastos</button>
   </nav>
   <main id="contenido"><div class="cargando">Cargando datos…</div></main>
 </section>
@@ -526,6 +526,8 @@ async function mostrarDatos(R) {
   expandirFilas(R);
   prepararIndices(R);
   E.R = R;
+  $('tabGastos').classList.toggle('hidden', !R.gastos); // solo Felipe y Eduardo
+  if (E.tab === 'gastos' && !R.gastos) { E.tab = 'resumen'; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === 'resumen')); }
   if (R.urlApp) { $('volverApp').href = EN_API ? './' : R.urlApp; $('volverApp').classList.remove('hidden'); }
   if (!E.fecha) E.fecha = R.hoy; // por defecto: el día en curso
   if (!E.pIni) { E.pIni = R.hoy.slice(0, 8) + '01'; E.pFin = R.hoy; }
@@ -761,7 +763,7 @@ function pintar() {
   E.rango = PER() === 'dia' ? { ini: sumar(r.ini, -13), fin: r.fin } : r; // el gráfico diario mira 14 días hacia atrás
   $('fecha').value = E.fecha;
   $('rango').textContent = etiquetaRango(E.per, r);
-  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, compras: tabCompras, clientes: tabClientes, vacaciones: tabVacaciones, remu: tabRemu })[E.tab](r);
+  ({ resumen: tabResumen, ventas: tabVentas, productos: tabProductos, caja: tabCaja, equipo: tabEquipo, efectivo: tabEfectivo, compras: tabCompras, clientes: tabClientes, vacaciones: tabVacaciones, remu: tabRemu, gastos: tabGastos })[E.tab](r);
   etiquetarTablas();
   alinearTarjetas();
 }
@@ -1769,6 +1771,48 @@ function activarDiaCli(ini, fin) {
   });
   if (E.dcliListo) { aviso('✓ ' + E.dcliListo); E.dcliListo = ''; }
 }
+/* ═══════════════ Gastos de la empresa (V80 · solo Felipe y Eduardo) ═══════════════
+   R.gastos.lista: [id, fecha, categoría, local, monto, descripción, respaldo, registró, estado, anulación, origen FORM|CIERRE] */
+const LOCAL_EMPRESA = 'Empresa (general)';
+function gastosRango(ini, fin, local = E.local) {
+  return ((E.R.gastos || {}).lista || []).filter(g => g[8] === 'VIGENTE' && g[1] >= ini && g[1] <= fin && (local === 'TODOS' || g[3] === local));
+}
+function tabGastos(r) {
+  const G = E.R.gastos;
+  if (!G) { $('contenido').innerHTML = '<div class="card"><p class="vacio">Sin acceso a los gastos.</p></div>'; return; }
+  const corte = min(r.fin, E.R.hoy), sum = l => l.reduce((s, g) => s + g[4], 0), lugar = E.local === 'TODOS' ? 'todos los locales y la empresa' : esc(E.local);
+  const l = gastosRango(r.ini, corte), tot = sum(l), ant = comparable(r, corte, 'anterior'), la = gastosRango(ant.ini, ant.fin), totA = sum(la);
+  const ven = total(r.ini, corte).b;
+  const ms = []; for (let m = sumarMeses(corte.slice(0, 7) + '-01', -11); m <= corte; m = sumarMeses(m, 1)) ms.push(m);
+  const porMes = ms.map(m => sum(gastosRango(m, min(finMes(m), corte)))), conDatos = porMes.filter(x => x > 0);
+  let html = '<div class="grid kpis fila" style="--n:4">';
+  html += kpi('Gastos del período', clp(tot), `${ent(l.length)} gasto(s)${totA ? ' · ' + delta(tot, totA, 'vs período ant.').replace('chip up', 'chip tmp').replace('chip down', 'chip up').replace('chip tmp', 'chip down') : ''}`);
+  html += kpi('Gastos / ventas Bicom', ven ? pct(tot / ven) : '—', ven ? `Ventas del período ${clp(ven)} (con IVA)` : 'Sin ventas en el período');
+  html += kpi('Promedio mensual (12 meses)', conDatos.length ? clp(conDatos.reduce((s, x) => s + x, 0) / conDatos.length) : '—', `${conDatos.length} mes(es) con gastos`);
+  html += kpi('Desde el cierre de día', clp(sum(l.filter(g => g[10] === 'CIERRE'))), 'Gastos en efectivo de los locales · "Otros gastos"');
+  html += '</div>';
+  const tabla = (filas, cab, pie) => filas.length ? `<div class="tabla"><table><thead><tr>${cab.map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody>${pie || ''}</table></div>` : '<p class="vacio">Sin gastos en el período</p>';
+  const cats = G.categorias.map(c => [c, sum(l.filter(g => g[2] === c)), sum(la.filter(g => g[2] === c))]);
+  const locs = (E.R.locales || []).concat([LOCAL_EMPRESA]).map(x => [x, sum(l.filter(g => g[3] === x)), x === LOCAL_EMPRESA ? 0 : total(r.ini, corte, x).b]);
+  html += `<div class="card" style="margin-bottom:14px"><h3>Gastos por mes</h3><div class="sub">12 meses hasta ${fMes(corte.slice(0, 7))} · ${lugar} · por categoría · con IVA, como se pagaron</div>
+    ${leyenda(G.categorias.map((c, i) => [c, COLOR_CAT[i]]))}<div class="lienzo"><canvas id="gGastos"></canvas></div></div>
+    <div class="grid dos">
+      <div class="card"><h3>Por categoría</h3><div class="sub">${etiquetaPer(r)} · ${lugar}</div>
+        ${tot || totA ? tabla(cats.map(([c, m, a]) => `<tr><td>${esc(c)}</td><td class="r num">${clp(m)}</td><td class="r num">${tot ? pct(m / tot, 0) : '—'}</td><td class="r num">${clp(a)}</td></tr>`), ['Categoría', 'Monto', '%', 'Período ant.'], `<tfoot><tr><td>Total</td><td class="r num">${clp(tot)}</td><td></td><td class="r num">${clp(totA)}</td></tr></tfoot>`) : '<p class="vacio">Sin gastos en el período</p>'}</div>
+      <div class="card"><h3>Por local</h3><div class="sub">${etiquetaPer(r)} · gastos y su peso sobre las ventas del local</div>
+        ${tot ? tabla(locs.filter(x => E.local === 'TODOS' || x[0] === E.local).map(([x, m, v]) => `<tr><td>${esc(x)}</td><td class="r num">${clp(m)}</td><td class="r num">${tot ? pct(m / tot, 0) : '—'}</td><td class="r num">${x === LOCAL_EMPRESA ? '—' : v ? pct(m / v) : '—'}</td></tr>`), ['Local', 'Monto', '% del gasto', '% de sus ventas']) : '<p class="vacio">Sin gastos en el período</p>'}</div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Movimientos</h3><div class="sub">${etiquetaPer(r)} · ${lugar} · el más reciente arriba · se registran y anulan en la app (botón Gastos)</div>
+      ${tabla(l.slice().sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0)).map(g => `<tr><td>${fCorta(g[1])} ${g[1].slice(0, 4)}</td><td>${esc(g[2])}</td><td>${esc(g[3])}</td><td>${esc(g[5])}${g[10] === 'CIERRE' ? ' <span class="chip">cierre de día</span>' : ''}</td><td>${esc(g[7])}</td><td class="r num">${clp(g[4])}</td></tr>`), ['Fecha', 'Categoría', 'Local', 'Descripción', 'Registró', 'Monto'], `<tfoot><tr><td colspan="5">Total (${l.length})</td><td class="r num">${clp(tot)}</td></tr></tfoot>`).replace(/<th class="r">(Categoría|Local|Descripción|Registró)<\/th>/g, '<th>$1</th>')}</div>`;
+  $('contenido').innerHTML = html;
+  grafico('gGastos', {
+    apilado: true, pctApilado: true,
+    data: { labels: ms.map(m => `${MESES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`),
+      datasets: G.categorias.map((c, i) => ({ label: c, data: ms.map(m => sum(gastosRango(m, min(finMes(m), corte)).filter(g => g[2] === c)) || null), backgroundColor: COLOR_CAT[i], borderRadius: 3, stack: 'g' })) },
+  });
+}
+const COLOR_CAT = ['#24425E', '#D08A2E', '#5B7F5E', '#7A4E8C', '#B8322A', '#2F7F8C', '#C9A227', '#8C8F96', '#6B2D3E', '#3E5C3A'];
+
 function tabClientes(r) {
   const R = E.R;
   if (!R.primerCierre && !R.finHistCli) {
