@@ -348,6 +348,15 @@
     body.en-menu #v-menu > .card:first-child > .franja { grid-column: auto; }
     body.en-menu .op-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     body.en-menu .menu .tile { min-height: 104px; }
+    /* V78: la columna derecha ocupa todo el alto del cuadro izquierdo (mismo borde arriba y abajo); los botones se estiran por igual */
+    body.en-menu #v-menu:not(.hidden) { align-items: stretch; grid-template-rows: auto auto 1fr; }
+    body.en-menu #v-menu > .card:first-child { grid-row: 1 / 4; }
+    body.en-menu #v-menu > #cardMes { grid-row: 1; }
+    body.en-menu #v-menu > #avisoCierre { grid-row: 2; }
+    body.en-menu #v-menu > .menu { grid-row: 3; align-self: stretch; grid-auto-rows: 1fr; row-gap: 14px; margin-bottom: 0; }
+    body.en-menu #v-menu > .menu .tile { margin-bottom: 0; grid-row: auto; }
+    body.en-menu #v-menu > .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) { display: flex; }
+    body.en-menu #v-menu > .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) > span:not(.badge) { display: block; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
@@ -744,7 +753,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V76';
+  const VERSION_APP = 'V78';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
