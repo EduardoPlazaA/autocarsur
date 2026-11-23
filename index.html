@@ -358,6 +358,25 @@
     body.en-menu #v-menu > .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) { display: flex; }
     body.en-menu #v-menu > .menu .tile:not(.ancho):not(.t-dash):not(.t-efec) > span:not(.badge) { display: block; }
   }
+  /* V79: el resto de las pantallas en computador, con el mismo ancho del inicio. Listas y formularios en 2 columnas. El móvil no cambia. */
+  @media (min-width: 1024px) {
+    main, header .top { max-width: 1240px; }
+    main { padding: 0 32px 40px; }
+    main > section.card { padding: 24px 28px; }
+    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
+    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > * { grid-column: 1 / -1; }
+    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.mov, .tu-dia, .docb, .doc, .hx-p, .ti-sol, .pend-item) { grid-column: auto; }
+    :is(#efContenido, #pvContenido) > .field:not(.row2) { grid-column: auto; } /* formularios: un campo por columna */
+    :is(#efContenido, #pvContenido) > :is(.mov, .tu-dia, .docb, .hx-p, .ti-sol) + .field { grid-column-start: 1; } /* el formulario que sigue a una lista parte en una fila nueva */
+    :is(#efContenido, #pvContenido, #tuCont, #tuHoras, #tiCont, #listaDocs, #listaEquipo, #corrDia, .pend-lista) > :is(.pv-abono, [data-dist], .ancho-total) { grid-column: 1 / -1; } /* cajas que se abren bajo una fila */
+    #formCierre { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; align-content: start; }
+    #formCierre > * { grid-column: 1 / -1; }
+    #formCierre > .field:not(.row2):not(#fMotivo):not(:has(textarea)) { grid-column: auto; }
+    .names { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .rs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .ti-anio { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    :is(#v-pin, #v-mipin) > * { max-width: 440px; margin-left: auto; margin-right: auto; }
+  }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
   /* Indicador de carga (todas las esperas al servidor y al GPS) */
@@ -753,7 +772,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V78';
+  const VERSION_APP = 'V79';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
