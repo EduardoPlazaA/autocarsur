@@ -376,7 +376,6 @@
     .names { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
     .rs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .ti-anio { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .ga-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* Gastos: los 4 indicadores en una fila */
     :is(#v-pin, #v-mipin) > * { max-width: 440px; margin-left: auto; margin-right: auto; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -415,21 +414,6 @@
   .t-prov { background: #5A3E2B; }
   /* Gastos de la empresa (V80) */
   .t-gastos { background: #6B2D3E; }
-  .ga-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
-  .ga-kpis > div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
-  .ga-kpis small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; }
-  .ga-kpis b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
-  .ga-kpis em { display: block; font-style: normal; font-size: 12px; color: var(--mute); margin-top: 2px; }
-  .ga-kpis em.sube { color: var(--red); font-weight: 700; } .ga-kpis em.baja { color: var(--green); font-weight: 700; }
-  .ga-bloque { margin-bottom: 16px; } .ga-bloque h3 { margin: 0 0 8px; font-size: 15px; }
-  .ga-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .ga-fila .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--bg); overflow: hidden; }
-  .ga-fila .bar i { display: block; height: 100%; background: #6B2D3E; border-radius: 3px; }
-  .ga-fila b { font-variant-numeric: tabular-nums; text-align: right; } .ga-fila small { color: var(--mute); font-weight: 600; margin-left: 6px; }
-  .ga-meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 140px; margin-top: 6px; }
-  .ga-meses div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; font-size: 10px; color: var(--mute); }
-  .ga-meses i { display: block; width: 100%; background: #6B2D3E; border-radius: 4px 4px 0 0; min-height: 2px; }
-  .ga-meses div.sel i { background: var(--red); } .ga-meses div.sel { color: var(--black); font-weight: 700; }
   .mov.anulada .det { color: var(--mute); } .est.cie { background: var(--amber-tint); color: var(--amber); }
   #gaFiltro { margin: 0 0 10px; }
   #franjaProv { cursor: pointer; }
@@ -762,10 +746,9 @@
   <section id="v-gastos" class="card hidden">
     <button class="back" data-volver type="button">← Menú</button>
     <h2>Gastos de la empresa</h2>
-    <p class="sub">Registra cada gasto. Los gastos en efectivo del cierre de día entran solos como "Otros gastos".</p>
+    <p class="sub">Registra cada gasto. Los gastos en efectivo del cierre de día entran solos como "Otros gastos". Los indicadores están en el dashboard › Gastos.</p>
     <div class="segtab" role="tablist">
       <button type="button" data-ga="nuevo" class="on">Nuevo gasto</button>
-      <button type="button" data-ga="ind">Indicadores</button>
       <button type="button" data-ga="mov">Movimientos</button>
     </div>
     <div id="gaCont"><div class="empty">Cargando…</div></div>
@@ -810,7 +793,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V80';
+  const VERSION_APP = 'V81';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -1660,7 +1643,6 @@
      gasto: [id, fecha, categoría, local, monto, descripción, tiene respaldo, registró, estado, anulación, origen FORM|CIERRE] */
   const GA = { tab: 'nuevo', datos: null, mes: '', local: 'TODOS', cat: '', comp: null, catSel: '', locSel: '' };
   const gaMes = (m, k) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
-  const mesCorto = m => `${MES_LARGO[+m.slice(5, 7) - 1].slice(0, 3)} ${m.slice(2, 4)}`;
   function abrirGastos(tab) {
     ver('v-gastos'); GA.tab = tab || GA.tab; marcarTabGastos();
     if (GA.datos) pintarGastos(); else $('gaCont').innerHTML = '<div class="empty">Cargando…</div>';
@@ -1673,10 +1655,10 @@
     const d = GA.datos; if (!d) return;
     if (!GA.mes) GA.mes = d.hoy.slice(0, 7);
     const c = $('gaCont');
-    c.innerHTML = GA.tab === 'nuevo' ? vistaNuevoGasto(d) : GA.tab === 'ind' ? vistaIndGastos(d) : vistaMovGastos(d);
+    c.innerHTML = GA.tab === 'nuevo' ? vistaNuevoGasto(d) : vistaMovGastos(d);
     if (GA.tab === 'nuevo') activarNuevoGasto(d); else activarFiltrosGastos();
   }
-  /* Filtro común de Indicadores y Movimientos: mes y local */
+  /* Filtro de Movimientos: mes y local */
   function filtrosGastos(d) {
     return `<div class="rs-nav"><button type="button" data-gmes="-1" aria-label="Mes anterior">‹</button><b>${esc(periodoTxt(GA.mes))}</b><button type="button" data-gmes="1" aria-label="Mes siguiente"${GA.mes >= d.hoy.slice(0, 7) ? ' disabled' : ''}>›</button></div>
       <div class="chips" id="gaLocales" style="margin:0 0 12px">${['TODOS'].concat(d.locales).map(l => `<button type="button" data-gloc="${esc(l)}"${l === GA.local ? ' class="on"' : ''}>${l === 'TODOS' ? 'Todos' : esc(l)}</button>`).join('')}</div>`;
@@ -1685,35 +1667,8 @@
     document.querySelectorAll('[data-gmes]').forEach(b => b.addEventListener('click', () => { GA.mes = gaMes(GA.mes, +b.dataset.gmes); pintarGastos(); }));
     document.querySelectorAll('[data-gloc]').forEach(b => b.addEventListener('click', () => { GA.local = b.dataset.gloc; pintarGastos(); }));
     const s = $('gaFiltro'); if (s) s.addEventListener('change', () => { GA.cat = s.value; pintarGastos(); });
-    document.querySelectorAll('[data-gmesbar]').forEach(b => b.addEventListener('click', () => { GA.mes = b.dataset.gmesbar; pintarGastos(); }));
   }
-  const gastosDe = (d, mes, local = GA.local) => d.gastos.filter(g => g[8] === 'VIGENTE' && g[1].slice(0, 7) === mes && (local === 'TODOS' || g[3] === local));
   const sumaG = l => l.reduce((s, g) => s + g[4], 0);
-  const ventasDe = (d, mes, local = GA.local) => { const v = d.ventasMes[mes] || {}; return local === 'TODOS' ? Object.values(v).reduce((s, x) => s + x, 0) : (v[local] || 0); };
-  function vistaIndGastos(d) {
-    const m = GA.mes, ant = gaMes(m, -1), l = gastosDe(d, m), la = gastosDe(d, ant), tot = sumaG(l), totA = sumaG(la), ven = ventasDe(d, m);
-    const doce = Array.from({ length: 12 }, (_, i) => gaMes(m, i - 11)), porMes = doce.map(x => sumaG(gastosDe(d, x)));
-    const conDatos = porMes.filter(x => x > 0), prom = conDatos.length ? conDatos.reduce((s, x) => s + x, 0) / conDatos.length : 0;
-    const varTxt = totA ? `${tot >= totA ? '▲' : '▼'} ${Math.abs(Math.round((tot / totA - 1) * 100))}% vs ${mesCorto(ant)} (${pesos(totA)})` : `Sin gastos en ${mesCorto(ant)}`;
-    const empresa = GA.local === LOCAL_EMPRESA_GA;
-    let h = filtrosGastos(d) + `<div class="ga-kpis">
-      <div><small>Total de gastos</small><b>${pesos(tot)}</b><em class="${totA ? (tot > totA ? 'sube' : 'baja') : ''}">${varTxt}</em></div>
-      <div><small>Gastos / ventas Bicom</small><b>${empresa ? '—' : ven ? Math.round(tot / ven * 1000) / 10 + '%' : '—'}</b><em>${empresa ? 'Gastos generales: sin ventas propias' : ven ? 'Ventas del mes ' + pesos(ven) + ' (con IVA)' : 'Sin ventas de Bicom en el mes'}</em></div>
-      <div><small>Promedio mensual (12 meses)</small><b>${pesos(prom)}</b><em>${conDatos.length} mes(es) con gastos</em></div>
-      <div><small>Cantidad de gastos</small><b>${l.length}</b><em>${l.filter(g => g[10] === 'CIERRE').length} desde el cierre de día</em></div></div>`;
-    const fila = (nombre, monto, base, extra) => `<div class="ga-fila"><span>${esc(nombre)}</span><b>${pesos(monto)}<small>${base ? Math.round(monto / base * 100) + '%' : ''}</small></b>${extra || ''}<div class="bar"><i style="width:${base ? Math.max(1, monto / base * 100) : 0}%"></i></div></div>`;
-    const cats = d.categorias.map(c => [c, sumaG(l.filter(g => g[2] === c)), sumaG(la.filter(g => g[2] === c))]);
-    h += `<div class="ga-bloque"><h3>Por categoría</h3>${cats.map(([c, mo, ma]) => fila(c, mo, tot, ma || mo ? `<small style="grid-column:1/-1;margin:0;color:var(--mute)">${mesCorto(ant)}: ${pesos(ma)}${ma ? ` · ${mo >= ma ? '▲' : '▼'} ${Math.abs(Math.round((mo / ma - 1) * 100))}%` : ''}</small>` : '')).join('')}</div>`;
-    if (GA.local === 'TODOS') {
-      const locs = d.locales.map(x => [x, sumaG(l.filter(g => g[3] === x)), ventasDe(d, m, x)]);
-      h += `<div class="ga-bloque"><h3>Por local</h3>${locs.map(([x, mo, v]) => fila(x, mo, tot, `<small style="grid-column:1/-1;margin:0;color:var(--mute)">${x === LOCAL_EMPRESA_GA ? 'Gastos generales de la empresa' : v ? `${Math.round(mo / v * 1000) / 10}% de sus ventas (${pesos(v)})` : 'Sin ventas en el mes'}</small>`)).join('')}</div>`;
-    }
-    const max = Math.max(1, ...porMes);
-    h += `<div class="ga-bloque"><h3>Últimos 12 meses</h3><div class="ga-meses">${doce.map((x, i) => `<div data-gmesbar="${x}" class="${x === m ? 'sel' : ''}" title="${esc(periodoTxt(x))}: ${pesos(porMes[i])}" style="cursor:pointer"><i style="height:${porMes[i] / max * 100}%"></i>${MES_LARGO[+x.slice(5, 7) - 1].slice(0, 3)}</div>`).join('')}</div>
-      <p class="tu-nota" style="margin-top:8px">Toca un mes para verlo. Montos con IVA, como se pagaron. El histórico anterior se cargará más adelante.</p></div>`;
-    return h;
-  }
-  const LOCAL_EMPRESA_GA = 'Empresa (general)';
   function vistaMovGastos(d) {
     const todos = d.gastos.filter(g => g[1].slice(0, 7) === GA.mes && (GA.local === 'TODOS' || g[3] === GA.local) && (!GA.cat || g[2] === GA.cat))
       .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0));
@@ -1756,7 +1711,7 @@
         { t: 'Sí, registrar', cls: 'dark', fn: () => api('registrarGasto', S.token, { fecha, categoria: GA.catSel, local: GA.locSel, monto, descripcion: desc, comprobante: GA.comp || undefined, idEnvio: id }).then(r => {
           if (!r.ok) return modal('err', 'No se pudo registrar', r.error, '', [{ t: 'Entendido', cls: 'dark' }]);
           GA.datos = r; GA.tocado = false; GA.catSel = ''; GA.locSel = ''; GA.comp = null; pintarGastos();
-          modal('ok', '¡Gasto registrado!', r.mensaje, '', [{ t: 'Registrar otro', cls: 'dark' }, { t: 'Ver indicadores', sec: true, fn: () => { GA.tab = 'ind'; GA.mes = fecha.slice(0, 7); marcarTabGastos(); pintarGastos(); } }]);
+          modal('ok', '¡Gasto registrado!', r.mensaje, '', [{ t: 'Registrar otro', cls: 'dark' }, { t: 'Ver movimientos', sec: true, fn: () => { GA.tab = 'mov'; GA.mes = fecha.slice(0, 7); marcarTabGastos(); pintarGastos(); } }]);
         }).catch(e => { if (!sesionError(e)) modal('err', 'No se pudo registrar', 'Sin conexión. Tus datos siguen en el formulario: intenta de nuevo.', '', [{ t: 'Entendido', cls: 'dark' }]); }) },
         { t: 'Revisar', sec: true },
       ]);
