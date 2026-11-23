@@ -337,6 +337,18 @@
   .modal .strong { font-weight: 800; color: var(--black); }
   .modal .btns { display: grid; gap: 8px; margin-top: 18px; }
   footer { text-align: center; color: var(--mute); font-size: 12px; padding-bottom: 20px; }
+  /* Inicio en computador (≥1024 px): dos columnas. A la izquierda saludo, dinero y locales; a la derecha los botones. El móvil no cambia. */
+  @media (min-width: 1024px) {
+    body.en-menu main, body.en-menu header .top { max-width: 1240px; }
+    body.en-menu main { padding: 0 32px 40px; }
+    body.en-menu #v-menu:not(.hidden) { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); column-gap: 24px; align-items: start; }
+    body.en-menu #v-menu > * { grid-column: 2; }
+    body.en-menu #v-menu > .card:first-child { grid-column: 1; grid-row: 1 / span 6; margin-bottom: 0; padding: 24px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; align-content: start; }
+    body.en-menu #v-menu > .card:first-child > * { grid-column: 1 / -1; }
+    body.en-menu #v-menu > .card:first-child > .franja { grid-column: auto; }
+    body.en-menu .op-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    body.en-menu .menu .tile { min-height: 104px; }
+  }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
   /* Indicador de carga (todas las esperas al servidor y al GPS) */
@@ -732,7 +744,7 @@
      la versión publicada en segundo plano. Si llega una versión nueva justo al abrir, se recarga sola (nunca con algo a medio escribir). */
   /* Versión de la pantalla: SUBIR EN CADA PUBLICACIÓN. El teléfono deja la app abierta en memoria días enteros: al volver a ella
      (más de 1 min después) se revisa la versión publicada y, si cambió, se recarga en el menú (nunca con un formulario a medio llenar). */
-  const VERSION_APP = 'V75';
+  const VERSION_APP = 'V76';
   let recargarEnMenu = false;
   if (enApi) {
     let ultimaRevision = Date.now();
@@ -848,6 +860,7 @@
   /* Vistas */
   function ver(id) {
     if (recargarEnMenu && id === 'v-menu') { location.reload(); return; }
+    document.body.classList.toggle('en-menu', id === 'v-menu'); // diseño de escritorio solo en el inicio
     ['v-nombres', 'v-pin', 'v-menu', 'v-cierre', 'v-docs', 'v-efectivo', 'v-prov', 'v-corr', 'v-res', 'v-turnos', 'v-tiempo', 'v-mipin'].forEach(v => $(v).classList.toggle('hidden', v !== id));
     window.scrollTo(0, 0);
   }
@@ -1040,6 +1053,7 @@
     });
   }
   function pintarEstado(e) {
+    S.soloLectura = !!e.soloLectura; // Esteban: solo mira
     if (!e) return;
     S.estado = e; S.estadoHora = Date.now();
     const ses = store.get('acs_sesion');
@@ -1051,10 +1065,10 @@
     pintarEfectivoMenu(e.efectivo);
     pintarProvMenu(e.proveedores);
     $('tileTurnos').classList.toggle('hidden', !e.turnos);
-    $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Turnos, horas extra y atrasos' : 'Mis turnos de la semana';
+    $('subTurnos').textContent = e.turnos && e.turnos.edita ? 'Turnos, horas extra y atrasos' : e.turnos && e.turnos.equipo ? 'Turnos del equipo' : 'Mis turnos de la semana';
     const ti = e.tiempo, nTi = ti && ti.aprueba ? ti.pendientes : 0;
     $('tileTiempo').classList.toggle('hidden', !ti);
-    $('subTiempo').textContent = ti && ti.aprueba ? (nTi ? `${nTi} solicitud(es) por aprobar` : 'Vacaciones del equipo') : 'Vacaciones y días libres';
+    $('subTiempo').textContent = ti && ti.aprueba ? (nTi ? `${nTi} solicitud(es) por aprobar` : 'Vacaciones del equipo') : S.soloLectura ? 'Calendario de vacaciones' : 'Vacaciones y días libres';
     $('badgeTiempo').textContent = nTi; $('badgeTiempo').classList.toggle('hidden', !nTi);
     pintarOperacion(e.operacion);
     pintarSaludo(e.saludo);
@@ -1297,7 +1311,7 @@
   });
   function pintarOperacion(op) {
     const caja = $('opHoy'), ok = !!(op && op.locales && op.locales.length);
-    caja.classList.toggle('hidden', !ok); $('btnAct').classList.toggle('hidden', !ok);
+    caja.classList.toggle('hidden', !ok); $('btnAct').classList.toggle('hidden', !ok || !!S.soloLectura);
     if (!ok) { $('opGrid').innerHTML = ''; $('opMsg').textContent = ''; $('opAlarma').classList.add('hidden'); return; }
     pintarAlarmas(op);
     const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -1556,7 +1570,7 @@
     if (!p) return;
     const n = r ? r.nVencidas : 0;
     $('badgeProv').textContent = n; $('badgeProv').classList.toggle('hidden', !n);
-    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') : 'Registrar factura de compra';
+    $('subProv').textContent = r ? (r.nPorPagar ? `${r.nPorPagar} por pagar${r.nVencidas ? ` · ${r.nVencidas} vencida(s)` : ''}` : 'Todo pagado') : p.soloLectura ? 'Facturas recientes' : 'Registrar factura de compra';
     if (!r) return;
     $('fVencido').querySelector('b').textContent = pesos(r.vencido);
     $('fVencido').querySelector('em').textContent = r.nVencidas ? `${r.nVencidas} factura(s) sin pagar` : 'Nada vencido';
@@ -1567,7 +1581,7 @@
   $('franjaProv').addEventListener('click', () => abrirProv('pagar'));
   function abrirProv(tab) {
     ver('v-prov');
-    PV.tab = tab || 'nueva'; marcarTabProv();
+    PV.tab = S.soloLectura ? 'recientes' : tab || 'nueva'; marcarTabProv();
     if (PV.datos) pintarProv(); else $('pvContenido').innerHTML = '<div class="empty">Cargando…</div>';
     servidor('obtenerProveedores', S.token).then(r => {
       const primera = !PV.datos; PV.datos = r;
@@ -1610,6 +1624,9 @@
     document.querySelector('[data-pv="recientes"]').textContent = d.paga ? 'Recientes' : 'Pagadas';
     if (!conPagar && PV.tab === 'pagar') { PV.tab = 'nueva'; marcarTabProv(); }
     document.querySelector('[data-pv="pagar"]').innerHTML = 'Por pagar' + (n ? ` <span class="cuenta">${n}</span>` : '');
+    const sl = !!d.soloLectura; // Esteban: solo la pestaña Recientes, sin botones
+    document.querySelector('[data-pv="nueva"]').classList.toggle('hidden', sl);
+    if (sl) { document.querySelector('[data-pv="recientes"]').textContent = 'Recientes'; if (PV.tab !== 'recientes') { PV.tab = 'recientes'; marcarTabProv(); } }
     PV.tocado = false; PV.tipo = ''; PV.loc = d.locales.length === 1 ? d.locales[0] : '';
     c.innerHTML = PV.tab === 'nueva' ? vistaNuevaCompra(d) : PV.tab === 'pagar' ? vistaPorPagar(d) : vistaRecientes(d);
     if (PV.tab === 'nueva') activarNuevaCompra(d); else if (PV.tab === 'pagar') activarPorPagar(); else activarRecientes();
@@ -1939,13 +1956,13 @@
     img.src = url;
   }
   function vistaRecientes(d) {
-    if (!d.recientes.length) return `<div class="empty">${d.paga ? 'Aún no hay compras registradas' : 'Aún no hay facturas pagadas en los últimos 60 días'}</div>`;
+    if (!d.recientes.length) return `<div class="empty">${d.paga || d.soloLectura ? 'Aún no hay compras registradas' : 'Aún no hay facturas pagadas en los últimos 60 días'}</div>`;
     const provs = [...new Set(d.recientes.map(c => c.prov))].sort((a, b) => a.localeCompare(b, 'es'));
     if (PV.filtro && !provs.includes(PV.filtro)) PV.filtro = '';
     const desde = sumarDia(hoyTxt(), -PV.dias), enRango = d.recientes.filter(c => c.fecha >= desde || c.registrado >= desde);
     const l = PV.filtro ? enRango.filter(c => c.prov === PV.filtro) : enRango;
     const total = l.reduce((s, c) => s + c.monto, 0);
-    return `<p class="sub" style="margin:0 0 8px">${d.paga ? 'Compras' : 'Facturas pagadas'} · últimos ${PV.dias} días</p>
+    return `<p class="sub" style="margin:0 0 8px">${d.paga || d.soloLectura ? 'Compras' : 'Facturas pagadas'} · últimos ${PV.dias} días</p>
       <div class="chips" id="pvDias" style="margin:0 0 10px">${[15, 30, 60].map(n => `<button type="button" data-dias="${n}"${n === PV.dias ? ' class="on"' : ''}>${n} días</button>`).join('')}</div>
       <div class="pv-filtro"><label for="pvFiltro" class="sub" style="margin:0">Proveedor</label><select id="pvFiltro"><option value="">Todos (${enRango.length})</option>${provs.map(p => `<option value="${esc(p)}"${p === PV.filtro ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
       ${PV.filtro || PV.dias !== 60 ? `<p class="sub" style="margin:0 0 4px">${l.length} factura(s) · ${pesos(total)}</p>` : ''}${l.length ? '' : `<div class="empty">Sin compras en los últimos ${PV.dias} días</div>`}`
@@ -1971,21 +1988,21 @@
   $('tuSig').addEventListener('click', () => TU.datos && cargarTurnos(sumarDia(TU.datos.desde, 7)));
   const fSem = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
   function pintarTurnos() {
-    const d = TU.datos, ed = d.edita;
-    $('tuSub').textContent = ed ? (TU.vista === 'horas' ? 'Horas extra y atrasos del equipo, mes a mes' : 'Toca un turno o a alguien libre para cambiar solo ese día') : 'Tus turnos de la semana';
+    const d = TU.datos, ed = d.edita, eq = ed || d.equipo; // eq: ve a todo el equipo (Esteban sin editar)
+    $('tuSub').textContent = ed ? (TU.vista === 'horas' ? 'Horas extra y atrasos del equipo, mes a mes' : 'Toca un turno o a alguien libre para cambiar solo ese día') : eq ? 'Turnos del equipo · solo lectura' : 'Tus turnos de la semana';
     $('tuVista').classList.toggle('hidden', !ed);
     $('tuEtiqueta').textContent = `${fSem(d.desde)} al ${fSem(sumarDia(d.desde, 6))}`;
     $('tuCont').innerHTML = resumenHorasTurnos(d) + d.dias.map(dia => {
       const hoy = dia.f === d.hoy, cab = `<div class="tu-fecha">${esc(fDia(dia.f))}${hoy ? ' · hoy' : ''}${dia.feriado ? ` <span class="est venc">Feriado: ${esc(dia.feriado)}</span>` : ''}</div>`;
-      if (!ed) {
+      if (!eq) {
         const t = dia.turnos[0], p = t || dia.libres[0] || {};
         return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}<div class="tu-det">${t ? `<b>${t.e} a ${t.s}</b><small>${esc(t.l)}</small>` : p.vac ? '<b class="libre">🌴 Vacaciones</b>' : '<b class="libre">Libre</b>'}
           ${p.cambio ? '<span class="est">Cambiado</span>' : ''}</div>${p.cambio && p.motivo ? `<div class="tu-nota">${esc(p.motivo)}</div>` : ''}</div>`;
       }
       const sel = id => TU.abierto && TU.abierto.f === dia.f && TU.abierto.id === id ? ' sel' : '';
       return `<div class="tu-dia${hoy ? ' hoy' : ''}">${cab}
-        ${dia.turnos.length ? dia.turnos.map(t => `<button type="button" class="tu-p${t.cambio ? ' cambio' : ''}${sel(t.id)}" data-tu="${dia.f}|${esc(t.id)}"><span>${esc(t.nombre)}</span><b>${t.e} a ${t.s}</b><small>${esc(t.l)}${t.cambio ? ' · cambiado' : ''}</small></button>`).join('') : '<p class="tu-nota">Nadie con turno</p>'}
-        ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" data-tu="${dia.f}|${esc(p.id)}">${p.vac ? '🌴 ' : ''}${esc(p.nombre)}</button>`).join('')}</div>` : ''}
+        ${dia.turnos.length ? dia.turnos.map(t => `<button type="button" class="tu-p${t.cambio ? ' cambio' : ''}${sel(t.id)}" ${ed ? `data-tu="${dia.f}|${esc(t.id)}"` : 'tabindex="-1" style="cursor:default"'}><span>${esc(t.nombre)}</span><b>${t.e} a ${t.s}</b><small>${esc(t.l)}${t.cambio ? ' · cambiado' : ''}</small></button>`).join('') : '<p class="tu-nota">Nadie con turno</p>'}
+        ${dia.libres.length ? `<div class="tu-libres">Libres: ${dia.libres.map(p => `<button type="button" class="tu-libre${p.cambio ? ' cambio' : ''}${sel(p.id)}" ${ed ? `data-tu="${dia.f}|${esc(p.id)}"` : 'tabindex="-1" style="cursor:default"'}>${p.vac ? '🌴 ' : ''}${esc(p.nombre)}</button>`).join('')}</div>` : ''}
         ${TU.abierto && TU.abierto.f === dia.f ? editorTurno(dia) : ''}</div>`;
     }).join('');
   }
@@ -1996,7 +2013,7 @@
     const p = {};
     d.dias.forEach(dia => dia.turnos.forEach(t => { const o = p[t.id] || (p[t.id] = { nombre: t.nombre, min: 0, dias: 0 }); o.min += Math.max(0, minHM(t.s) - minHM(t.e)); o.dias++; }));
     const filas = Object.values(p).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-    if (!d.edita) { const o = filas[0]; return `<div class="tu-resumen"><div class="fila total" style="border:0"><span>Horas de esta semana</span><b>${o ? txtHoras(o.min) : '0 h'}</b><small>${o ? o.dias : 0} día(s)</small></div></div>`; }
+    if (!d.edita && !d.equipo) { const o = filas[0]; return `<div class="tu-resumen"><div class="fila total" style="border:0"><span>Horas de esta semana</span><b>${o ? txtHoras(o.min) : '0 h'}</b><small>${o ? o.dias : 0} día(s)</small></div></div>`; }
     if (!filas.length) return '';
     const tot = filas.reduce((s, o) => s + o.min, 0);
     return `<div class="tu-resumen"><h3>Horas de la semana</h3>${filas.map(o => `<div class="fila"><span>${esc(o.nombre)}</span><b>${txtHoras(o.min)}</b><small>${o.dias} día(s)</small></div>`).join('')}
@@ -2157,10 +2174,11 @@
     const d = TI.d, tabs = [];
     if (d.propio) tabs.push(['mio', 'Mis vacaciones']);
     if (d.aprueba) { const n = d.todas.filter(s => s.estado === 'PENDIENTE').length; tabs.push(['sol', 'Solicitudes' + (n ? ` <span class="cuenta">${n}</span>` : '')], ['cal', 'Calendario'], ['saldos', 'Saldos']); }
+    if (d.soloLectura && !d.aprueba) tabs.push(['cal', 'Calendario']);
     if (!tabs.some(t => t[0] === TI.tab)) TI.tab = d.aprueba && d.todas.some(s => s.estado === 'PENDIENTE') ? 'sol' : tabs[0][0];
     $('tiTabs').classList.toggle('hidden', tabs.length < 2);
     $('tiTabs').innerHTML = tabs.map(([k, t]) => `<button type="button" data-ti="${k}"${k === TI.tab ? ' class="on"' : ''}>${t}</button>`).join('');
-    $('tiSub').textContent = d.aprueba ? 'Vacaciones y días libres del equipo: tú apruebas' : 'Tus vacaciones y días libres';
+    $('tiSub').textContent = d.aprueba ? 'Vacaciones y días libres del equipo: tú apruebas' : d.soloLectura ? 'Calendario de vacaciones del equipo · solo lectura' : 'Tus vacaciones y días libres';
     $('tiCont').innerHTML = { mio: vistaMio, sol: vistaSolicitudes, cal: vistaCalendario, saldos: vistaSaldos }[TI.tab]();
     if (TI.tab === 'mio') previaTI();
   }

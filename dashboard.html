@@ -135,6 +135,18 @@
   tfoot td { font-weight: 700; border-top: 1px solid var(--line); }
   .mini { display: inline-block; height: 8px; border-radius: 4px; background: var(--l0); vertical-align: middle; }
   .vacio { color: var(--mute); padding: 18px 0; text-align: center; }
+  /* Compras › Registrar pago (Felipe/Eduardo) */
+  .pago-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+  .pago-box h4 { margin: 0; font-size: 15px; }
+  .pago-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .pago-fila input[type=date] { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .pago-arch { display: inline-block; padding: 8px 12px; border: 1px dashed var(--mute); border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .pago-arch.ok { border-style: solid; border-color: var(--green, #2E7D4F); }
+  .pago-arch img { display: block; max-height: 120px; max-width: 220px; margin-bottom: 4px; border-radius: 6px; }
+  .pago-btn { background: var(--black, #111); color: #fff; border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 700; cursor: pointer; }
+  .pago-btn:disabled { opacity: .5; cursor: default; } .pago-btn.si { background: var(--red); }
+  .pago-msg { font-size: 13px; font-weight: 600; } .pago-msg.err { color: var(--red); }
+  input.pg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; cursor: pointer; }
 
   /* Alertas */
   .alertas { list-style: none; margin: 0; padding: 0; }
@@ -536,7 +548,7 @@ function ahoraChile() {
 /* "Última actualización: vie 6 nov · 10:56" (BICOM_ULTIMA_CARGA, hora de Chile); en ámbar y "desactualizado" si es de otro día o pasaron más de 90 min entre 9 y 21 h */
 function pintarActualizacion(R) {
   const caja = $('actLinea'); if (!caja) return;
-  caja.classList.toggle('hidden', !!(R && R.demo)); $('btnAct').classList.toggle('hidden', !!(R && R.demo));
+  caja.classList.toggle('hidden', !!(R && R.demo)); $('btnAct').classList.toggle('hidden', !!(R && (R.demo || (R.permisos && R.permisos.soloLectura))));
   const uc = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec((R && R.cargaVentas) || ''), n = ahoraChile();
   let viejo = true;
   if (uc && `${uc[1]}-${uc[2]}-${uc[3]}` === n.f) {
@@ -1536,11 +1548,74 @@ function tabEfectivo() {
 // fila: [fecha factura, proveedor, monto, tipo, {local: %}, estado, vencimiento, por pagar, saldo a favor]
 const parteLocal = (c, local = E.local) => (local === 'TODOS' ? 1 : ((c[4] || {})[local] || 0) / 100);
 function comprasRango(ini, fin, local = E.local) { return (E.R.compras || []).filter(c => c[0] >= ini && c[0] <= fin && parteLocal(c, local) > 0); }
+/* Registrar pago desde el computador (igual que en la app: Proveedores › Por pagar). Se marca la factura completa. */
+function cajaPagoDash(hoy) {
+  return `<div class="pago-box" id="pagoBox"><h4>Registrar pago</h4>
+    <div class="sub">Marca arriba las facturas pagadas, elige la fecha y adjunta la boleta o el comprobante (foto o PDF, opcional). Se marca la factura completa${E.local === 'TODOS' ? '' : ', aunque esté repartida entre locales'}.</div>
+    <div class="pago-fila"><label for="pgFecha">Fecha de pago</label><input type="date" id="pgFecha" value="${hoy}" max="${hoy}">
+      <label class="pago-arch" id="pgArchBox"><input type="file" id="pgArch" accept="image/*,application/pdf" hidden><span>📎 Adjuntar boleta o comprobante</span></label></div>
+    <div class="pago-fila"><span>Total marcado: <b id="pgTot">$0</b></span><button type="button" class="pago-btn" id="pgBtn">Marcar como pagadas</button><button type="button" class="pago-btn hidden" id="pgNo" style="background:transparent;color:inherit;border:1px solid var(--line)">Cancelar</button></div>
+    <div class="pago-msg" id="pgMsg" aria-live="polite"></div></div>`;
+}
+function activarPagoDash() {
+  const checks = [...document.querySelectorAll('#contenido input[data-pg]')], btn = $('pgBtn'), msg = $('pgMsg');
+  if (!btn) return;
+  E.pgComp = null; let confirmar = false;
+  const tot = () => checks.filter(c => c.checked).reduce((s, c) => s + Number(c.dataset.monto), 0);
+  const aviso = (t, err) => { msg.textContent = t; msg.classList.toggle('err', !!err); };
+  const reiniciar = () => { confirmar = false; btn.textContent = 'Marcar como pagadas'; btn.classList.remove('si'); $('pgNo').classList.add('hidden'); };
+  checks.forEach(c => c.onchange = () => { $('pgTot').textContent = clp(tot()); reiniciar(); aviso(''); });
+  $('pgArch').onchange = e => leerComprobanteDash(e.target.files[0], aviso);
+  $('pgNo').onclick = () => { reiniciar(); aviso(''); };
+  btn.onclick = async () => {
+    const ids = checks.filter(c => c.checked).map(c => c.dataset.pg), fecha = $('pgFecha').value;
+    if (!ids.length) return aviso('Marca las facturas que pagaste.', true);
+    if (!confirmar) { // segundo clic confirma
+      confirmar = true; btn.classList.add('si'); $('pgNo').classList.remove('hidden');
+      btn.textContent = `Sí, ${ids.length === 1 ? '1 factura pagada' : ids.length + ' facturas pagadas'} (${clp(tot())})`;
+      return aviso(`Pagado el ${fCorta(fecha)}${E.pgComp ? ' · con comprobante' : ' · sin comprobante'}. Confirma con el botón rojo.`);
+    }
+    btn.disabled = true; aviso('Guardando…');
+    try {
+      const r = await llamar('marcarPagoProveedor', E.sesion.token, { ids, fecha, comprobante: E.pgComp || undefined, idEnvio: 'dash-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) });
+      if (!r || !r.ok) { btn.disabled = false; reiniciar(); return aviso((r && r.error) || 'No se pudo registrar el pago.', true); }
+      E.pgComp = null; E.pgListo = r.mensaje;
+      await revalidar(true); // datos nuevos: la factura pasa a "Pagada"
+      if ($('pgMsg')) $('pgMsg').textContent = '✓ ' + (E.pgListo || '');
+    } catch (e) { btn.disabled = false; reiniciar(); aviso('No se pudo registrar: ' + (e && e.message ? e.message : 'revisa tu conexión.'), true); }
+  };
+  if (E.pgListo) { aviso('✓ ' + E.pgListo); E.pgListo = ''; }
+}
+/* Boleta o comprobante: la foto se achica (como en la app); el PDF va tal cual (hasta 4 MB) */
+function leerComprobanteDash(arch, aviso) {
+  if (!arch) return;
+  const box = $('pgArchBox');
+  if (arch.type === 'application/pdf') {
+    if (arch.size > 4 * 1024 * 1024) return aviso('El PDF pesa más de 4 MB. Intenta con otro archivo.', true);
+    const fr = new FileReader();
+    fr.onload = () => { E.pgComp = { base64: String(fr.result).split(',')[1], tipo: 'application/pdf' }; box.classList.add('ok'); box.querySelector('span').textContent = '📄 ' + arch.name + ' · clic para cambiarlo'; aviso(''); };
+    fr.onerror = () => aviso('No se pudo leer el archivo. Intenta con otro.', true);
+    return fr.readAsDataURL(arch);
+  }
+  const img = new Image(), url = URL.createObjectURL(arch);
+  img.onload = () => {
+    const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const dataUrl = cv.toDataURL('image/jpeg', 0.75);
+    E.pgComp = { base64: dataUrl.split(',')[1], tipo: 'image/jpeg' };
+    box.classList.add('ok'); box.querySelector('span').innerHTML = `<img src="${dataUrl}" alt="Comprobante">Clic para cambiarlo`;
+    URL.revokeObjectURL(url); aviso('');
+  };
+  img.onerror = () => aviso('Usa una foto (JPG o PNG) o un PDF.', true);
+  img.src = url;
+}
 function tabCompras(r) {
   const todas = E.R.compras || [], hoy = E.R.hoy, en7 = sumar(hoy, 7), lugar = E.local === 'TODOS' ? 'todos los locales' : esc(E.local);
   const cs = comprasRango(r.ini, r.fin), monto = c => c[2] * parteLocal(c), sum = (l, f) => l.reduce((s, c) => s + f(c), 0);
   const pend = todas.filter(c => c[5] === 'POR PAGAR' && parteLocal(c) > 0).sort((a, b) => (a[6] < b[6] ? -1 : 1));
   const pp = c => c[7] * parteLocal(c), venc = pend.filter(c => c[6] < hoy), pronto = pend.filter(c => c[6] >= hoy && c[6] <= en7);
+  const paga = !!(E.R.permisos && E.R.permisos.pagaProv); // Felipe/Eduardo: marcan el pago desde el computador
   const saldoFavor = sum(todas.filter(c => c[8] > 0 && parteLocal(c) > 0), c => c[8] * parteLocal(c));
   const anterior = comparable(r, r.fin, 'anterior'), cA = sum(comprasRango(anterior.ini, anterior.fin), monto);
   let html = '<div class="grid kpis">';
@@ -1581,7 +1656,7 @@ function tabCompras(r) {
       <div class="card"><h3>Por proveedor</h3><div class="sub">${etiquetaPer(r)} · ${lugar}</div>
         ${tabla(porProv.map(x => `<tr><td>${esc(x[0])}</td><td class="r num">${ent(x[2])}</td><td class="r num">${clp(x[1])}</td><td class="r num">${pct(x[1] / totC, 0)}</td></tr>`), ['Proveedor', 'Facturas', 'Monto', '%'])}</div>
       <div class="card"><h3>Por pagar</h3><div class="sub">Todas las facturas pendientes, por fecha de vencimiento · ${lugar}</div>
-        ${pend.length ? tabla(pend.map(c => `<tr><td>${fCorta(c[6])}${c[6] < hoy ? ' <span class="chip down">vencida</span>' : ''}</td><td>${esc(c[1])}</td><td class="r num">${clp(pp(c))}</td></tr>`), ['Vence', 'Proveedor', 'Por pagar'], `<tfoot><tr><td colspan="2">Total</td><td class="r num">${clp(sum(pend, pp))}</td></tr></tfoot>`).replace('<th class="r">Proveedor</th>', '<th>Proveedor</th>') : '<p class="vacio">Nada por pagar 👌</p>'}</div>
+        ${pend.length ? tabla(pend.map(c => `<tr><td>${paga && c[11] ? `<input type="checkbox" class="pg" data-pg="${esc(c[11])}" data-monto="${c[7]}" aria-label="Pagar factura ${esc(c[9] || '')} de ${esc(c[1])}">` : ''}${fCorta(c[6])}${c[6] < hoy ? ' <span class="chip down">vencida</span>' : ''}</td><td>${esc(c[1])}${paga && c[9] ? ` <span class="sub" style="display:inline">· ${esc(c[9])}</span>` : ''}</td><td class="r num">${clp(pp(c))}</td></tr>`), ['Vence', 'Proveedor', 'Por pagar'], `<tfoot><tr><td colspan="2">Total</td><td class="r num">${clp(sum(pend, pp))}</td></tr></tfoot>`).replace('<th class="r">Proveedor</th>', '<th>Proveedor</th>') + (paga ? cajaPagoDash(hoy) : '') : '<p class="vacio">Nada por pagar 👌</p>'}</div>
     </div>`;
   // Todas las compras (todas las fechas), por fecha de factura: la más reciente arriba (pagadas y por pagar juntas)
   const filtro = E.compFiltro || 'todas';
@@ -1603,6 +1678,7 @@ function tabCompras(r) {
       : `<p class="vacio">${filtro === 'pagar' ? 'Nada por pagar 👌' : 'Sin compras'}</p>`}</div>`;
   $('contenido').innerHTML = html;
   document.querySelectorAll('#segCompras button').forEach(b => b.onclick = () => { E.compFiltro = b.dataset.cf; pintar(); });
+  if (paga) activarPagoDash();
   grafico('gCompras', {
     apilado: true, pctApilado: true,
     data: {
@@ -1907,6 +1983,7 @@ function generarDemo(R) {
 const MOCK = {
   ultimaCargaDashboard: () => ({ ok: true, cargaVentas: '' }),
   actualizarVentasAhora: () => ({ ok: false, error: 'En la vista previa no se actualizan las ventas.' }),
+  marcarPagoProveedor: () => ({ ok: false, error: 'En la vista previa no se registran pagos.' }),
   obtenerInicioDashboard: () => ({ usuarios: [{ id: 'T001', nombre: 'Felipe Guerrero' }, { id: 'T007', nombre: 'Eduardo Plaza' }] }),
   ingresarDashboard: (id) => ({ ok: true, token: 'demo', usuario: { id, nombre: id === 'T001' ? 'Felipe Guerrero' : 'Eduardo Plaza' }, datos: MOCK.obtenerDashboard() }),
   obtenerDashboard: () => {
