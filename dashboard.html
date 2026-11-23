@@ -147,6 +147,11 @@
   .pago-btn:disabled { opacity: .5; cursor: default; } .pago-btn.si { background: var(--red); }
   .pago-msg { font-size: 13px; font-weight: 600; } .pago-msg.err { color: var(--red); }
   input.pg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; cursor: pointer; }
+  /* Clientes › Detalle por día */
+  .dcli-ed { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .dcli-form td { background: var(--bg, #F4F5F7); }
+  .dcli-form input[type=number] { width: 80px; font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; margin-left: 4px; }
+  .dcli-form input[type=text] { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; }
 
   /* Alertas */
   .alertas { list-style: none; margin: 0; padding: 0; }
@@ -1581,7 +1586,7 @@ function activarPagoDash() {
       if (!r || !r.ok) { btn.disabled = false; reiniciar(); return aviso((r && r.error) || 'No se pudo registrar el pago.', true); }
       E.pgComp = null; E.pgListo = r.mensaje;
       await revalidar(true); // datos nuevos: la factura pasa a "Pagada"
-      if ($('pgMsg')) $('pgMsg').textContent = '✓ ' + (E.pgListo || '');
+      if (E.pgListo && $('pgMsg')) { $('pgMsg').textContent = '✓ ' + E.pgListo; E.pgListo = ''; } // si la tabla no se redibujó
     } catch (e) { btn.disabled = false; reiniciar(); aviso('No se pudo registrar: ' + (e && e.message ? e.message : 'revisa tu conexión.'), true); }
   };
   if (E.pgListo) { aviso('✓ ' + E.pgListo); E.pgListo = ''; }
@@ -1705,6 +1710,65 @@ function clientes(ini, fin, local = E.local) {
   }
   return r;
 }
+/* Clientes › Detalle por día: una fila por cierre (día y local) y, antes del cierre de día, una por día del registro histórico (sin local).
+   Quien tiene permiso (Felipe/Eduardo) corrige entradas y compras con "Editar": se pide el motivo y queda el historial. */
+const MAX_FILAS_DIA_CLI = 400;
+function filasDiaCli(ini, fin) {
+  const R = E.R, H = R.histClientes || {}, filas = [];
+  cierresRango(ini, fin, E.local).forEach(c => { const d = (R.diario[c.f] || {})[c.l]; filas.push({ f: c.f, l: c.l, ent: c.visitas, com: c.visitas - c.sinCompra, bol: d ? d.n : null, corr: c.corr || '' }); });
+  if (E.local === 'TODOS' && R.finHistCli && ini <= R.finHistCli)
+    for (let f = max(ini, R.iniHistCli), h = min(fin, R.finHistCli); f <= h; f = sumar(f, 1)) { const x = H[f]; if (x) filas.push({ f, l: '', ent: x.entradas, com: x.boletas, bol: x.boletas, corr: '' }); }
+  return filas.sort((a, b) => (a.f < b.f ? 1 : a.f > b.f ? -1 : a.l.localeCompare(b.l, 'es')));
+}
+function cardDiaCli(ini, fin) {
+  const todas = filasDiaCli(ini, fin), filas = todas.slice(0, MAX_FILAS_DIA_CLI), edita = !!(E.R.permisos && E.R.permisos.editaClientes);
+  const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], dia = f => DS[new Date(f + 'T12:00:00Z').getUTCDay()];
+  const sum = k => todas.reduce((s, x) => s + (x[k] || 0), 0), te = sum('ent'), tc = sum('com');
+  return `<div class="card" style="margin-top:14px"><h3>Detalle por día</h3>
+    <div class="sub">${esc(etiquetaPer({ ini, fin }))} · ${E.local === 'TODOS' ? 'todos los locales' : esc(E.local)} · desde el cierre de día, una fila por local; antes, el registro histórico (sin local, las compras son las boletas del Excel)${edita ? ' · <b>Editar</b> corrige entradas y compras (pide el motivo y queda el historial)' : ''}</div>
+    ${todas.length ? `<div class="tabla"><table id="tablaDiaCli"><thead><tr><th>Fecha</th><th>Local</th><th class="r">Entradas</th><th class="r">Compras declaradas</th><th class="r">Boletas Bicom</th><th class="r">Conversión</th>${edita ? '<th></th>' : ''}</tr></thead><tbody>
+      ${filas.map((x, i) => `<tr data-i="${i}"><td>${dia(x.f)} ${fCorta(x.f)} ${x.f.slice(0, 4)}</td><td>${x.l ? esc(x.l) : '<span style="color:var(--mute)">Histórico (sin local)</span>'}${x.corr ? ` <span class="chip" title="${esc(x.corr)}">corregido</span>` : ''}</td>
+        <td class="r num">${ent(x.ent)}</td><td class="r num">${ent(x.com)}</td><td class="r num">${x.bol == null ? '—' : ent(x.bol)}</td><td class="r num">${x.ent ? pct(x.com / x.ent, 0) : '—'}</td>
+        ${edita ? `<td class="r"><button type="button" class="dcli-ed" data-ed="${i}">Editar</button></td>` : ''}</tr>`).join('')}
+      </tbody><tfoot><tr><td colspan="2">Total (${todas.length} fila${todas.length === 1 ? '' : 's'})</td><td class="r num">${ent(te)}</td><td class="r num">${ent(tc)}</td><td></td><td class="r num">${te ? pct(tc / te, 0) : '—'}</td>${edita ? '<td></td>' : ''}</tr></tfoot></table></div>
+      ${todas.length > filas.length ? `<p class="sub" style="margin-top:8px">Se muestran los ${filas.length} días más recientes de ${todas.length}. Elige un período más corto para ver el resto.</p>` : ''}`
+      : '<p class="vacio">Sin datos de clientes en el período</p>'}
+    <div class="pago-msg" id="dcliMsg" aria-live="polite"></div></div>`;
+}
+function activarDiaCli(ini, fin) {
+  const t = $('tablaDiaCli');
+  if (!t || !(E.R.permisos && E.R.permisos.editaClientes)) return;
+  const filas = filasDiaCli(ini, fin).slice(0, MAX_FILAS_DIA_CLI), msg = $('dcliMsg');
+  const aviso = (txt, err) => { msg.textContent = txt; msg.classList.toggle('err', !!err); };
+  t.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.ed, x = filas[i], tr = t.querySelector(`tr[data-i="${i}"]`);
+    if (t.querySelector('.dcli-form')) t.querySelector('.dcli-form').remove();
+    const fx = document.createElement('tr'); fx.className = 'dcli-form';
+    fx.innerHTML = `<td colspan="7"><div class="pago-fila">
+      <b>${fCorta(x.f)} ${x.f.slice(0, 4)} · ${x.l ? esc(x.l) : 'Histórico (sin local)'}</b>
+      <label>Entradas <input type="number" min="0" step="1" inputmode="numeric" id="dcliE" value="${x.ent}"></label>
+      <label>Compras <input type="number" min="0" step="1" inputmode="numeric" id="dcliC" value="${x.com}"></label>
+      <input type="text" id="dcliM" maxlength="300" placeholder="Motivo (ej.: el contador marcó de más)" style="flex:1;min-width:200px">
+      <button type="button" class="pago-btn" id="dcliG">Guardar</button><button type="button" class="pago-btn" id="dcliX" style="background:transparent;color:inherit;border:1px solid var(--line)">Cancelar</button></div></td>`;
+    tr.after(fx); $('dcliE').focus(); aviso('');
+    $('dcliX').onclick = () => { fx.remove(); aviso(''); };
+    $('dcliG').onclick = async () => {
+      const entradas = $('dcliE').value.trim(), compras = $('dcliC').value.trim(), motivo = $('dcliM').value.trim();
+      if (!/^\d+$/.test(entradas) || !/^\d+$/.test(compras)) return aviso('Escribe las entradas y las compras (números enteros, 0 si no hubo).', true);
+      if (+compras > +entradas) return aviso('Las compras no pueden ser más que las entradas.', true);
+      if (motivo.length < 5) return aviso('Escribe el motivo de la corrección (al menos 5 letras).', true);
+      const g = $('dcliG'); g.disabled = true; aviso('Guardando…');
+      try {
+        const r = await llamar('corregirClientesDia', E.sesion.token, { fecha: x.f, local: x.l, entradas, compras, motivo, idEnvio: 'cli-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) });
+        if (!r || !r.ok) { g.disabled = false; return aviso((r && r.error) || 'No se pudo guardar.', true); }
+        E.dcliListo = r.mensaje;
+        await revalidar(true); // datos nuevos: gráfico, tablas y totales con la corrección
+        if (E.dcliListo && $('dcliMsg')) { $('dcliMsg').textContent = '✓ ' + E.dcliListo; E.dcliListo = ''; } // si la tabla no se redibujó
+      } catch (e) { g.disabled = false; aviso('No se pudo guardar: ' + (e && e.message ? e.message : 'revisa tu conexión.'), true); }
+    };
+  });
+  if (E.dcliListo) { aviso('✓ ' + E.dcliListo); E.dcliListo = ''; }
+}
 function tabClientes(r) {
   const R = E.R;
   if (!R.primerCierre && !R.finHistCli) {
@@ -1756,7 +1820,9 @@ function tabClientes(r) {
         <td class="r num">${x.entradas ? pct(x.compras / x.entradas, 0) : '—'}</td></tr>`;
     }).join('')}</tbody></table></div>
     <p class="sub" style="margin-top:10px">"vs mes ant." y "vs año ant." comparan el promedio diario de entradas, para que un mes en curso o con días sin cierre no se vea como caída.</p></div>`;
+  html += cardDiaCli(r.ini, corte);
   $('contenido').innerHTML = html;
+  activarDiaCli(r.ini, corte);
 
   grafico('gCli', {
     fmt: ent, fmtEje: ent, etiquetas: { ds: 0, fmt: ent }, y2: { fmt: v => pct(v, 0), max: 1 },
@@ -1984,6 +2050,7 @@ const MOCK = {
   ultimaCargaDashboard: () => ({ ok: true, cargaVentas: '' }),
   actualizarVentasAhora: () => ({ ok: false, error: 'En la vista previa no se actualizan las ventas.' }),
   marcarPagoProveedor: () => ({ ok: false, error: 'En la vista previa no se registran pagos.' }),
+  corregirClientesDia: () => ({ ok: false, error: 'En la vista previa no se guardan cambios.' }),
   obtenerInicioDashboard: () => ({ usuarios: [{ id: 'T001', nombre: 'Felipe Guerrero' }, { id: 'T007', nombre: 'Eduardo Plaza' }] }),
   ingresarDashboard: (id) => ({ ok: true, token: 'demo', usuario: { id, nombre: id === 'T001' ? 'Felipe Guerrero' : 'Eduardo Plaza' }, datos: MOCK.obtenerDashboard() }),
   obtenerDashboard: () => {
